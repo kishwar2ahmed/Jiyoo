@@ -690,7 +690,7 @@ async function calculateOrderTotals(items: any[], orderType: 'retail' | 'wholesa
     // Firestore outage can charge an administrator-retired price or sell a
     // deleted product. The bundled catalog is for storefront bootstrap only.
     console.error('Firestore lookup failed during authoritative checkout validation:', dbErr);
-    throw new Error('The live product catalog is temporarily unavailable. Please try again in a moment.');
+    throw new Error('The live product catalog is temporarily unavailable. Please try again in a moment.', { cause: dbErr });
   }
 
   // A category being "frozen" by an admin (see /api/admin/categories/:id/freeze)
@@ -707,7 +707,7 @@ async function calculateOrderTotals(items: any[], orderType: 'retail' | 'wholesa
       });
     } catch (catErr) {
       console.error('Firestore lookup failed while checking frozen categories:', catErr);
-      throw new Error('The live product catalog is temporarily unavailable. Please try again in a moment.');
+      throw new Error('The live product catalog is temporarily unavailable. Please try again in a moment.', { cause: catErr });
     }
   }
 
@@ -966,7 +966,7 @@ async function getStoreDeliverySettings(): Promise<{ deliveryFee: number; freeDe
     }
   } catch (err) {
     console.error('Error reading authoritative store settings:', err);
-    throw new Error('The live store settings are temporarily unavailable. Please try again in a moment.');
+    throw new Error('The live store settings are temporarily unavailable. Please try again in a moment.', { cause: err });
   }
   return { deliveryFee: 40, freeDeliveryThreshold: 0, minOrderAmount: 0, upiId: fallbackUpiId };
 }
@@ -1351,7 +1351,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(compression());
+app.use(compression() as unknown as express.RequestHandler);
   const PORT = Number.parseInt(env.PORT || '3000', 10) || 3000;
 
   // HTTPS should be enforced by the trusted reverse proxy/platform. Avoid constructing
@@ -1362,19 +1362,25 @@ app.use(compression());
   app.use(
     helmet({
       frameguard: false,
+      crossOriginEmbedderPolicy: false,
+      crossOriginOpenerPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
       contentSecurityPolicy: {
+        useDefaults: false,
         directives: {
-          defaultSrc: ["'self'", "https:"],
-          scriptSrc: ["'self'", "https://checkout.razorpay.com", "https://apis.google.com"],
-          styleSrc: ["'self'", "https://fonts.googleapis.com"],
-          fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-          imgSrc: ["'self'", "data:", "blob:", "https:"],
-          connectSrc: ["'self'", "https:", "wss:"],
-          frameSrc: ["'self'", "https://checkout.razorpay.com"],
-          frameAncestors: ["'self'"],
+          defaultSrc: ["'self'", "https:", "http:", "data:", "blob:"],
+          baseUri: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "http:", "blob:"],
+          scriptSrcAttr: ["'unsafe-inline'"],
+          styleSrc: ["'self'", "'unsafe-inline'", "https:", "http:"],
+          fontSrc: ["'self'", "https:", "http:", "data:"],
+          imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
+          connectSrc: ["'self'", "https:", "http:", "wss:", "ws:"],
+          frameSrc: ["'self'", "https:", "http:"],
+          frameAncestors: ["*"],
+          objectSrc: ["'none'"],
         },
       },
-      crossOriginEmbedderPolicy: false,
     })
   );
 
@@ -1382,7 +1388,6 @@ app.use(compression());
     express.json({
       limit: '2mb',
       strict: true,
-      parameterLimit: 100,
       verify: (req, res, buf) => {
         (req as any).rawBody = buf.toString('utf8');
       },
@@ -1416,7 +1421,7 @@ app.use(compression());
     }
 
     const fetchSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
-    if (fetchSite === 'cross-site') {
+    if (fetchSite === 'cross-site' && !allowedOrigin && !allowedReferer) {
       return res.status(403).json({ success: false, error: 'Cross-site request blocked.' });
     }
     next();
@@ -1982,7 +1987,9 @@ app.use(compression());
             try {
               const snap = await sq.limit(pageSize).get();
               for (const d of snap.docs) searchResults.set(d.id,{ id:d.id, ...d.data() });
-            } catch {}
+            } catch {
+              // Ignore missing index or query failure on individual search leg
+            }
           }
         }
         const results = [...searchResults.values()].sort((a,b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')) || String(b.id).localeCompare(String(a.id))).slice(0,pageSize);
@@ -1990,7 +1997,7 @@ app.use(compression());
       }
 
       const fetchQueue = async (entry: { key: string; statuses: string[] }) => {
-        let q = db.collection('orders');
+        let q: FirebaseFirestore.Query = db.collection('orders');
         q = q.where('orderStatus', 'in', entry.statuses).orderBy('createdAt', 'desc').orderBy('__name__', 'desc');
         const cursor = cursors[entry.key];
         if (cursor && typeof cursor.createdAt === 'string' && typeof cursor.id === 'string') {
@@ -2630,10 +2637,12 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
         // Address is free-form user data. Enforce reasonable length and reject
         // control characters without blocking legitimate Indian-language addresses.
         const addressValue = shippingDetails.address.trim();
+        // eslint-disable-next-line no-control-regex
         if (addressValue.length < 5 || addressValue.length > 500 || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(addressValue)) {
           return res.status(400).json({ success: false, error: 'Please enter a valid delivery address.' });
         }
         const postalCode = String(shippingDetails.pincode || '').trim();
+        // eslint-disable-next-line no-control-regex
         if (!postalCode || postalCode.length < 2 || postalCode.length > 12 || /[\u0000-\u001F]/.test(postalCode)) {
           return res.status(400).json({ success: false, error: 'Valid postal/ZIP code required' });
         }
@@ -2842,7 +2851,7 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
             db.collection('orders').where('userId','==',uid).where('shippingDetails.phone','==',qtext).orderBy('createdAt','desc'),
           ];
           const merged = new Map<string, FirebaseFirestore.DocumentSnapshot>();
-          for (const pq of phoneQueries) { try { const ps = await pq.limit(pageSize + 1).get(); ps.docs.forEach(d => merged.set(d.id,d)); } catch {} }
+          for (const pq of phoneQueries) { try { const ps = await pq.limit(pageSize + 1).get(); ps.docs.forEach(d => merged.set(d.id,d)); } catch { /* ignore */ } }
           const docs = [...merged.values()].sort((a,b) => String(b.data()?.createdAt || '').localeCompare(String(a.data()?.createdAt || ''))).slice(0,pageSize);
           return res.json({ success:true, orders:docs.map(d=>({id:d.id,...d.data()})), hasMore:merged.size>pageSize, nextCursor:null, pageSize });
         }
@@ -2853,7 +2862,9 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
         try {
           const decoded = JSON.parse(Buffer.from(cursor,'base64url').toString('utf8'));
           if (decoded?.createdAt && decoded?.id) q = q.startAfter(decoded.createdAt, decoded.id);
-        } catch {}
+        } catch {
+          // Ignore malformed pagination cursor
+        }
       }
       const snap = await q.limit(pageSize + 1).get();
       const docs = snap.docs.slice(0,pageSize);

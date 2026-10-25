@@ -1,6 +1,105 @@
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Phone, Mail, Check, Copy } from 'lucide-react';
+import { Check, Copy } from 'lucide-react';
+
+/**
+ * Official WhatsApp full-color brand SVG (#25D366 circle/bubble + crisp white handset)
+ */
+export function WhatsAppIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path
+        d="M4.868 43.303l2.694-9.835a19.9 19.9 0 01-2.665-9.956C4.897 12.538 13.835 3.6 24.815 3.6c5.327 0 10.33 2.076 14.093 5.842 3.763 3.765 5.834 8.77 5.832 14.096-.004 10.978-8.942 19.914-19.925 19.914-3.338 0-6.633-.839-9.559-2.433L4.868 43.303z"
+        fill="#FFFFFF"
+      />
+      <path
+        d="M24.815 5.4c-9.983 0-18.108 8.122-18.112 18.106 0 3.431.964 6.774 2.788 9.666l.433.688-1.825 6.663 6.837-1.793.665.394a18.06 18.06 0 009.208 2.523h.007c9.981 0 18.106-8.123 18.11-18.107.002-4.838-1.88-9.388-5.3-12.811C34.205 7.284 29.655 5.4 24.815 5.4z"
+        fill="#25D366"
+      />
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M19.38 14.375c-.407-.905-.835-.923-1.223-.939-.317-.014-.679-.013-1.041-.013-.363 0-.951.136-1.45.679-.498.543-1.902 1.857-1.902 4.529 0 2.672 1.947 5.254 2.219 5.617.271.362 3.759 6.021 9.282 8.202 4.591 1.813 5.525 1.451 6.521 1.36.996-.091 3.215-1.313 3.668-2.581.453-1.268.453-2.355.317-2.582-.136-.226-.498-.362-1.042-.634-.543-.272-3.215-1.586-3.713-1.767-.498-.181-.86-.272-1.223.272-.362.543-1.403 1.766-1.72 2.129-.317.362-.634.408-1.178.136-.543-.272-2.294-.846-4.37-2.697-1.615-1.441-2.706-3.221-3.023-3.765-.317-.543-.034-.837.239-1.108.244-.243.543-.634.815-.951.271-.317.362-.544.543-.906.181-.362.091-.679-.045-.951-.136-.272-1.192-2.956-1.681-4.005z"
+        fill="#FFFFFF"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Official Instagram full-color radial-gradient brand SVG
+ */
+export function InstagramIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  const uid = useId().replace(/:/g, '');
+  const grad1 = `ig-rad-1-${uid}`;
+  const grad2 = `ig-rad-2-${uid}`;
+
+  return (
+    <svg className={className} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <radialGradient id={grad1} cx="30%" cy="107%" r="125%">
+          <stop offset="0%" stopColor="#FDF497" />
+          <stop offset="5%" stopColor="#FDF497" />
+          <stop offset="45%" stopColor="#FD5949" />
+          <stop offset="60%" stopColor="#D6249F" />
+          <stop offset="90%" stopColor="#285AEB" />
+        </radialGradient>
+        <linearGradient id={grad2} x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#FFDC80" />
+          <stop offset="25%" stopColor="#F77737" />
+          <stop offset="50%" stopColor="#E1306C" />
+          <stop offset="75%" stopColor="#C13584" />
+          <stop offset="100%" stopColor="#833AB4" />
+        </linearGradient>
+      </defs>
+      <rect x="4" y="4" width="40" height="40" rx="11" fill={`url(#${grad1})`} />
+      <rect x="4" y="4" width="40" height="40" rx="11" fill={`url(#${grad2})`} fillOpacity="0.35" />
+      <rect x="10.5" y="10.5" width="27" height="27" rx="7.5" stroke="#FFFFFF" strokeWidth="2.8" />
+      <circle cx="24" cy="24" r="6.5" stroke="#FFFFFF" strokeWidth="2.8" />
+      <circle cx="31.8" cy="16.2" r="1.9" fill="#FFFFFF" />
+    </svg>
+  );
+}
+
+/**
+ * Full-color Direct Phone Call badge icon (#10B981 / #059669 emerald badge + crisp white handset)
+ */
+export function PhoneCallIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  const uid = useId().replace(/:/g, '');
+  const gradId = `phone-grad-${uid}`;
+
+  return (
+    <svg className={className} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#34D399" />
+          <stop offset="100%" stopColor="#059669" />
+        </linearGradient>
+      </defs>
+      <rect x="4" y="4" width="40" height="40" rx="11" fill={`url(#${gradId})`} />
+      <path
+        d="M18.92 21.86a17.65 17.65 0 007.22 7.22l2.41-2.41a1.1 1.1 0 011.12-.26c1.23.41 2.55.63 3.93.63.61 0 1.1.49 1.1 1.1v3.84c0 .61-.49 1.1-1.1 1.1C22.25 33.08 14.92 25.75 14.92 14.42c0-.61.49-1.1 1.1-1.1h3.85c.61 0 1.1.49 1.1 1.1 0 1.37.22 2.7.63 3.93.12.38.03.81-.27 1.12l-2.41 2.39z"
+        fill="#FFFFFF"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Official 5-color Gmail / Google Mail envelope SVG (for jiyooshams@gmail.com & shamsjiyoo@gmail.com)
+ */
+export function EmailEnvelopeIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="4" y="4" width="40" height="40" rx="11" fill="#FFFFFF" stroke="#E5E7EB" strokeWidth="1.5" />
+      <path d="M11 16.5v16.25c0 1.24 1.01 2.25 2.25 2.25H16V21.8l-5-3.75v-1.55z" fill="#4285F4" />
+      <path d="M37 16.5v16.25c0 1.24-1.01 2.25-2.25 2.25H32V21.8l5-3.75v-1.55z" fill="#34A853" />
+      <path d="M32 14.8v7L37 18v-2c0-2.06-2.35-3.24-4-2l-1 .8z" fill="#FBBC05" />
+      <path d="M16 21.8v-7l8 6 8-6v7l-8 6-8-6z" fill="#EA4335" />
+      <path d="M11 16v2l5 3.8v-7l-1-.8c-1.65-1.24-4-.06-4 2z" fill="#C5221F" />
+    </svg>
+  );
+}
 
 export const SOCIAL_LINKS = [
   {
@@ -8,53 +107,37 @@ export const SOCIAL_LINKS = [
     label: 'WhatsApp',
     handle: '+91 97393 91891',
     href: 'https://wa.me/919739391891',
-    icon: (props: { className?: string }) => (
-      <svg className={props.className || "w-5 h-5"} fill="currentColor" viewBox="0 0 24 24">
-        <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984 0 1.762.459 3.48 1.333 5.001l-1.417 5.176 5.292-1.388c1.464.798 3.114 1.218 4.78 1.219h.004c5.505 0 9.988-4.478 9.989-9.985 0-2.668-1.038-5.176-2.925-7.062-1.886-1.887-4.394-2.925-7.066-2.945zm5.836 14.195c-.246.691-1.425 1.319-1.99 1.404-.508.075-1.151.107-1.857-.118-.428-.136-.978-.318-1.682-.622-2.962-1.279-4.896-4.262-5.044-4.459-.147-.197-1.206-1.603-1.206-3.056 0-1.453.762-2.167 1.033-2.463.271-.296.591-.37.788-.37.197 0 .394.001.566.01.181.009.425-.068.664.506.246.591.839 2.046.912 2.194.074.148.123.321.025.518-.098.197-.148.321-.295.494-.148.173-.312.386-.446.521-.148.148-.302.308-.13.603.172.296.765 1.264 1.642 2.046 1.127 1.005 2.079 1.316 2.375 1.464.296.148.469.123.643-.074.173-.197.741-.861.938-1.157.197-.296.394-.247.69-.148.296.099 1.883.887 2.204 1.047.321.16.535.238.613.366.078.128.078.739-.168 1.43z"/>
-      </svg>
-    ),
-    color: 'from-emerald-500 to-teal-600',
-    hoverGlow: 'rgba(37, 211, 102, 0.4)',
+    icon: (props: { className?: string }) => <WhatsAppIcon className={props.className || 'w-5 h-5'} />,
     badge: 'Fast Support',
-    accentColor: '#25D366'
+    accentColor: '#25D366',
   },
   {
     id: 'phone',
     label: 'Call Direct',
     handle: '+91 78997 44335',
     href: 'tel:+917899744335',
-    icon: (props: { className?: string }) => <Phone className={props.className || "w-5 h-5"} />,
-    color: 'from-amber-400 to-yellow-600',
-    hoverGlow: 'rgba(217, 119, 6, 0.4)',
+    icon: (props: { className?: string }) => <PhoneCallIcon className={props.className || 'w-5 h-5'} />,
     badge: 'Customer Desk',
-    accentColor: '#D97706'
+    accentColor: '#10B981',
   },
   {
     id: 'email',
     label: 'Email Care',
-    handle: 'jiyooshams@gmail.com & shamsjiyoo@gmail.com',
+    handle: 'jiyooshams@gmail.com',
     href: 'mailto:jiyooshams@gmail.com,shamsjiyoo@gmail.com',
-    icon: (props: { className?: string }) => <Mail className={props.className || "w-5 h-5"} />,
-    color: 'from-sky-400 to-blue-600',
-    hoverGlow: 'rgba(59, 130, 246, 0.4)',
+    icon: (props: { className?: string }) => <EmailEnvelopeIcon className={props.className || 'w-5 h-5'} />,
     badge: 'Inquiries',
-    accentColor: '#3B82F6'
+    accentColor: '#EA4335',
   },
   {
     id: 'instagram',
     label: 'Instagram',
-    handle: 'jiyoo shams',
+    handle: '@shamsjiyoo2026',
     href: 'https://www.instagram.com/shamsjiyoo2026?utm_source=qr&igsh=MWh3YWlzOWV1N3Aweg==',
-    icon: (props: { className?: string }) => (
-      <svg className={props.className || "w-5 h-5"} fill="currentColor" viewBox="0 0 24 24">
-        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
-      </svg>
-    ),
-    color: 'from-pink-500 to-purple-600',
-    hoverGlow: 'rgba(236, 72, 153, 0.4)',
-    badge: 'Socials',
-    accentColor: '#EC4899'
-  }
+    icon: (props: { className?: string }) => <InstagramIcon className={props.className || 'w-5 h-5'} />,
+    badge: 'Official',
+    accentColor: '#E1306C',
+  },
 ];
 
 export function PremiumSocialBar() {
@@ -69,77 +152,91 @@ export function PremiumSocialBar() {
   };
 
   return (
-    <div className="w-full my-8">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+    <div className="w-full my-6 sm:my-8">
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.3 }}
+        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+        className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 sm:gap-4 mb-5 sm:mb-6"
+      >
         <div>
-          <h3 className="text-xs uppercase tracking-widest text-emerald-400 font-semibold flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            Live Customer Care & Social Channels
+          <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#C5A880] font-semibold block">
+            Concierge &amp; Direct Support
+          </span>
+          <h3 className="font-serif-luxury text-xl sm:text-2xl font-normal text-[#FAF9F5] mt-1">
+            Official Customer Care &amp; Ordering Channels
           </h3>
-          <p className="text-sm text-slate-400 font-light mt-1">
-            Connect instantly with our concierge team across official platforms
+          <p className="text-xs sm:text-sm text-[#A8A29E] font-sans-clean font-light mt-1 max-w-2xl">
+            Direct assistance with our sourcing desk for farm orders, custom butcher cuts, and express delivery
           </p>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {SOCIAL_LINKS.map((item) => {
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {SOCIAL_LINKS.map((item, idx) => {
           const isCopied = copiedId === item.id;
 
           return (
             <motion.div
               key={item.id}
+              initial={{ opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={{ duration: 0.5, delay: idx * 0.06, ease: [0.16, 1, 0.3, 1] }}
               whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              className="relative group rounded-xl p-[1px] bg-[#292524] hover:bg-[#44403C] transition-all duration-300 border border-[#44403C]"
+              whileTap={{ scale: 0.99 }}
+              className="group relative rounded-xl border border-[#2B2622] hover:border-[#443D36] bg-[#181513] hover:bg-[#1E1B18] transition-all duration-300 p-3.5 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.2)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
             >
-              <div className="relative bg-[#1C1917] rounded-xl p-4 flex items-center justify-between h-full">
+              <div className="flex items-center justify-between gap-3 h-full">
                 <a
                   href={item.href}
                   target={item.href.startsWith('http') ? '_blank' : '_self'}
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3.5 min-w-0 flex-1 group/link"
+                  className="flex items-center gap-3 min-w-0 flex-1 group/link"
                 >
-                  {/* Icon Container */}
-                  <div className="w-10 h-10 rounded-lg bg-[#292524] border border-[#44403C] flex items-center justify-center text-[#FAF9F5] flex-shrink-0">
-                    {item.icon({ className: "w-4 h-4" })}
+                  <div 
+                    className="w-10 h-10 rounded-lg bg-[#24201D] border border-[#332D28] flex items-center justify-center shrink-0 transition-transform duration-300 group-hover/link:scale-105"
+                    style={{ color: item.accentColor }}
+                  >
+                    {item.icon({ className: 'w-5 h-5' })}
                   </div>
 
-                  {/* Info */}
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-[#FAF9F5]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-medium text-[#FAF9F5] group-hover/link:text-white transition-colors">
                         {item.label}
                       </span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#292524] text-[#A8A29E] font-mono tracking-tight">
-                        {item.badge}
+                      <span className="text-[10px] text-[#78716C] font-mono tracking-wider">
+                        · {item.badge}
                       </span>
                     </div>
-                    <p className="text-xs text-[#A8A29E] font-mono truncate mt-0.5">
+                    <p className="text-xs text-[#A8A29E] font-mono truncate mt-0.5 tabular-nums">
                       {item.handle}
                     </p>
                   </div>
                 </a>
 
-                {/* Quick copy / action button */}
                 <button
+                  type="button"
                   onClick={(e) => handleCopy(e, item.id, item.handle)}
-                  className="ml-2 p-2 rounded-lg bg-[#292524] hover:bg-[#44403C] text-[#A8A29E] hover:text-[#FAF9F5] transition-colors relative cursor-pointer"
+                  className="p-2 rounded-lg bg-[#24201D] hover:bg-[#2F2A26] border border-[#332D28] text-[#A8A29E] hover:text-[#FAF9F5] transition-colors relative cursor-pointer shrink-0"
                   title={`Copy ${item.label}`}
+                  aria-label={`Copy ${item.label} handle`}
                 >
                   {isCopied ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <Check className="w-3.5 h-3.5 text-[#10B981]" />
                   ) : (
                     <Copy className="w-3.5 h-3.5" />
                   )}
-                  
+
                   <AnimatePresence>
                     {isCopied && (
                       <motion.span
-                        initial={{ opacity: 0, y: 10, scale: 0.8 }}
-                        animate={{ opacity: 1, y: -28, scale: 1 }}
-                        exit={{ opacity: 0, y: -35 }}
-                        className="absolute -top-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-[#FAF9F5] text-[#1C1917] text-[10px] font-bold whitespace-nowrap shadow-md pointer-events-none"
+                        initial={{ opacity: 0, y: 8, scale: 0.85 }}
+                        animate={{ opacity: 1, y: -26, scale: 1 }}
+                        exit={{ opacity: 0, y: -32 }}
+                        className="absolute -top-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-[#FAF9F5] text-[#181513] text-[10px] font-bold whitespace-nowrap shadow-md pointer-events-none"
                       >
                         Copied!
                       </motion.span>
@@ -156,47 +253,25 @@ export function PremiumSocialBar() {
 }
 
 export function FloatingSocialDock() {
-  const whatsappIcon = SOCIAL_LINKS[0].icon;
-  const phoneIcon = SOCIAL_LINKS[1].icon;
-
   return (
-    <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-3">
-      {/* WhatsApp Quick Floating Button */}
-      <motion.a
-        href="https://wa.me/919739391891"
-        target="_blank"
-        rel="noopener noreferrer"
-        whileHover={{ scale: 1.1, y: -2 }}
-        whileTap={{ scale: 0.9 }}
-        className="group relative flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 text-white shadow-2xl shadow-emerald-500/40 border border-emerald-300/30"
-        aria-label="WhatsApp Concierge"
-      >
-        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-zinc-950 animate-ping" />
-        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-zinc-950" />
-        
-        {whatsappIcon({ className: "w-6 h-6" })}
-
-        {/* Hover Tooltip */}
-        <span className="absolute right-14 px-3 py-1.5 rounded-xl bg-zinc-900/90 text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-xl border border-white/10 backdrop-blur-md">
-          Chat on WhatsApp
-        </span>
-      </motion.a>
-
-      {/* Phone Quick Floating Button */}
-      <motion.a
-        href="tel:+917899744335"
-        whileHover={{ scale: 1.1, y: -2 }}
-        whileTap={{ scale: 0.9 }}
-        className="group relative flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-600 text-white shadow-2xl shadow-amber-500/30 border border-white/20"
-        aria-label="Call Us"
-      >
-        {phoneIcon({ className: "w-5 h-5" })}
-        
-        {/* Hover Tooltip */}
-        <span className="absolute right-14 px-3 py-1.5 rounded-xl bg-zinc-900/90 text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-xl border border-white/10 backdrop-blur-md">
-          Call Now
-        </span>
-      </motion.a>
+    <div className="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-40 flex flex-col gap-2.5 sm:gap-3">
+      {SOCIAL_LINKS.map((link) => (
+        <motion.a
+          key={link.id}
+          href={link.href}
+          target={link.href.startsWith('http') ? '_blank' : '_self'}
+          rel="noopener noreferrer"
+          whileHover={{ scale: 1.08, y: -2 }}
+          whileTap={{ scale: 0.94 }}
+          className="group relative flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white shadow-lg border border-[#E7E3DA]"
+          aria-label={link.label}
+        >
+          {link.icon({ className: 'w-6 h-6' })}
+          <span className="hidden sm:block absolute right-14 px-3 py-1.5 rounded-xl bg-zinc-900/95 text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-xl border border-white/10">
+            {link.label}: {link.handle}
+          </span>
+        </motion.a>
+      ))}
     </div>
   );
 }

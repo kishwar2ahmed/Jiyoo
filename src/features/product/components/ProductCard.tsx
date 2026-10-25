@@ -66,11 +66,13 @@ function ProductCardRating({
 
 export const ProductCard = React.memo(function ProductCard({
   product,
+  index = 0,
   isWishlisted,
   toggleWishlist,
   onProductClick,
 }: {
   key?: React.Key;
+  index?: number;
   product: Product;
   isWishlisted: boolean;
   toggleWishlist: (id: string) => void;
@@ -83,8 +85,9 @@ export const ProductCard = React.memo(function ProductCard({
     product.cleaningOptions?.[0],
   );
   const [selectedCut, setSelectedCut] = useState(product.fishCuts?.[0]);
-  const [cardQty, setCardQty] = useState(1);
+  const [cardQty] = useState(1);
   const [isImgLoaded, setIsImgLoaded] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
 
   const currentPrice = selectedWeight ? selectedWeight.price : product.price;
   const currentUnit = selectedWeight ? selectedWeight.label : product.unit;
@@ -123,31 +126,28 @@ export const ProductCard = React.memo(function ProductCard({
       },
       cardQty,
     );
-  };
 
-  const incrementQty = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCardQty((prev) => prev + 1);
-  };
-
-  const decrementQty = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (cardQty > 1) {
-      setCardQty((prev) => prev - 1);
-    }
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1100);
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
+      initial={{ opacity: 0, y: 24, scale: 0.975 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+      viewport={{ once: true, margin: "-25px" }}
       exit={{ opacity: 0, scale: 0.98 }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ y: -4 }}
+      transition={{
+        duration: 0.52,
+        delay: (index % 4) * 0.055,
+        ease: [0.16, 1, 0.3, 1],
+      }}
       onClick={() => onProductClick?.(product)}
-      className="group flex flex-col bg-white rounded-xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 border border-[#E7E3DA] cursor-pointer h-full"
+      className="group flex flex-col bg-white rounded-xl overflow-hidden shadow-xs hover:shadow-md transition-shadow duration-300 border border-[#E7E3DA] cursor-pointer h-full"
     >
-      {/* Product Image Area */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-white">
+      {/* Product Image Area (Full uncropped product view) */}
+      <div className="relative aspect-[4/3] overflow-hidden bg-white p-2 sm:p-3 flex items-center justify-center">
         {!isImgLoaded && (
           <div className="absolute inset-0 z-0 bg-brand-gray-100 animate-pulse" />
         )}
@@ -155,7 +155,7 @@ export const ProductCard = React.memo(function ProductCard({
           src={optimizedImage}
           alt={product.name}
           onLoad={() => setIsImgLoaded(true)}
-          className={`w-full h-full object-contain transition-opacity duration-500 ${isImgLoaded ? "opacity-100" : "opacity-0"}`}
+          className={`w-full h-full object-contain transition-all duration-500 ease-out sm:group-hover:scale-[1.05] ${isImgLoaded ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}
           referrerPolicy="no-referrer"
           loading="lazy"
           decoding="async"
@@ -196,44 +196,44 @@ export const ProductCard = React.memo(function ProductCard({
           }}
         />
 
-        {/* Keep the product photography completely unobstructed. Marketing/freshness
-            messaging is rendered in the information area below instead of over the image. */}
-
         {/* Wishlist Button */}
-        <button
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.85 }}
           onClick={(e) => {
             e.stopPropagation();
             toggleWishlist(String(product.id));
           }}
-          className="absolute top-3 right-3 z-20 w-8 h-8 bg-[#FAF9F5] rounded-full flex items-center justify-center text-[#1C1917] hover:bg-white transition-colors border border-[#E7E3DA]"
+          className="absolute top-2 right-2 sm:top-3 sm:right-3 z-20 w-7 h-7 sm:w-8 sm:h-8 bg-[#FAF9F5]/95 rounded-full flex items-center justify-center text-[#1C1917] hover:bg-white transition-colors border border-[#E7E3DA] cursor-pointer"
+          aria-label="Toggle wishlist"
         >
           <Heart
-            className="w-4 h-4 transition-transform active:scale-125"
+            className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform"
             fill={isWishlisted ? "#DC2626" : "none"}
             stroke={isWishlisted ? "#DC2626" : "currentColor"}
           />
-        </button>
+        </motion.button>
       </div>
 
-      {/* Product Information Card */}
+      {/* Product Information Card (No cropped titles or badges on mobile) */}
       <div className="flex-1 flex flex-col p-3 sm:p-5">
-        <div className="flex justify-between items-start mb-2">
-          <div>
-            <h4 className="text-base sm:text-lg font-serif-luxury font-semibold text-[#1C1917] leading-tight mb-1 line-clamp-1">
+        <div className="flex justify-between items-start mb-1.5 sm:mb-2">
+          <div className="min-w-0 w-full">
+            <h4 className="text-sm sm:text-lg font-serif-luxury font-semibold text-[#1C1917] leading-snug mb-1 break-words">
               {product.name}
             </h4>
-            <div className="flex items-center gap-2 text-[11px] text-[#78716C] font-medium">
-              <span className="uppercase tracking-widest text-[10px]">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:text-[11px] text-[#78716C] font-medium">
+              <span className="uppercase tracking-widest text-[9px] sm:text-[10px]">
                 {product.categoryId}
               </span>
-              <span>•</span>
+              <span aria-hidden="true">·</span>
               {isOutOfStock ? (
-                <span className="inline-flex items-center gap-0.5 text-red-600 font-semibold uppercase text-[10px]">
+                <span className="inline-flex items-center gap-0.5 text-red-600 font-semibold uppercase text-[9px] sm:text-[10px]">
                   Out of Stock
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-0.5 text-emerald-800 font-semibold uppercase text-[10px]">
-                  <Check className="w-2.5 h-2.5" /> In Stock
+                <span className="inline-flex items-center gap-0.5 text-emerald-800 font-semibold uppercase text-[9px] sm:text-[10px]">
+                  <Check className="w-2.5 h-2.5 shrink-0" /> In Stock
                 </span>
               )}
             </div>
@@ -243,34 +243,35 @@ export const ProductCard = React.memo(function ProductCard({
               onProductClick={onProductClick as any}
             />
             {product.freshnessBadge && (
-              <div className="mt-1.5 inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-emerald-800">
-                <ShieldCheck className="w-3 h-3 shrink-0" aria-hidden="true" />
-                <span>{product.freshnessBadge}</span>
+              <div className="mt-1 inline-flex items-start gap-1 text-[9px] font-semibold uppercase tracking-wider text-emerald-800 leading-tight">
+                <ShieldCheck className="w-3 h-3 shrink-0 mt-0.5" aria-hidden="true" />
+                <span className="break-words">{product.freshnessBadge}</span>
               </div>
             )}
           </div>
         </div>
 
         {product.description && (
-          <p className="text-xs text-[#78716C] line-clamp-2 mb-4 leading-relaxed font-normal">
+          <p className="hidden sm:line-clamp-2 text-xs text-[#78716C] mb-3 leading-relaxed font-normal">
             {product.description}
           </p>
         )}
 
-        {/* Option selectors */}
-        <div className="mt-auto space-y-4">
-          <div className="space-y-2">
+        {/* Option selectors (Wrapped cleanly so options are never cropped off-screen) */}
+        <div className="mt-auto space-y-2.5 sm:space-y-4 pt-2">
+          <div className="space-y-1.5 sm:space-y-2">
             {/* Weights */}
             {product.weights && product.weights.length > 0 && (
-              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
+              <div className="flex flex-wrap gap-1 sm:gap-1.5">
                 {product.weights.map((w) => (
                   <button
                     key={w.label}
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedWeight(w);
                     }}
-                    className={`px-2.5 py-1 rounded-sm text-[10px] font-semibold whitespace-nowrap transition-colors border ${
+                    className={`px-2 sm:px-2.5 py-1 rounded-sm text-[9.5px] sm:text-[10px] font-semibold whitespace-nowrap transition-colors border cursor-pointer ${
                       selectedWeight?.label === w.label
                         ? "bg-[#1C1917] text-[#FAF9F5] border-[#1C1917]"
                         : "bg-[#F4F1EA] text-[#44403C] border-[#E7E3DA] hover:border-[#1C1917]"
@@ -284,15 +285,16 @@ export const ProductCard = React.memo(function ProductCard({
 
             {/* Fish Cuts */}
             {product.fishCuts && product.fishCuts.length > 0 && (
-              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
+              <div className="flex flex-wrap gap-1 sm:gap-1.5">
                 {product.fishCuts.map((c) => (
                   <button
                     key={c}
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedCut(c);
                     }}
-                    className={`px-2.5 py-1 rounded-sm text-[10px] font-semibold whitespace-nowrap transition-colors border ${
+                    className={`px-2 sm:px-2.5 py-1 rounded-sm text-[9.5px] sm:text-[10px] font-semibold whitespace-nowrap transition-colors border cursor-pointer ${
                       selectedCut === c
                         ? "bg-[#1C1917] text-[#FAF9F5] border-[#1C1917]"
                         : "bg-[#F4F1EA] text-[#44403C] border-[#E7E3DA] hover:border-[#1C1917]"
@@ -306,15 +308,16 @@ export const ProductCard = React.memo(function ProductCard({
 
             {/* Cleaning Options */}
             {product.cleaningOptions && product.cleaningOptions.length > 0 && (
-              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
+              <div className="flex flex-wrap gap-1 sm:gap-1.5">
                 {product.cleaningOptions.map((c) => (
                   <button
                     key={c}
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedCleaning(c);
                     }}
-                    className={`px-2.5 py-1 rounded-sm text-[10px] font-semibold whitespace-nowrap transition-colors border ${
+                    className={`px-2 sm:px-2.5 py-1 rounded-sm text-[9.5px] sm:text-[10px] font-semibold whitespace-nowrap transition-colors border cursor-pointer ${
                       selectedCleaning === c
                         ? "bg-[#1C1917] text-[#FAF9F5] border-[#1C1917]"
                         : "bg-[#F4F1EA] text-[#44403C] border-[#E7E3DA] hover:border-[#1C1917]"
@@ -327,14 +330,14 @@ export const ProductCard = React.memo(function ProductCard({
             )}
           </div>
 
-          {/* Action Row */}
-          <div className="pt-3 sm:pt-4 border-t border-[#E7E3DA] flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mt-auto">
-            <div className="flex flex-col">
-              <span className="text-[9px] sm:text-[10px] text-emerald-800 uppercase font-bold tracking-wider mb-1 flex items-center gap-1 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded-full w-fit">
-                <DeliveryScootyIcon className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-                {product.deliveryEstimate || "60m"}
+          {/* Action Row (Stacked on mobile so price & Add button never crowd or crop) */}
+          <div className="pt-2.5 sm:pt-4 border-t border-[#E7E3DA] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-2 mt-auto">
+            <div className="flex items-center justify-between sm:flex-col sm:items-start gap-1">
+              <span className="text-[9px] sm:text-[10px] text-emerald-800 uppercase font-semibold tracking-wider inline-flex items-center gap-1 order-2 sm:order-1">
+                <DeliveryScootyIcon className="w-3 h-3 text-emerald-700 shrink-0" />
+                <span className="tabular-nums">{product.deliveryEstimate || "60m"}</span>
               </span>
-              <div className="flex items-baseline gap-1.5 sm:gap-2">
+              <div className="flex items-baseline gap-1.5 tabular-nums order-1 sm:order-2">
                 <span className="text-base sm:text-lg font-serif-luxury font-bold text-[#1C1917]">
                   ₹{Number(currentPrice)}
                 </span>
@@ -346,17 +349,31 @@ export const ProductCard = React.memo(function ProductCard({
               </div>
             </div>
 
-            <button
+            <motion.button
+              type="button"
               onClick={handleAddToCart}
               disabled={isOutOfStock}
-              className="group relative inline-flex items-center justify-center w-full sm:w-auto h-9 sm:h-10 px-4 sm:px-6 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.15em] text-[#FAF9F5] bg-[#1C1917] transition-all duration-500 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(28,25,23,0.3)] hover:shadow-[0_8px_20px_-5px_rgba(28,25,23,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              whileTap={isOutOfStock ? undefined : { scale: 0.95 }}
+              className={`group relative inline-flex items-center justify-center w-full sm:w-auto h-9 sm:h-10 px-3.5 sm:px-5 text-[10px] font-bold uppercase tracking-[0.12em] rounded-lg transition-colors duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 whitespace-nowrap ${
+                justAdded
+                  ? "bg-emerald-700 text-white"
+                  : "bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F5]"
+              }`}
             >
-              <span className="absolute inset-0 w-full h-full bg-[#292524] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <span className="relative z-10 flex items-center gap-1.5 sm:gap-2">
-                <ShoppingBag className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> 
-                {isOutOfStock ? "Sold Out" : "Add"}
+              <span className="relative z-10 flex items-center gap-1.5">
+                {justAdded ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Added</span>
+                  </>
+                ) : (
+                  <>
+                    <ShoppingBag className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    <span>{isOutOfStock ? "Sold Out" : "Add"}</span>
+                  </>
+                )}
               </span>
-            </button>
+            </motion.button>
           </div>
         </div>
       </div>

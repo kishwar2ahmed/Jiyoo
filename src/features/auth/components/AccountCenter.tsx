@@ -123,7 +123,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
     if (!user) return;
     setLoading(true);
     try {
-      const token = await getAuth().currentUser?.getIdToken();
+      const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error('Authentication required');
       const statusParam = orderFilter === 'all' ? 'all' : orderFilter;
       const params = new URLSearchParams({ status: statusParam, pageSize: '50' });
@@ -141,7 +141,9 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
       try {
         const local = JSON.parse(localStorage.getItem(`jiyoo_orders_history_v2:${user.id}`) || '[]');
         if (reset) setOrders(Array.isArray(local) ? local.filter((o:any) => o?.userId === user.id) : []);
-      } catch {}
+      } catch {
+        // Ignore corrupt localStorage fallback
+      }
     } finally {
       setLoading(false);
     }
@@ -561,7 +563,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
               </h1>
               {activeTab === 'orders' && (
                 <button 
-                  onClick={fetchOrders}
+                  onClick={() => fetchOrders()}
                   disabled={loading}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-stone-700 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors shadow-2xs"
                 >

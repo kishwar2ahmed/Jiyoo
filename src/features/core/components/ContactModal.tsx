@@ -1,15 +1,17 @@
 import { motion, AnimatePresence } from "motion/react";
 import { 
   X, 
-  MessageCircle, 
-  Mail, 
-  Phone, 
-  Instagram, 
   Clock,
   Briefcase
 } from "lucide-react";
 import { useSettings } from "../../../contexts/SettingsContext";
 import { useModalBackButton } from "../hooks/useModalBackButton";
+import {
+  WhatsAppIcon,
+  InstagramIcon,
+  PhoneCallIcon,
+  EmailEnvelopeIcon,
+} from "./SocialIcons";
 
 interface ContactModalProps {
   isOpen: boolean;
@@ -20,13 +22,13 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
   const { settings } = useSettings();
   useModalBackButton(isOpen, onClose);
 
-  const handleWhatsApp = (type: 'support' | 'sales') => {
+  const whatsappHref = (type: 'support' | 'sales') => {
     const number = settings.whatsappNumber?.replace(/\D/g, "") || "919739391891";
-    let message = "Hi JIYOO, I need help with my order.";
-    if (type === 'sales') {
-      message = "Hi JIYOO, I'm interested in wholesale/bulk orders.";
-    }
-    window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`, "_blank");
+    const message =
+      type === 'sales'
+        ? "Hi JIYOO, I'm interested in wholesale/bulk orders."
+        : "Hi JIYOO, I need help with my order.";
+    return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
   };
 
   return (
@@ -76,28 +78,30 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* WhatsApp Support (Primary) */}
                 <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm flex flex-col h-full">
-                  <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4">
-                    <MessageCircle className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-full bg-emerald-50 text-[#25D366] flex items-center justify-center mb-4">
+                    <WhatsAppIcon className="w-5 h-5" />
                   </div>
-                  <h4 className="text-stone-900 font-bold mb-1">Live Chat</h4>
+                  <h4 className="text-stone-900 font-bold mb-1">WhatsApp Concierge</h4>
                   <p className="text-stone-500 text-sm mb-4 flex-grow">
                     Perfect for quick questions, order tracking, and instant support.
                   </p>
                   <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold text-stone-400 mb-4">
                     <Clock className="w-3.5 h-3.5" /> Average response: 5 mins
                   </div>
-                  <button
-                    onClick={() => handleWhatsApp('support')}
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]"
+                  <a
+                    href={whatsappHref('support')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3 bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]"
                   >
-                    <MessageCircle className="w-4 h-4" /> Message on WhatsApp
-                  </button>
+                    <WhatsAppIcon className="w-4 h-4" /> Message on WhatsApp
+                  </a>
                 </div>
 
                 {/* Email Support (Secondary) */}
                 <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm flex flex-col h-full">
                   <div className="w-10 h-10 rounded-full bg-stone-100 text-stone-900 flex items-center justify-center mb-4">
-                    <Mail className="w-5 h-5" />
+                    <EmailEnvelopeIcon className="w-5 h-5" />
                   </div>
                   <h4 className="text-stone-900 font-bold mb-1">Email Support</h4>
                   <p className="text-stone-500 text-sm mb-4 flex-grow">
@@ -107,10 +111,10 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                     <Clock className="w-3.5 h-3.5" /> Average response: 24 hrs
                   </div>
                   <a
-                    href="mailto:support@jiyoo.in"
+                    href="mailto:jiyooshams@gmail.com,shamsjiyoo@gmail.com"
                     className="w-full py-3 bg-white border border-stone-300 hover:border-stone-400 text-stone-900 text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
                   >
-                    <Mail className="w-4 h-4" /> Email Us
+                    <EmailEnvelopeIcon className="w-4 h-4" /> Email Us
                   </a>
                 </div>
               </div>
@@ -119,7 +123,7 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
             {/* Sales / Bulk Segment */}
             <div>
               <h3 className="text-[11px] font-bold text-stone-900 uppercase tracking-widest mb-4">
-                Business & Wholesale
+                Business &amp; Wholesale
               </h3>
               <div className="bg-[#1C1917] p-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-start sm:items-center gap-4">
@@ -129,16 +133,18 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                   <div>
                     <h4 className="text-[#FAF9F5] font-bold">Partner with JIYOO</h4>
                     <p className="text-stone-400 text-sm mt-0.5">
-                      For bulk orders, corporate gifting, or wholesale inquiries.
+                      For bulk orders, hotel/restaurant supply, or wholesale inquiries.
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleWhatsApp('sales')}
-                  className="shrink-0 w-full sm:w-auto px-6 py-3 bg-[#FAF9F5] text-[#1C1917] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-white transition-all active:scale-[0.98]"
+                <a
+                  href={whatsappHref('sales')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 w-full sm:w-auto px-6 py-3 bg-[#FAF9F5] text-[#1C1917] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-white transition-all active:scale-[0.98] text-center"
                 >
                   Contact Sales
-                </button>
+                </a>
               </div>
             </div>
 
@@ -146,23 +152,39 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
             <div className="pt-8 border-t border-stone-200 grid sm:grid-cols-2 gap-6">
               <div>
                 <h4 className="text-sm font-bold text-stone-900 mb-2">Direct Line</h4>
-                <a href={`tel:${settings.whatsappNumber || "+919739391891"}`} className="text-stone-600 hover:text-emerald-600 transition-colors flex items-center gap-2 text-lg font-mono mb-1">
-                  <Phone className="w-4 h-4" /> {settings.aboutUs?.contactPhone || settings.whatsappNumber || "+91 97393 91891"}
+                <a href="tel:+917899744335" className="text-stone-600 hover:text-emerald-600 transition-colors flex items-center gap-2 text-lg font-mono mb-1 tabular-nums">
+                  <PhoneCallIcon className="w-4 h-4 text-[#D97706]" /> +91 78997 44335
                 </a>
-                <p className="text-xs text-stone-400">Available Mon-Sat, 9 AM to 8 PM</p>
+                <p className="text-xs text-stone-400">Available Daily, 7:00 AM to 10:00 PM</p>
               </div>
 
               <div>
-                <h4 className="text-sm font-bold text-stone-900 mb-3">Connect on Socials</h4>
+                <h4 className="text-sm font-bold text-stone-900 mb-3">Official Socials</h4>
                 <div className="flex items-center gap-3">
-                  <a href="https://www.instagram.com/shamsjiyoo2026?utm_source=qr&igsh=MWh3YWlzOWV1N3Aweg==" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-500 hover:text-[#1C1917] hover:border-[#1C1917] hover:shadow-md transition-all">
-                    <Instagram className="w-4 h-4" />
+                  <a
+                    href="https://www.instagram.com/shamsjiyoo2026?utm_source=qr&igsh=MWh3YWlzOWV1N3Aweg=="
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Instagram"
+                    className="w-10 h-10 rounded-full bg-white border border-stone-200 flex items-center justify-center text-[#E1306C] hover:border-[#1C1917] hover:shadow-md transition-all"
+                  >
+                    <InstagramIcon className="w-4 h-4" />
                   </a>
-                  <a href={`https://wa.me/${(settings.whatsappNumber || "+919739391891").replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-500 hover:text-[#1C1917] hover:border-[#1C1917] hover:shadow-md transition-all">
-                    <MessageCircle className="w-4 h-4" />
+                  <a
+                    href={whatsappHref('support')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="WhatsApp"
+                    className="w-10 h-10 rounded-full bg-white border border-stone-200 flex items-center justify-center text-[#25D366] hover:border-[#1C1917] hover:shadow-md transition-all"
+                  >
+                    <WhatsAppIcon className="w-4 h-4" />
                   </a>
-                  <a href="mailto:support@jiyoo.in" className="w-10 h-10 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-500 hover:text-[#1C1917] hover:border-[#1C1917] hover:shadow-md transition-all">
-                    <Mail className="w-4 h-4" />
+                  <a
+                    href="mailto:jiyooshams@gmail.com,shamsjiyoo@gmail.com"
+                    aria-label="Email"
+                    className="w-10 h-10 rounded-full bg-white border border-stone-200 flex items-center justify-center text-[#3B82F6] hover:border-[#1C1917] hover:shadow-md transition-all"
+                  >
+                    <EmailEnvelopeIcon className="w-4 h-4" />
                   </a>
                 </div>
               </div>

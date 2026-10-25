@@ -20,10 +20,9 @@ export function useStorefrontCategories() {
           // separate admin ProductsTab/CategoriesTab category lists.
           if (!(data as any).isDeleted && !(data as any).isFrozen) loaded.push({ id: doc.id, ...data } as Category);
         });
-        // Firestore is authoritative once configured. Do not merge bundled
-        // defaults back into a live catalog, otherwise an admin deletion can
-        // reappear after refresh/offline recovery.
-        setCategoriesList(loaded);
+        if (loaded.length > 0) {
+          setCategoriesList(loaded);
+        }
       },
       (err) => {
         console.warn('Categories snapshot failed:', err);

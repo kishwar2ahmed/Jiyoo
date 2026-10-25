@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, ShieldCheck } from "lucide-react";
 import { useSettings } from "../../../contexts/SettingsContext";
 import { useModalBackButton } from "../hooks/useModalBackButton";
+import { SOCIAL_LINKS } from "./SocialIcons";
 
 interface AboutModalProps {
   isOpen: boolean;
@@ -110,11 +111,27 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-brand-black mb-2">
-                    Contact
+                    Contact &amp; Official Socials
                   </h3>
-                  <p className="text-brand-gray-600 font-medium text-lg font-mono">
+                  <p className="text-brand-gray-600 font-medium text-base font-mono mb-3 tabular-nums">
                     {settings.aboutUs?.contactPhone || settings.whatsappNumber || "+91 97393 91891"}
                   </p>
+                  <div className="flex items-center gap-2.5">
+                    {SOCIAL_LINKS.map((link) => (
+                      <a
+                        key={link.id}
+                        href={link.href}
+                        target={link.href.startsWith("http") ? "_blank" : "_self"}
+                        rel="noopener noreferrer"
+                        aria-label={link.label}
+                        title={`${link.label}: ${link.handle}`}
+                        className="w-9 h-9 rounded-lg bg-brand-gray-50 hover:bg-brand-gray-100 border border-brand-gray-200 flex items-center justify-center transition-colors"
+                        style={{ color: link.accentColor }}
+                      >
+                        {link.icon({ className: "w-4 h-4" })}
+                      </a>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

@@ -2,14 +2,29 @@
 
 .font-serif-luxury {
   font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  font-feature-settings: "kern" 1, "liga" 1, "dlig" 1;
+  font-kerning: normal;
 }
 
 .font-brand-display {
   font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+  font-feature-settings: "kern" 1, "liga" 1;
+  font-kerning: normal;
 }
 
 .font-sans-clean {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-feature-settings: "kern" 1, "cv02" 1, "cv03" 1, "cv04" 1;
+}
+
+.editorial-hero-headline {
+  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  font-size: clamp(2.05rem, 5.2vw, 4.25rem);
+  line-height: 1.15;
+  letter-spacing: -0.024em;
+  font-feature-settings: "kern" 1, "liga" 1, "dlig" 1;
+  font-kerning: normal;
+  text-wrap: balance;
 }
 
 /* Natural fine linen / subtle paper texture overlay */

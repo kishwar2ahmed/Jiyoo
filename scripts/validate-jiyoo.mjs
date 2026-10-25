@@ -26,7 +26,7 @@ checks.push(['Client checkout button is auth guarded', /onClick=\{\(\) => \{ if 
 checks.push(['No global guest order endpoint remains', !/app\.post\('\/api\/orders\/create', orderLimiter, optionalAuth/.test(server)]);
 checks.push(['No global guest Razorpay endpoints remain', !/app\.post\('\/api\/razorpay\/(order|verify)'[^\n]*optionalAuth/.test(server)]);
 checks.push(['Server direct order schema does not accept a userId override', (() => { const start = server.indexOf('const directOrderSchema'); const end = server.indexOf('const trackOrderSchema', start); return start >= 0 && end > start && !server.slice(start, end).includes('userId:'); })()]);
-checks.push(['Client has no guest userId checkout fallback', !/userId:\s*user\?\.id\s*\|\|\s*['\"]guest['\"]/.test(cart)]);
+checks.push(['Client has no guest userId checkout fallback', !/userId:\s*user\?\.id\s*\|\|\s*['"]guest['"]/.test(cart)]);
 checks.push(['Firebase config missing does not throw during module startup', !/Missing required env var\(s\)/.test(fs.readFileSync(path.join(root,'src/services/firebase.ts'),'utf8'))]);
 checks.push(['Global postal code field allows non-numeric formats', !/pincode.*replace\(\/\\D\/g/.test(cart)]);
 checks.push(['International phone validation is used in checkout UI', /\^\\\+\?\[1-9\]\\d\{6,14\\\\\\\\?\\$/.test(cart) || /international phone number required/.test(cart)]);

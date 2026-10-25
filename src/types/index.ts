@@ -201,6 +201,11 @@ export interface Order {
   updatedAt?: { seconds: number; nanoseconds: number } | string | number | Date;
   razorpay_order_id?: string;
   razorpay_payment_id?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  reservationId?: string;
+  inventoryReservationId?: string;
+  refundStatus?: string;
   discountAmount?: number;
   couponCode?: string | null;
   stockConflict?: boolean;

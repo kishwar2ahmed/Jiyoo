@@ -1,11 +1,9 @@
 import { useState } from "react";
-import {
-  PremiumSocialBar,
-  SOCIAL_LINKS,
-} from "../features/core/components/SocialIcons";
+import { motion } from "motion/react";
+import { PremiumSocialBar } from "../features/core/components/SocialIcons";
 import { DeveloperFooter } from "./DeveloperFooter";
 import { InstallAppModal } from "../features/core/components/InstallAppModal";
-import { Sparkles, Smartphone } from "lucide-react";
+import { Smartphone, ShieldCheck, ArrowRight } from "lucide-react";
 import { useSettings } from "../contexts/SettingsContext";
 import {
   canPromptInstall,
@@ -13,6 +11,8 @@ import {
   isIOSDevice,
   isRunningStandalone,
 } from "../utils/installPrompt";
+
+const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 export function Footer() {
   const { settings } = useSettings();
@@ -23,8 +23,6 @@ export function Footer() {
   const handleGetApp = async () => {
     if (canPromptInstall()) {
       const accepted = await requestInstall();
-      // If the user dismissed the native prompt rather than accepting it,
-      // fall back to manual instructions instead of doing nothing.
       if (!accepted) setShowInstallInstructions(true);
     } else {
       setShowInstallInstructions(true);
@@ -32,209 +30,198 @@ export function Footer() {
   };
 
   return (
-    <footer className="bg-[#1C1917] text-[#FAF9F5] pt-16 pb-16 relative overflow-hidden">
-      {/* Background ambient gradient */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(255,255,255,0.05)_0%,transparent_80%)] pointer-events-none" />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        {/* Premium Live Social & Customer Care Bar */}
+    <footer
+      id="about-us-section"
+      className="bg-[#12100E] text-[#FAF9F5] pt-14 sm:pt-20 pb-12 sm:pb-16 relative overflow-hidden border-t border-[#26221E]"
+    >
+      {/* Ambient Architectural Lighting & Radial Gold Glow */}
+      <div 
+        aria-hidden="true" 
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_45%_at_50%_0%,rgba(197,168,128,0.07)_0%,transparent_80%)]" 
+      />
+
+      {/* Faint Architectural Brand Watermark */}
+      <div 
+        aria-hidden="true" 
+        className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[1400px] overflow-hidden select-none opacity-[0.022] flex justify-center z-0"
+      >
+        <span className="font-serif-luxury text-[14vw] font-black uppercase tracking-[0.22em] text-[#FAF9F5] whitespace-nowrap leading-none translate-y-1/3">
+          {storeName}
+        </span>
+      </div>
+
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 relative z-10">
+        {/* Concierge & Direct Communication Channels */}
         <PremiumSocialBar />
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 lg:gap-24 pt-10 border-t border-[#292524]">
-          <div className="md:col-span-2">
-            <div className="flex items-center gap-3 mb-4">
-              <img
-                src="/jiyoo.logo.jpeg"
-                alt={`${settings.storeName || "JIYOO"} Logo`}
-                className="h-10 w-auto rounded-xl object-contain"
-              />
-              <span className="font-serif-luxury text-3xl font-semibold tracking-widest block text-[#FAF9F5]">
-                {settings.storeName || "JIYOO"}
-              </span>
+        {/* Editorial Four-Column Architecture */}
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.6, ease: EASE_OUT_EXPO }}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-14 pt-12 border-t border-[#26221E]"
+        >
+          {/* Brand Identity & Provenance (Span 5) */}
+          <div className="lg:col-span-5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-3.5 mb-4">
+                <img
+                  src="/jiyoo.logo.jpeg"
+                  alt={`${storeName} Logo`}
+                  className="h-11 w-auto rounded-xl object-contain ring-1 ring-[#C5A880]/20 shadow-md"
+                />
+                <div>
+                  <span className="font-serif-luxury text-2xl sm:text-3xl font-medium tracking-wider block text-[#FAF9F5] leading-tight">
+                    {storeName}
+                  </span>
+                  <span className="font-mono text-[9.5px] uppercase tracking-[0.24em] text-[#C5A880] block mt-0.5">
+                    Purveyors of Fresh &amp; Exotic
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[#A8A29E] font-sans-clean font-light leading-relaxed text-sm max-w-md">
+                Direct farm-sourced fruits, hydroponic vegetables, and custom-cut meats 
+                prepared fresh for discerning homes, culinary chefs, and fine dining establishments.
+              </p>
+
+              {/* Official Regulatory Trust Plaque */}
+              <div className="mt-5 p-3.5 rounded-xl bg-[#1A1715] border border-[#2B2622] max-w-md">
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#FAF9F5] font-semibold">
+                    Certified &amp; Registered Supply
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono text-[#8E867E]">
+                  <div>
+                    <span className="block text-[#78716C] text-[9px] uppercase tracking-wider">FSSAI Lic. No.</span>
+                    <span className="text-[#D6D0C4] font-medium tabular-nums">21226112000732</span>
+                  </div>
+                  <div>
+                    <span className="block text-[#78716C] text-[9px] uppercase tracking-wider">Udyam Reg. No.</span>
+                    <span className="text-[#D6D0C4] font-medium tabular-nums">UDYAM-KR-19-0005999</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <p className="text-brand-gray-400 font-light max-w-sm leading-relaxed text-sm">
-              The world's finest ingredients, curated for the uncompromising
-              palate. Delivered with precision and elegance.
-            </p>
 
-            {/* Quick About Badge & Social Badges Row */}
-            <div className="flex flex-wrap items-center gap-3 mt-6">
-              <button
-                onClick={() =>
-                  document.dispatchEvent(new CustomEvent("open-about"))
-                }
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-white text-xs font-semibold hover:bg-white/20 hover:scale-105 transition-all shadow-xs cursor-pointer"
-                title={`About ${storeName}`}
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>About {storeName}</span>
-              </button>
-
-              {!alreadyInstalled && (
+            {!alreadyInstalled && (
+              <div className="mt-6">
                 <button
+                  type="button"
                   onClick={handleGetApp}
-                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-white text-xs font-semibold hover:bg-white/20 hover:scale-105 transition-all shadow-xs cursor-pointer"
+                  className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[#1F1B18] hover:bg-[#28231F] border border-[#332D27] hover:border-[#4D453D] text-[#FAF9F5] text-xs font-medium transition-all duration-200 cursor-pointer shadow-sm"
                   title={`Install the ${storeName} app`}
                 >
-                  <Smartphone className="w-3.5 h-3.5" strokeWidth={2} />
-                  <span>Get Our App</span>
+                  <Smartphone className="w-3.5 h-3.5 text-[#C5A880]" strokeWidth={2} />
+                  <span>Install Web App</span>
                 </button>
-              )}
-
-              {SOCIAL_LINKS.map((link) => (
-                <a
-                  key={link.id}
-                  href={link.href}
-                  target={link.href.startsWith("http") ? "_blank" : "_self"}
-                  rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-white/80 hover:text-white transition-all duration-300 hover:scale-110 shadow-lg"
-                  aria-label={link.label}
-                  title={`${link.label}: ${link.handle}`}
-                >
-                  {link.icon({ className: "w-4 h-4" })}
-                </a>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
 
-          <div>
-            <h4 className="text-xs uppercase tracking-widest text-emerald-400 font-semibold mb-6">
-              {"Explore " + storeName}
+          {/* Department Directory (Span 3) */}
+          <div className="lg:col-span-3">
+            <h4 className="font-mono text-[10.5px] uppercase tracking-[0.24em] text-[#C5A880] font-semibold mb-5 flex items-center gap-2">
+              <span>Departments</span>
             </h4>
-            <ul className="space-y-3.5">
-              <li>
-                <button
-                  onClick={() =>
-                    document.dispatchEvent(new CustomEvent("open-about"))
-                  }
-                  className="text-sm font-medium text-brand-gray-200 hover:text-emerald-400 transition-colors flex items-center gap-2 cursor-pointer"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  <span>About Us</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() =>
-                    window.dispatchEvent(
-                      new CustomEvent("select-category", { detail: "fruits" }),
-                    )
-                  }
-                  className="text-sm font-light text-brand-gray-400 hover:text-emerald-400 transition-colors block pl-3.5 cursor-pointer text-left"
-                >
-                  Premium Fruits
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() =>
-                    window.dispatchEvent(
-                      new CustomEvent("select-category", {
-                        detail: "vegetables",
-                      }),
-                    )
-                  }
-                  className="text-sm font-light text-brand-gray-400 hover:text-emerald-400 transition-colors block pl-3.5 cursor-pointer text-left"
-                >
-                  Exotic Vegetables
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() =>
-                    window.dispatchEvent(
-                      new CustomEvent("select-category", { detail: "meat" }),
-                    )
-                  }
-                  className="text-sm font-light text-brand-gray-400 hover:text-emerald-400 transition-colors block pl-3.5 cursor-pointer text-left"
-                >
-                  Quality Meats
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() =>
-                    window.dispatchEvent(
-                      new CustomEvent("select-category", {
-                        detail: "smoothies",
-                      }),
-                    )
-                  }
-                  className="text-sm font-light text-brand-gray-400 hover:text-emerald-400 transition-colors block pl-3.5 cursor-pointer text-left"
-                >
-                  Signature Smoothies
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-xs uppercase tracking-widest text-emerald-400 font-semibold mb-6">
-              Customer Care
-            </h4>
-            <ul className="space-y-3.5">
-              <li>
-                <button
-                  onClick={() =>
-                    document.dispatchEvent(new CustomEvent("open-contact"))
-                  }
-                  className="group text-xs font-light text-brand-gray-300 hover:text-white transition-colors flex items-center gap-2.5 cursor-pointer"
-                >
-                  <span className="w-6 h-6 rounded-lg bg-white/5 group-hover:bg-emerald-500/20 text-brand-gray-400 group-hover:text-emerald-400 flex items-center justify-center transition-colors">
-                    <Sparkles className="w-3.5 h-3.5" />
-                  </span>
-                  <span className="truncate">
-                    Help & Support
-                  </span>
-                </button>
-              </li>
-              {SOCIAL_LINKS.map((link) => (
-                <li key={link.id}>
-                  <a
-                    href={link.href}
-                    target={link.href.startsWith("http") ? "_blank" : "_self"}
-                    rel="noopener noreferrer"
-                    className="group text-xs font-light text-brand-gray-300 hover:text-white transition-colors flex items-center gap-2.5"
+            <ul className="space-y-3">
+              {[
+                { id: "fruits", label: "Fresh Fruits" },
+                { id: "vegetables", label: "Exotic Vegetables" },
+                { id: "meat", label: "Meat & Seafood" },
+                { id: "smoothies", label: "Signature Smoothies" },
+                { id: "fast-foods", label: "Fast Foods" },
+              ].map((dept) => (
+                <li key={dept.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      document.dispatchEvent(new CustomEvent("open-retail"));
+                      setTimeout(() => {
+                        window.dispatchEvent(
+                          new CustomEvent("select-category", { detail: dept.id })
+                        );
+                      }, 60);
+                    }}
+                    className="group text-sm font-sans-clean font-light text-[#A8A29E] hover:text-[#FAF9F5] transition-all duration-200 flex items-center gap-2 cursor-pointer text-left"
                   >
-                    <span className="w-6 h-6 rounded-lg bg-white/5 group-hover:bg-emerald-500/20 text-brand-gray-400 group-hover:text-emerald-400 flex items-center justify-center transition-colors">
-                      {link.icon({ className: "w-3.5 h-3.5" })}
-                    </span>
-                    <span className="truncate">
-                      {link.label}:{" "}
-                      <strong className="font-mono text-white/90 group-hover:text-emerald-300">
-                        {link.handle}
-                      </strong>
-                    </span>
-                  </a>
+                    <span className="w-1.5 h-[1px] bg-[#443D36] group-hover:w-3 group-hover:bg-[#C5A880] transition-all duration-200" />
+                    <span>{dept.label}</span>
+                  </button>
                 </li>
               ))}
             </ul>
           </div>
-        </div>
 
-        {/* Architectural Developer Section replacing the old glowing badge & social row */}
-        <div className="mt-20 pt-8 border-t border-brand-gray-800 relative">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8 mb-6">
-            <p className="text-xs text-brand-gray-500 font-light">
-              &copy; {new Date().getFullYear()} {storeName} Premium Products. All
-              rights reserved.
-            </p>
+          {/* Wholesale & Company (Span 4) */}
+          <div className="lg:col-span-4">
+            <h4 className="font-mono text-[10.5px] uppercase tracking-[0.24em] text-[#C5A880] font-semibold mb-5 flex items-center gap-2">
+              <span>Wholesale &amp; Company</span>
+            </h4>
+            <ul className="space-y-3.5">
+              <li>
+                <button
+                  type="button"
+                  onClick={() =>
+                    document.dispatchEvent(new CustomEvent("open-wholesale"))
+                  }
+                  className="group inline-flex items-center gap-2 text-sm font-medium text-[#C5A880] hover:text-[#FAF9F5] transition-colors cursor-pointer text-left"
+                >
+                  <span>Wholesale &amp; Bulk Supply</span>
+                  <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() =>
+                    document.dispatchEvent(new CustomEvent("open-about"))
+                  }
+                  className="group text-sm font-sans-clean font-light text-[#A8A29E] hover:text-[#FAF9F5] transition-all duration-200 flex items-center gap-2 cursor-pointer text-left"
+                >
+                  <span className="w-1.5 h-[1px] bg-[#443D36] group-hover:w-3 group-hover:bg-[#C5A880] transition-all duration-200" />
+                  <span>About {storeName}</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() =>
+                    document.dispatchEvent(new CustomEvent("open-contact"))
+                  }
+                  className="group text-sm font-sans-clean font-light text-[#A8A29E] hover:text-[#FAF9F5] transition-all duration-200 flex items-center gap-2 cursor-pointer text-left"
+                >
+                  <span className="w-1.5 h-[1px] bg-[#443D36] group-hover:w-3 group-hover:bg-[#C5A880] transition-all duration-200" />
+                  <span>Customer Help Desk</span>
+                </button>
+              </li>
+              <li className="pt-2 border-t border-[#26221E] text-xs text-[#8E867E] font-mono tabular-nums">
+                <span className="text-[#655E57] block text-[10px] uppercase tracking-wider mb-0.5">Operating Hours</span>
+                7:00 AM – 10:00 PM IST (Daily)
+              </li>
+              <li className="text-xs text-[#8E867E]">
+                Marketed by <span className="text-[#D6D0C4] font-medium">{settings.aboutUs?.marketedBy || "SHAM'S™"}</span>
+              </li>
+            </ul>
           </div>
+        </motion.div>
 
-          {/* Legal & Regulatory Compliance — FSSAI and Udyam (MSME) registration */}
-          <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-x-8 gap-y-2 mb-12 py-4 border-y border-white/5">
-            <span className="text-[11px] text-brand-gray-500 font-light tracking-wide">
-              FSSAI Lic. No.{" "}
-              <strong className="font-mono text-brand-gray-300 font-medium">
-                21226112000732
-              </strong>
-            </span>
-            <span className="hidden sm:inline text-brand-gray-700">|</span>
-            <span className="text-[11px] text-brand-gray-500 font-light tracking-wide">
-              Udyam Reg. No.{" "}
-              <strong className="font-mono text-brand-gray-300 font-medium">
-                UDYAM-KR-19-0005999
-              </strong>
-            </span>
+        {/* Bottom Colophon Bar & Designer Attribution */}
+        <div className="mt-14 sm:mt-16 pt-8 border-t border-[#26221E] relative">
+          <div className="flex flex-col sm:flex-row flex-wrap items-center justify-between gap-4 py-3 text-center sm:text-left">
+            <p className="text-xs text-[#78716C] font-sans-clean font-light">
+              &copy; {new Date().getFullYear()} {storeName} Premium Products. All rights reserved.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-[11px] text-[#78716C] font-mono">
+              <span>Bengaluru, India</span>
+              <span aria-hidden="true">·</span>
+              <span>Direct Farm Logistics</span>
+              <span aria-hidden="true">·</span>
+              <span>Express Cold Chain</span>
+            </div>
           </div>
 
           <DeveloperFooter />

@@ -17,6 +17,7 @@ interface DeveloperPresentationProps {
 }
 
 import { useSettings } from "../../../contexts/SettingsContext";
+import { InstagramIcon } from "./SocialIcons";
 
 export function DeveloperPresentation({
   isOpen,
@@ -322,6 +323,7 @@ export function DeveloperPresentation({
                   className="group relative inline-flex items-center gap-4 bg-[#1E1E1C] text-[#F5F1EB] px-8 py-4 rounded-full overflow-hidden transition-all duration-500 hover:shadow-[0_12px_24px_rgba(42,17,20,0.25)] hover:-translate-y-1"
                 >
                   <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
+                  <InstagramIcon className="relative z-10 w-4 h-4 text-[#F5F1EB]" />
                   <span className="relative z-10 font-mono uppercase tracking-[0.1em] text-xs font-medium group-hover:text-white transition-colors duration-300">
                     Let's Connect
                   </span>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jiyoo-catalog-v2';
+const CACHE_NAME = 'jiyoo-catalog-v3';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/logo.jpg',
@@ -64,8 +64,14 @@ self.addEventListener('fetch', (event) => {
   // Don't intercept analytics or third-party non-HTTP
   if (!url.protocol.startsWith('http')) return;
 
-  // For API / Firebase auth or POST requests, pass through
-  if (url.pathname.startsWith('/api/') || url.hostname.includes('firestore.googleapis.com')) {
+  // For API / Firebase auth / Vite dev server requests, pass through
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/node_modules/') ||
+    url.hostname.includes('firestore.googleapis.com')
+  ) {
     return;
   }
 
@@ -92,7 +98,7 @@ self.addEventListener('fetch', (event) => {
     event.request.destination === 'style' ||
     event.request.destination === 'script' ||
     event.request.destination === 'font' ||
-    url.pathname.match(/\.(jpg|jpeg|png|webp|svg|gif|css|js|ts|tsx|woff2?)$/i);
+    url.pathname.match(/\.(jpg|jpeg|png|webp|svg|gif|css|js|woff2?)$/i);
 
   if (isAsset) {
     event.respondWith(

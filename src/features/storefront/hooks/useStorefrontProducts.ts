@@ -58,7 +58,7 @@ export function useStorefrontProducts() {
     };
   }, []);
 
-  const currentProducts = isFirebaseConfigured
+  const currentProducts = isFirebaseConfigured && dbProducts.length > 0
      ? dbProducts
      : defaultProducts.map(p => ({ ...p, image: getOptimizedImageUrl(p.image, 500, 80) }));
 

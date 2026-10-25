@@ -209,29 +209,34 @@ export function Storefront() {
 
   return (
     <div id="products" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
-      
       {!searchQuery && (
-        <div className="flex flex-col gap-8 mb-12 relative z-10">
-          {/* Main Categories - Premium Editorial Image Cards */}
-          <div className="grid grid-cols-5 gap-2 sm:gap-6 md:gap-8 w-full pb-6 pt-2">
-            {categoriesList.map(category => {
+        <div className="flex flex-col gap-6 sm:gap-8 mb-10 sm:mb-12 relative z-10">
+          {/* Main Categories - Editorial Image Cards with Scroll-Triggered Choreography & Uncropped Mobile Labels */}
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-6 md:gap-8 w-full pb-4 sm:pb-6 pt-2 items-start">
+            {categoriesList.map((category, index) => {
               const isActive = activeCategoryId === category.id;
               const thumbData = categoryThumbnails.get(category.id);
               
               return (
-                <button
+                <motion.button
                   key={category.id}
+                  initial={{ opacity: 0, y: 24, scale: 0.96 }}
+                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                  viewport={{ once: true, amount: 0.25 }}
+                  transition={{ duration: 0.55, delay: index * 0.065, ease: [0.16, 1, 0.3, 1] }}
+                  whileHover={{ y: -4 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => handleCategoryChange(category.id)}
-                  className="group flex min-w-0 w-full flex-col items-center outline-none gap-2 sm:gap-4 cursor-pointer"
+                  className="group relative flex min-w-0 w-full flex-col items-center outline-none gap-1.5 sm:gap-3.5 cursor-pointer pb-2.5"
                 >
                   <div 
-                    className={`relative w-full aspect-[4/5] rounded-xl sm:rounded-[20px] overflow-hidden bg-brand-white border border-brand-gray-100 transition-all duration-300 ease-out sm:group-hover:-translate-y-[3px] sm:group-hover:shadow-[0_12px_24px_-8px_rgba(0,0,0,0.15)] ${isActive ? 'shadow-[0_8px_16px_-6px_rgba(0,0,0,0.1)] ring-2 ring-brand-black/20 scale-[1.02]' : 'shadow-[0_4px_12px_-4px_rgba(0,0,0,0.05)]'}`}
+                    className={`relative w-full aspect-square sm:aspect-[4/5] rounded-xl sm:rounded-[20px] overflow-hidden bg-brand-white border border-brand-gray-100 transition-all duration-300 ease-out sm:group-hover:shadow-[0_14px_28px_-8px_rgba(0,0,0,0.14)] ${isActive ? 'shadow-[0_10px_20px_-6px_rgba(0,0,0,0.12)] ring-2 ring-brand-black/25' : 'shadow-[0_4px_12px_-4px_rgba(0,0,0,0.05)]'}`}
                   >
                     {thumbData?.urls && thumbData.urls.length > 0 ? (
                       <img 
                         src={thumbData.urls[0]} 
                         alt={category.label} 
-                        className={`w-full h-full object-contain bg-white transition-transform duration-300 ease-out ${category.id === 'fast-foods' ? '' : 'sm:group-hover:scale-[1.01]'} ${category.id === 'fast-foods' ? '' : (isActive ? 'scale-[1.01]' : 'scale-100')}`}
+                        className={`w-full h-full object-cover transition-transform duration-500 ease-out sm:group-hover:scale-105 ${isActive ? 'scale-105' : 'scale-100'}`}
                         loading="lazy"
                       />
                     ) : null}
@@ -243,61 +248,78 @@ export function Storefront() {
                   </div>
                   
                   <span 
-                    className={`font-serif text-xs sm:text-base tracking-tight sm:tracking-wide text-center truncate w-full transition-colors ${isActive ? 'text-brand-black font-semibold' : 'text-brand-gray-600 sm:group-hover:text-brand-black'}`}
+                    className={`font-serif text-[10.5px] sm:text-base leading-tight tracking-tight sm:tracking-wide text-center w-full break-words transition-colors duration-200 ${isActive ? 'text-brand-black font-semibold' : 'text-brand-gray-600 sm:group-hover:text-brand-black'}`}
                   >
                     {category.label}
                   </span>
-                </button>
+
+                  {isActive && (
+                    <motion.span
+                      layoutId="activeCategoryUnderline"
+                      className="absolute bottom-0 w-5 sm:w-10 h-[2px] bg-[#1C1917] rounded-full"
+                      transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                    />
+                  )}
+                </motion.button>
               );
             })}
           </div>
 
-          {/* Subcategories - Refined Underline Tabs */}
+          {/* Subcategories - Refined Underline Tabs with Scroll-Drawn Border */}
           {activeCategory?.items && (
-            <div className="flex gap-6 sm:gap-8 overflow-x-auto pb-2 scrollbar-hide border-b border-brand-gray-200 -mx-4 px-4 sm:mx-0 sm:px-0">
+            <motion.div
+              key={`subcats-${activeCategoryId}`}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-wrap sm:flex-nowrap gap-x-5 gap-y-2 sm:gap-8 overflow-x-auto pb-2 scrollbar-hide border-b border-brand-gray-200"
+            >
               {activeCategory.items.map(sub => {
                 const isActive = activeSubcategoryId === sub.id;
                 return (
                   <button
                     key={sub.id}
                     onClick={() => handleSubcategoryChange(sub.id)}
-                    className={`relative pb-4 text-sm font-medium whitespace-nowrap transition-colors duration-300
+                    className={`relative pb-3 sm:pb-4 text-xs sm:text-sm font-medium whitespace-nowrap transition-colors duration-300 cursor-pointer
                       ${isActive ? 'text-brand-gray-900' : 'text-brand-gray-400 hover:text-brand-gray-600'}`}
                   >
                     {sub.label}
                     {isActive && (
                       <motion.div layoutId="activeSubcategory"
                         className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-gray-900"
-                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 32 }}
                       />
                     )}
                   </button>
                 );
               })}
-            </div>
+            </motion.div>
           )}
 
-          {/* Sub-Subcategories - Minimalist Chips */}
+          {/* Sub-Subcategories - Minimalist Segmented Controls (Uncropped Wrap on Mobile) */}
           {activeSubcategory?.items && (
             <motion.div 
-              initial={{ opacity: 0, y: -10 }}
+              key={`subsubcats-${activeSubcategoryId}`}
+              initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0"
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-wrap gap-2"
             >
               {activeSubcategory.items.map(subsub => {
                 const isActive = activeSubSubcategoryId === subsub.id;
                 return (
-                  <button
+                  <motion.button
                     key={subsub.id}
+                    whileTap={{ scale: 0.96 }}
                     onClick={() => handleSubSubcategoryChange(subsub.id)}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all duration-300
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors duration-200 cursor-pointer
                       ${isActive 
-                        ? 'bg-brand-gray-900 text-brand-white shadow-md' 
+                        ? 'bg-brand-gray-900 text-brand-white shadow-sm' 
                         : 'bg-brand-gray-100 text-brand-gray-500 hover:bg-brand-gray-200 hover:text-brand-gray-900'
                       }`}
                   >
                     {subsub.label}
-                  </button>
+                  </motion.button>
                 );
               })}
             </motion.div>
@@ -346,7 +368,7 @@ export function Storefront() {
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-6 sm:gap-x-6 sm:gap-y-10">
               {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
                 <div key={n} className="flex flex-col gap-4 animate-pulse">
-                  <div className="w-full aspect-[4/5] bg-[#E7E3DA]/60 rounded-2xl" />
+                  <div className="w-full aspect-[4/3] bg-[#E7E3DA]/60 rounded-2xl" />
                   <div className="space-y-3">
                     <div className="w-1/3 h-2.5 bg-[#D6D3D1]/60 rounded-full" />
                     <div className="w-3/4 h-3.5 bg-[#D6D3D1]/60 rounded-full" />
@@ -360,25 +382,26 @@ export function Storefront() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="absolute inset-0 flex flex-col items-center justify-center text-center py-20 bg-brand-gray-50 rounded-3xl border border-brand-gray-200"
+            className=" flex flex-col items-center justify-center text-center py-20 px-4 bg-brand-gray-50 rounded-3xl border border-brand-gray-200"
           >
-            <div className="w-24 h-24 rounded-full bg-brand-white shadow-xl shadow-brand-gray-200/50 flex items-center justify-center mb-6">
-              <Search className="w-10 h-10 text-brand-gray-400" />
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-brand-white shadow-xl shadow-brand-gray-200/50 flex items-center justify-center mb-6">
+              <Search className="w-8 h-8 sm:w-10 sm:h-10 text-brand-gray-400" />
             </div>
-            <h3 className="text-2xl font-serif text-brand-black mb-2">No items found</h3>
-            <p className="text-brand-gray-500 max-w-md mx-auto">
+            <h3 className="text-xl sm:text-2xl font-serif text-brand-black mb-2">No items found</h3>
+            <p className="text-sm sm:text-base text-brand-gray-500 max-w-md mx-auto">
               We couldn't find any products matching your current selection. 
               Try browsing a different category or refining your search.
             </p>
           </motion.div>
         ) : (
           <motion.div
-            className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-6 sm:gap-x-6 sm:gap-y-10"
+            className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-5 sm:gap-x-6 sm:gap-y-10"
           >
             <AnimatePresence mode="popLayout">
-              {displayedProducts.slice(0, visibleCount).map((product) => (
+              {displayedProducts.slice(0, visibleCount).map((product, idx) => (
                 <ProductCard 
                   key={product.id} 
+                  index={idx}
                   product={product} 
                   isWishlisted={wishlist.includes(String(product.id))}
                   toggleWishlist={toggleWishlist}
@@ -404,7 +427,7 @@ export function Storefront() {
 
       <ProductDetailModal
         product={selectedProduct}
-        allProducts={dbProducts}
+        allProducts={currentProducts}
         isOpen={isDetailOpen}
         onClose={() => {
           setIsDetailOpen(false);

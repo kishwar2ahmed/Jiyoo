@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useCart } from "../../../contexts/CartContext";
 import { useSettings } from "../../../contexts/SettingsContext";
@@ -10,28 +10,35 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
   );
   const { user } = useCart();
   const { settings } = useSettings();
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   useEffect(() => {
     const textTimer1 = setTimeout(
       () => setLoadingText("Preparing Your Experience..."),
-      1000,
+      600,
     );
     const textTimer2 = setTimeout(
       () => setLoadingText("Welcome to JIYOO..."),
-      2000,
+      1200,
     );
 
+    let finishTimer: ReturnType<typeof setTimeout> | undefined;
     const completeTimer = setTimeout(() => {
       setIsVisible(false);
-      setTimeout(onComplete, 800);
-    }, 3000);
+      finishTimer = setTimeout(() => onCompleteRef.current(), 400);
+    }, 1800);
 
     return () => {
       clearTimeout(textTimer1);
       clearTimeout(textTimer2);
       clearTimeout(completeTimer);
+      if (finishTimer) clearTimeout(finishTimer);
     };
-  }, [onComplete]);
+  }, []);
 
   return (
     <AnimatePresence>
