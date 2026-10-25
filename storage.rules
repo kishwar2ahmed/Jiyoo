@@ -1,0 +1,44 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Authoritative admin check: the same server-controlled Firebase Auth
+    // custom claim used by firestore.rules and server.ts. Custom claims ride
+    // inside the caller's ID token, so no Firestore lookup is needed here
+    // (and this can never be influenced by anything client-writable).
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Shared file-type/size validation. 10MB matches the client-side cap
+    // enforced in useImageUploader.ts before any upload begins, so a file
+    // that passes frontend validation can never be silently rejected here.
+    function isValidImage() {
+      return request.resource.size <= 10 * 1024 * 1024 &&
+             request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    match /users/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isValidImage();
+    }
+
+    match /settings/{imageId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidImage();
+    }
+
+    match /uploads/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidImage();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

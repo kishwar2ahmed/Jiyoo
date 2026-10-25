@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="format-detection" content="telephone=no" />
+    <script>
+      window.process = window.process || { env: { NODE_ENV: 'production' } };
+      window.addEventListener('unhandledrejection', function(event) {
+        var reason = event && (event.reason || event);
+        var reasonStr = String((reason && reason.message) || reason || '');
+        if (
+          reasonStr.indexOf('WebSocket') !== -1 ||
+          reasonStr.indexOf('websocket') !== -1 ||
+          reasonStr.indexOf('Firestore') !== -1 ||
+          reasonStr.indexOf('Failed to fetch') !== -1 ||
+          reasonStr.indexOf('unavailable') !== -1
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }, true);
+      window.addEventListener('error', function(event) {
+        var errStr = String((event && event.message) || '');
+        if (errStr.indexOf('WebSocket') !== -1 || errStr.indexOf('websocket') !== -1) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }, true);
+    </script>
+    <link rel="icon" type="image/jpeg" href="/jiyoo.logo.jpeg" />
+    <link rel="apple-touch-icon" href="/jiyoo.logo.jpeg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#1C1917" />
+    <title>JIYOO | Premium Products</title>
+    
+    <!-- SEO and Social Preview (Open Graph) -->
+    <meta name="description" content="The world's finest ingredients, curated for the uncompromising palate. Delivered with precision and elegance." />
+    <meta property="og:title" content="JIYOO | Premium Products" />
+    <meta property="og:description" content="The world's finest ingredients, curated for the uncompromising palate. Delivered with precision and elegance." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/og-image.png" />
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Store",
+      "name": "JIYOO Premium Products",
+      "description": "The world's finest ingredients, curated for the uncompromising palate."
+    }
+    </script>
+    <!-- Preconnect to image CDNs -->
+    <link rel="preconnect" href="https://images.unsplash.com" />
+    <!-- Premium Fonts -->
+    
+    <link rel="preload" as="image" href="/jiyoo.logo.jpeg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+    <style>
+      /* Initial loader & body base styles */
+      body { 
+        margin: 0; 
+        background-color: #FAFAF8; 
+        color: #1C1917;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+      }
+      .initial-loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: #FAF9F6;
+        z-index: 9999;
+        font-family: 'Cormorant Garamond', Georgia, serif;
+      }
+      .loader-logo {
+        width: 140px;
+        height: auto;
+        border-radius: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="initial-loader">
+        <img src="/jiyoo.logo.jpeg" alt="Logo" class="loader-logo" />
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
+

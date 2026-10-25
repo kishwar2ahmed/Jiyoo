@@ -1,0 +1,20 @@
+name: Jiyoo CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate-build-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.2
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: node scripts/validate-jiyoo.mjs

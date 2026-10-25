@@ -1,0 +1,420 @@
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { useCart } from '../../../contexts/CartContext';
+import { CATEGORIES as defaultCategories } from '../../../constants/data';
+import { ProductCard } from '../../product/components/ProductCard';
+import { ProductDetailModal } from '../../product/components/ProductDetailModal';
+import { Product } from '../../../types';
+import { Search } from 'lucide-react';
+import { useStorefrontCategories } from '../hooks/useStorefrontCategories';
+import { fuzzyTextMatch } from '../../../utils/fuzzyMatch';
+import { useStorefrontProducts } from '../hooks/useStorefrontProducts';
+
+export function Storefront() {
+  const { categoriesList } = useStorefrontCategories();
+  const { currentProducts, dbProducts, isProductsLoading } = useStorefrontProducts();
+
+  const [activeCategoryId, setActiveCategoryId] = useState(defaultCategories[0].id);
+  const [activeSubcategoryId, setActiveSubcategoryId] = useState<string | null>(defaultCategories[0].items?.[0]?.id ?? null);
+  const [activeSubSubcategoryId, setActiveSubSubcategoryId] = useState<string | null>(null);
+  
+  // Product Detail Modal state
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [detailInitialTab, setDetailInitialTab] = useState<'details' | 'reviews'>('details');
+
+  const handleProductClick = useCallback((product: Product, initialTab: 'details' | 'reviews' = 'details') => {
+    setSelectedProduct(product);
+    setDetailInitialTab(initialTab);
+    setIsDetailOpen(true);
+  }, []);
+
+  const { searchQuery } = useCart();
+  const [visibleCount, setVisibleCount] = useState(24);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useCallback((node: HTMLDivElement) => {
+    if (isProductsLoading) return;
+    if (observerRef.current) observerRef.current.disconnect();
+    observerRef.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) {
+        setVisibleCount(prev => prev + 24);
+      }
+    }, { rootMargin: '1200px' });
+    if (node) observerRef.current.observe(node);
+  }, [isProductsLoading]);
+
+  // Reset count on category change
+  useEffect(() => { setVisibleCount(24); }, [activeCategoryId, activeSubcategoryId, activeSubSubcategoryId, searchQuery]);
+
+  // If the active category is frozen (or no longer exists) once live category
+  // data loads, fall back to the first category shoppers can actually see --
+  // otherwise activeCategoryId could keep pointing at a frozen category
+  // (e.g. the bundled default) whose tab is now hidden from categoriesList.
+  useEffect(() => {
+    if (categoriesList.length === 0) return;
+    if (!categoriesList.some(c => c.id === activeCategoryId)) {
+      setActiveCategoryId(categoriesList[0].id);
+      const firstSub = categoriesList[0].items?.[0];
+      setActiveSubcategoryId(firstSub?.id ?? null);
+      setActiveSubSubcategoryId(firstSub?.items?.[0]?.id ?? null);
+    }
+  }, [categoriesList, activeCategoryId]);
+
+  const activeCategoryIdRef = useRef(activeCategoryId);
+  useEffect(() => { activeCategoryIdRef.current = activeCategoryId; }, [activeCategoryId]);
+
+  const applyCategoryState = useCallback((categoryId: string) => {
+    const category = categoriesList.find(c => c.id === categoryId);
+    if (!category) return false;
+    setActiveCategoryId(categoryId);
+
+    if (category.items && category.items.length > 0) {
+      const firstSub = category.items[0];
+      setActiveSubcategoryId(firstSub.id);
+      if (firstSub.items && firstSub.items.length > 0) {
+        setActiveSubSubcategoryId(firstSub.items[0].id);
+      } else {
+        setActiveSubSubcategoryId(null);
+      }
+    } else {
+      setActiveSubcategoryId(null);
+      setActiveSubSubcategoryId(null);
+    }
+    return true;
+  }, [categoriesList]);
+
+  const handleCategoryChange = useCallback((categoryId: string) => {
+    if (categoryId === activeCategoryIdRef.current) return;
+    if (!applyCategoryState(categoryId)) return; // frozen or no longer exists -- ignore the request
+    // Record this so the back button steps to the previously viewed
+    // category instead of leaving the app straight away.
+    window.history.pushState({ jiyooCategory: categoryId }, "", window.location.href);
+  }, [applyCategoryState]);
+
+  // Back button support: step back to the previously viewed category.
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      const state = e.state as { jiyooCategory?: string } | null;
+      if (state?.jiyooCategory && state.jiyooCategory !== activeCategoryIdRef.current) {
+        applyCategoryState(state.jiyooCategory);
+      }
+      // No jiyooCategory in the popped state -- that's the app's base view.
+      // App.tsx's own popstate listener handles the "leave the app?" prompt.
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [applyCategoryState]);
+
+  const handleSubcategoryChange = useCallback((subcategoryId: string) => {
+    setActiveSubcategoryId(subcategoryId);
+    const category = categoriesList.find(c => c.id === activeCategoryId);
+    const subcategory = category?.items?.find(s => s.id === subcategoryId);
+    
+    if (subcategory && subcategory.items && subcategory.items.length > 0) {
+      setActiveSubSubcategoryId(subcategory.items[0].id);
+    } else {
+      setActiveSubSubcategoryId(null);
+    }
+  }, [activeCategoryId, categoriesList]);
+
+  const handleSubSubcategoryChange = useCallback((subSubcategoryId: string) => {
+    setActiveSubSubcategoryId(subSubcategoryId);
+  }, []);
+
+  const { wishlist, toggleWishlist } = useCart();
+
+
+  const activeCategory = categoriesList.find(c => c.id === activeCategoryId);
+  const activeSubcategory = activeCategory?.items?.find(s => s.id === activeSubcategoryId);
+
+  const frozenCategoryIds = useMemo(
+    () => new Set(categoriesList.filter(c => (c as any).isFrozen).map(c => c.id)),
+    [categoriesList]
+  );
+
+  const displayedProducts = useMemo(() => {
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase();
+      const searchable = currentProducts.filter(p => !frozenCategoryIds.has(p.categoryId));
+      const exactMatches = searchable.filter(p => 
+        p.name.toLowerCase().includes(lowerQuery) || 
+        p.description?.toLowerCase().includes(lowerQuery) ||
+        p.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))
+      );
+      if (exactMatches.length > 0) return exactMatches;
+      // Typo-tolerant fallback: only engages when the exact search found
+      // nothing, so normal search behavior/ranking is unchanged.
+      return searchable.filter(p =>
+        fuzzyTextMatch(p.name, searchQuery) ||
+        (p.description ? fuzzyTextMatch(p.description, searchQuery) : false) ||
+        (p.tags?.some(tag => fuzzyTextMatch(tag, searchQuery)) ?? false)
+      );
+    }
+
+    return currentProducts.filter(p => {
+      if (p.categoryId !== activeCategoryId) return false;
+      if (activeSubcategoryId && p.subcategoryId !== activeSubcategoryId) return false;
+      if (activeSubSubcategoryId && p.subSubcategoryId !== activeSubSubcategoryId) return false;
+      return true;
+    });
+  }, [activeCategoryId, activeSubcategoryId, activeSubSubcategoryId, searchQuery, currentProducts, frozenCategoryIds]);
+
+  useEffect(() => {
+    const handleSelectCategory = (e: CustomEvent<string | { categoryId: string }>) => {
+      const categoryId = typeof e.detail === 'string' ? e.detail : e.detail?.categoryId;
+      if (categoryId) {
+        handleCategoryChange(categoryId);
+        document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('select-category' as any, handleSelectCategory);
+    return () => window.removeEventListener('select-category' as any, handleSelectCategory);
+  }, [categoriesList]);
+
+  const categoryThumbnails = useMemo(() => {
+    const map = new Map<string, { type: 'real-composite' | 'products', urls: string[] }>();
+    
+    const customPremiumImages: Record<string, string[]> = {
+      'fruits': [
+        'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1200&q=80&auto=format&fit=crop'
+      ],
+      'vegetables': [
+        'https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?w=1200&q=80&auto=format&fit=crop'
+      ],
+      'meat': [
+        'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=1200&q=80&auto=format&fit=crop'
+      ],
+      // User-provided Smoothies artwork; use the supplied file unchanged.
+      'smoothies': [
+        '/category-icons/smoothies.jpg'
+      ],
+      // User-provided Fast Foods artwork; use the supplied file unchanged.
+      'fast-foods': [
+        '/category-icons/fast-foods.png'
+      ]
+    };
+
+    categoriesList.forEach(cat => {
+      if (customPremiumImages[cat.id]) {
+        map.set(cat.id, { type: 'real-composite', urls: customPremiumImages[cat.id] });
+      } else {
+        const prods = currentProducts.filter(p => p.categoryId === cat.id && p.image).slice(0, 3);
+        if (prods.length > 0) {
+          map.set(cat.id, { type: 'products', urls: prods.map(p => p.image!) });
+        }
+      }
+    });
+    return map;
+  }, [categoriesList, currentProducts]);
+
+  return (
+    <div id="products" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
+      
+      {!searchQuery && (
+        <div className="flex flex-col gap-8 mb-12 relative z-10">
+          {/* Main Categories - Premium Editorial Image Cards */}
+          <div className="grid grid-cols-5 gap-2 sm:gap-6 md:gap-8 w-full pb-6 pt-2">
+            {categoriesList.map(category => {
+              const isActive = activeCategoryId === category.id;
+              const thumbData = categoryThumbnails.get(category.id);
+              
+              return (
+                <button
+                  key={category.id}
+                  onClick={() => handleCategoryChange(category.id)}
+                  className="group flex min-w-0 w-full flex-col items-center outline-none gap-2 sm:gap-4 cursor-pointer"
+                >
+                  <div 
+                    className={`relative w-full aspect-[4/5] rounded-xl sm:rounded-[20px] overflow-hidden bg-brand-white border border-brand-gray-100 transition-all duration-300 ease-out sm:group-hover:-translate-y-[3px] sm:group-hover:shadow-[0_12px_24px_-8px_rgba(0,0,0,0.15)] ${isActive ? 'shadow-[0_8px_16px_-6px_rgba(0,0,0,0.1)] ring-2 ring-brand-black/20 scale-[1.02]' : 'shadow-[0_4px_12px_-4px_rgba(0,0,0,0.05)]'}`}
+                  >
+                    {thumbData?.urls && thumbData.urls.length > 0 ? (
+                      <img 
+                        src={thumbData.urls[0]} 
+                        alt={category.label} 
+                        className={`w-full h-full object-contain bg-white transition-transform duration-300 ease-out ${category.id === 'fast-foods' ? '' : 'sm:group-hover:scale-[1.01]'} ${category.id === 'fast-foods' ? '' : (isActive ? 'scale-[1.01]' : 'scale-100')}`}
+                        loading="lazy"
+                      />
+                    ) : null}
+                    {(!thumbData?.urls || thumbData.urls.length === 0) && (
+                      <div className="w-full h-full flex items-center justify-center bg-brand-gray-50">
+                        <span className="text-brand-gray-300 font-serif text-2xl sm:text-4xl">{category.label.charAt(0)}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <span 
+                    className={`font-serif text-xs sm:text-base tracking-tight sm:tracking-wide text-center truncate w-full transition-colors ${isActive ? 'text-brand-black font-semibold' : 'text-brand-gray-600 sm:group-hover:text-brand-black'}`}
+                  >
+                    {category.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Subcategories - Refined Underline Tabs */}
+          {activeCategory?.items && (
+            <div className="flex gap-6 sm:gap-8 overflow-x-auto pb-2 scrollbar-hide border-b border-brand-gray-200 -mx-4 px-4 sm:mx-0 sm:px-0">
+              {activeCategory.items.map(sub => {
+                const isActive = activeSubcategoryId === sub.id;
+                return (
+                  <button
+                    key={sub.id}
+                    onClick={() => handleSubcategoryChange(sub.id)}
+                    className={`relative pb-4 text-sm font-medium whitespace-nowrap transition-colors duration-300
+                      ${isActive ? 'text-brand-gray-900' : 'text-brand-gray-400 hover:text-brand-gray-600'}`}
+                  >
+                    {sub.label}
+                    {isActive && (
+                      <motion.div layoutId="activeSubcategory"
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-gray-900"
+                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Sub-Subcategories - Minimalist Chips */}
+          {activeSubcategory?.items && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0"
+            >
+              {activeSubcategory.items.map(subsub => {
+                const isActive = activeSubSubcategoryId === subsub.id;
+                return (
+                  <button
+                    key={subsub.id}
+                    onClick={() => handleSubSubcategoryChange(subsub.id)}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all duration-300
+                      ${isActive 
+                        ? 'bg-brand-gray-900 text-brand-white shadow-md' 
+                        : 'bg-brand-gray-100 text-brand-gray-500 hover:bg-brand-gray-200 hover:text-brand-gray-900'
+                      }`}
+                  >
+                    {subsub.label}
+                  </button>
+                );
+              })}
+            </motion.div>
+          )}
+        </div>
+      )}
+
+      {/* Search Header */}
+      {searchQuery && (
+        <div className="mb-12 border-b border-brand-gray-200 pb-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-brand-gray-100 flex items-center justify-center">
+              <Search className="w-5 h-5 text-brand-gray-600" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-serif text-brand-black">Search Results</h2>
+              <p className="text-brand-gray-500 text-sm mt-1">
+                Found {displayedProducts.length} items for "{searchQuery}"
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Products Grid */}
+      <div className="relative min-h-[400px]">
+        {isProductsLoading ? (
+          <div className="w-full">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center mb-12"
+            >
+              <div className="relative flex items-center justify-center w-8 h-8 mb-6">
+                <div className="absolute inset-0 border-[1px] border-[#1C1917]/20 rounded-full animate-[spin_4s_linear_infinite]" />
+                <div className="absolute inset-1.5 border-[1px] border-[#1C1917]/40 rounded-full animate-[spin_3s_linear_infinite_reverse]" />
+                <div className="w-1 h-1 bg-[#1C1917] rounded-full" />
+              </div>
+              <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.25em] text-[#78716C] font-semibold mb-2">
+                Curating Collection
+              </span>
+              <span className="text-lg sm:text-xl font-serif-luxury text-[#1C1917]">
+                Preparing your selection...
+              </span>
+            </motion.div>
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-6 sm:gap-x-6 sm:gap-y-10">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
+                <div key={n} className="flex flex-col gap-4 animate-pulse">
+                  <div className="w-full aspect-[4/5] bg-[#E7E3DA]/60 rounded-2xl" />
+                  <div className="space-y-3">
+                    <div className="w-1/3 h-2.5 bg-[#D6D3D1]/60 rounded-full" />
+                    <div className="w-3/4 h-3.5 bg-[#D6D3D1]/60 rounded-full" />
+                    <div className="w-1/4 h-4 bg-[#D6D3D1]/60 rounded-full mt-2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : displayedProducts.length === 0 ? (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute inset-0 flex flex-col items-center justify-center text-center py-20 bg-brand-gray-50 rounded-3xl border border-brand-gray-200"
+          >
+            <div className="w-24 h-24 rounded-full bg-brand-white shadow-xl shadow-brand-gray-200/50 flex items-center justify-center mb-6">
+              <Search className="w-10 h-10 text-brand-gray-400" />
+            </div>
+            <h3 className="text-2xl font-serif text-brand-black mb-2">No items found</h3>
+            <p className="text-brand-gray-500 max-w-md mx-auto">
+              We couldn't find any products matching your current selection. 
+              Try browsing a different category or refining your search.
+            </p>
+          </motion.div>
+        ) : (
+          <motion.div
+            className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-6 sm:gap-x-6 sm:gap-y-10"
+          >
+            <AnimatePresence mode="popLayout">
+              {displayedProducts.slice(0, visibleCount).map((product) => (
+                <ProductCard 
+                  key={product.id} 
+                  product={product} 
+                  isWishlisted={wishlist.includes(String(product.id))}
+                  toggleWishlist={toggleWishlist}
+                  onProductClick={handleProductClick}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        )}
+        
+        {displayedProducts.length > visibleCount && (
+          <div ref={loadMoreRef} className="w-full h-32 flex flex-col items-center justify-center mt-8 gap-4">
+            <div className="relative flex items-center justify-center w-6 h-6">
+              <div className="absolute inset-0 border-[1px] border-[#1C1917]/20 rounded-full animate-[spin_4s_linear_infinite]" />
+              <div className="absolute inset-1 border-[1px] border-[#1C1917]/40 rounded-full animate-[spin_3s_linear_infinite_reverse]" />
+            </div>
+            <span className="text-[9px] uppercase tracking-[0.2em] text-[#78716C] font-semibold">
+              Loading more selections
+            </span>
+          </div>
+        )}
+      </div>
+
+      <ProductDetailModal
+        product={selectedProduct}
+        allProducts={dbProducts}
+        isOpen={isDetailOpen}
+        onClose={() => {
+          setIsDetailOpen(false);
+          setTimeout(() => setSelectedProduct(null), 400);
+        }}
+        wishlist={wishlist}
+        toggleWishlist={toggleWishlist}
+        onProductClick={handleProductClick}
+        initialTab={detailInitialTab}
+      />
+    </div>
+  );
+}
