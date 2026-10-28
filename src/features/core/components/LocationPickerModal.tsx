@@ -66,6 +66,42 @@ export function LocationPickerModal({
     }
   };
 
+  const [groundingData, setGroundingData] = useState<{
+    text?: string;
+    mapsLinks?: Array<{ uri: string; title: string }>;
+    reviewSnippets?: string[];
+  } | null>(null);
+  const [isGroundingLoading, setIsGroundingLoading] = useState(false);
+
+  const fetchMapsGrounding = async (queryText?: string) => {
+    const q = (queryText || formattedAddress || searchQuery).trim();
+    if (!q) return;
+    setIsGroundingLoading(true);
+    try {
+      const res = await fetch('/api/maps/grounding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: q,
+          lat: selectedCoords.lat,
+          lng: selectedCoords.lng,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setGroundingData({
+          text: data.text,
+          mapsLinks: data.mapsLinks,
+          reviewSnippets: data.reviewSnippets,
+        });
+      }
+    } catch (err) {
+      console.warn('Maps grounding lookup failed:', err);
+    } finally {
+      setIsGroundingLoading(false);
+    }
+  };
+
   const handleDetectGps = () => {
     if (!navigator.geolocation) return;
     setIsGpsLoading(true);
@@ -279,6 +315,64 @@ export function LocationPickerModal({
                       placeholder="e.g. 560038"
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all font-mono"
                     />
+                  </div>
+
+                  {/* Google Maps Grounding Intelligence */}
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => fetchMapsGrounding()}
+                      disabled={isGroundingLoading || (!formattedAddress.trim() && !searchQuery.trim())}
+                      className="w-full py-2 px-3 bg-stone-100 hover:bg-stone-200 text-stone-800 text-[11px] font-semibold rounded-xl border border-stone-200 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      {isGroundingLoading ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                          Consulting Google Maps Platform...
+                        </>
+                      ) : (
+                        <>
+                          <Compass className="w-3.5 h-3.5 text-emerald-600" />
+                          Verify Locality with Google Maps
+                        </>
+                      )}
+                    </button>
+
+                    {groundingData && (
+                      <div className="mt-2.5 p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-2 text-xs">
+                        {groundingData.text && (
+                          <p className="text-stone-700 text-[11px] leading-relaxed">
+                            {groundingData.text}
+                          </p>
+                        )}
+                        {groundingData.mapsLinks && groundingData.mapsLinks.length > 0 && (
+                          <div className="pt-1 flex flex-wrap gap-2">
+                            {groundingData.mapsLinks.map((link, idx) => (
+                              <a
+                                key={idx}
+                                href={link.uri}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-emerald-700 hover:text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-semibold transition-colors shadow-2xs"
+                              >
+                                <MapPin className="w-3 h-3 text-emerald-600" />
+                                {link.title || 'Open in Google Maps'}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                        {groundingData.reviewSnippets && groundingData.reviewSnippets.length > 0 && (
+                          <div className="pt-1 border-t border-emerald-200/50">
+                            <p className="text-[10px] font-bold uppercase text-emerald-900 tracking-wider">Locality Highlights:</p>
+                            <ul className="list-disc pl-4 text-[10px] text-stone-600 space-y-0.5 mt-0.5">
+                              {groundingData.reviewSnippets.slice(0, 2).map((snip, idx) => (
+                                <li key={idx}>{snip}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </>

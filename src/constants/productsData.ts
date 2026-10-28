@@ -335,7 +335,7 @@ export const ALL_PRODUCTS: Product[] = [
     unit: '500g',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
-    image: '/products/f_red_ice_guava.jpg',
+    image: '/products/rediceguava.jpeg',
     tags: ['Imported', 'Premium', 'Red Flesh'],
     freshnessBadge: 'Specialty',
     deliveryEstimate: '60 mins',

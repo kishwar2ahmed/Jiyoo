@@ -52,7 +52,7 @@ const defaultAboutUs: AboutUsSettings = {
 
 const defaultSettings: Settings = {
   storeName: 'JIYOO Premium Products',
-  contactEmail: 'jiyooshams@gmail.com & shamsjiyoo@gmail.com',
+  contactEmail: 'shamsjiyoo@gmail.com (Primary) · jiyooshams@gmail.com',
   logoUrl: '/jiyoo.logo.jpeg',
   developerImageUrl: '/developer.png',
   whatsappNumber: '919739391891',

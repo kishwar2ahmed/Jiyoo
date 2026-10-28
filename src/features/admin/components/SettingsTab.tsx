@@ -4,6 +4,7 @@ import { useSettings } from "../../../contexts/SettingsContext";
 import { useCart } from "../../../contexts/CartContext";
 import { ImageUpload } from "./ImageUpload";
 import { useToast } from "../../core/contexts/ToastContext";
+import { PhonePeIcon, PaytmIcon, UpiOfficialIcon } from "../../core/components/UpiIcons";
 
 export function SettingsTab() {
   const { showToast } = useToast();
@@ -152,8 +153,12 @@ export function SettingsTab() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-brand-gray-700 mb-1">
-                Primary Store UPI ID (QR 1)
+              <label className="block text-sm font-medium text-brand-gray-700 mb-1 flex items-center justify-between">
+                <span>Primary Store UPI ID (QR 1)</span>
+                <span className="flex items-center gap-1.5">
+                  <PhonePeIcon className="h-4 w-4" />
+                  <UpiOfficialIcon className="h-3 w-auto" />
+                </span>
               </label>
               <input
                 type="text"
@@ -164,8 +169,12 @@ export function SettingsTab() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-brand-gray-700 mb-1">
-                Secondary Store UPI ID (QR 2)
+              <label className="block text-sm font-medium text-brand-gray-700 mb-1 flex items-center justify-between">
+                <span>Secondary Store UPI ID (QR 2)</span>
+                <span className="flex items-center gap-1.5">
+                  <PaytmIcon className="h-2.5 w-auto" />
+                  <UpiOfficialIcon className="h-3 w-auto" />
+                </span>
               </label>
               <input
                 type="text"

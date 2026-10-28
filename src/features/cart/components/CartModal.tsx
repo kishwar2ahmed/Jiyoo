@@ -10,13 +10,24 @@ import {
   CreditCard,
   Check,
   MapPin,
-  ShieldCheck,
   ChevronLeft,
   MessageCircle,
   Navigation,
   Bookmark,
   Zap,
 } from "lucide-react";
+import { PremiumShieldMark } from "../../core/components/PremiumShieldMark";
+import { RealisticDeliveryScooter } from "../../core/components/RealisticDeliveryScooter";
+import {
+  GooglePayIcon,
+  PhonePeIcon,
+  PaytmIcon,
+  UpiOfficialIcon,
+  VisaIcon,
+  MastercardIcon,
+  RuPayIcon,
+  UpiAppsPillRow,
+} from "../../core/components/UpiIcons";
 import { db } from "../../../services/firebase";
 import {
   collection,
@@ -35,52 +46,30 @@ import { useToast } from "../../core/contexts/ToastContext";
 import { useModalBackButton } from "../../core/hooks/useModalBackButton";
 
 import { getAuth } from "firebase/auth";
+import {
+  DEFAULT_RETAIL_AREAS,
+  RetailAreaItem,
+  normalizeIndianPincode,
+} from "../../../constants/deliveryAreas";
 
-// Trust & Payment Method Logos
-const PaytmLogo = ({ className = "" }: { className?: string }) => (
-  <span
-    className={`inline-flex items-center gap-1 bg-[#002e6e] text-white px-2 py-0.5 rounded-md font-black text-[10px] tracking-tight border border-[#001f4c] shadow-2xs ${className}`}
-  >
-    <span>Pay</span>
-    <span className="text-[#00baf2]">tm</span>
-  </span>
+// Trust & Payment Method Official Brand Logos
+const PaytmLogo = ({ className = "h-4 w-auto" }: { className?: string }) => (
+  <PaytmIcon className={className} />
 );
 
-const UpiLogo = ({ className = "" }: { className?: string }) => (
-  <span
-    className={`inline-flex items-center gap-1 bg-white border border-gray-300 px-1.5 py-0.5 rounded-md shadow-2xs ${className}`}
-  >
-    <svg className="w-3.5 h-3" viewBox="0 0 32 32" fill="none">
-      <path d="M18 4L8 28h5l10-24h-5z" fill="#007934" />
-      <path d="M12 4L2 28h5l10-24h-5z" fill="#ED7223" />
-      <path d="M24 4L14 28h5l10-24h-5z" fill="#007934" />
-    </svg>
-    <span className="font-extrabold text-[10px] text-gray-900 tracking-wider">
-      UPI
-    </span>
-  </span>
+const UpiLogo = ({ className = "h-4 w-auto" }: { className?: string }) => (
+  <UpiOfficialIcon className={className} />
 );
 
-const PhonePeBadge = ({ className = "" }: { className?: string }) => (
-  <span
-    className={`inline-flex items-center gap-1 bg-[#5f259f] text-white px-1.5 py-0.5 rounded-md font-bold text-[10px] shadow-2xs ${className}`}
-  >
-    <span className="w-2.5 h-2.5 rounded-full bg-white text-[#5f259f] flex items-center justify-center text-[7px] font-black">
-      पे
-    </span>
-    <span>PhonePe</span>
-  </span>
+const PhonePeBadge = ({ className = "h-4 w-auto" }: { className?: string }) => (
+  <div className={`inline-flex items-center gap-1 ${className}`}>
+    <PhonePeIcon className="h-4 w-4" />
+    <span className="text-[11px] font-bold text-[#5F259E] leading-none">PhonePe</span>
+  </div>
 );
 
-const GPayBadge = ({ className = "" }: { className?: string }) => (
-  <span
-    className={`inline-flex items-center gap-0.5 bg-white border border-gray-300 px-1.5 py-0.5 rounded-md font-extrabold text-[10px] shadow-2xs ${className}`}
-  >
-    <span className="text-[#4285F4]">G</span>
-    <span className="text-[#EA4335]">P</span>
-    <span className="text-[#FBBC05]">a</span>
-    <span className="text-[#34A853]">y</span>
-  </span>
+const GPayBadge = ({ className = "h-4 w-auto" }: { className?: string }) => (
+  <GooglePayIcon className={className} />
 );
 
 const getValidPrice = (item: any) => {
@@ -190,6 +179,11 @@ export function CartModal({
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [pincode, setPincode] = useState("");
+  const [orderType, setOrderType] = useState<"retail" | "wholesale">("retail");
+  const [selectedRetailArea, setSelectedRetailArea] = useState<string>("");
+  const [activeRetailAreas, setActiveRetailAreas] = useState<RetailAreaItem[]>(
+    DEFAULT_RETAIL_AREAS,
+  );
   const [formErrors, setFormErrors] = useState<{
     name?: string;
     phone?: string;
@@ -203,12 +197,22 @@ export function CartModal({
     }
   }, [user]);
 
-  // Reset state when opened/closed
+  // Reset state when opened/closed & sync active retail areas from server
   useEffect(() => {
     if (!isOpen) {
       setTimeout(() => setStep("cart"), 300);
     } else {
       syncCartPrices();
+      fetch("/api/delivery/active-areas")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.success && Array.isArray(data.areas) && data.areas.length > 0) {
+            setActiveRetailAreas(data.areas);
+          }
+        })
+        .catch(() => {
+          // Keep default 13 active retail areas when offline
+        });
     }
   }, [isOpen]);
 
@@ -554,6 +558,7 @@ export function CartModal({
             paymentMethod: "Cash on Delivery",
             userId: user?.id,
             couponCode: appliedCoupon?.code || null,
+            orderType,
           }),
         });
         
@@ -587,7 +592,7 @@ export function CartModal({
         setTimeout(clearCart, 1500);
       } catch (e: any) {
         console.error("Failed to save COD order:", e);
-        showToast("Failed to confirm order. Please ensure your database is active. Error: " + e.message, "error");
+        showToast("Failed to confirm order: " + e.message, "error");
       } finally {
         setIsProcessing(false);
       }
@@ -613,6 +618,7 @@ export function CartModal({
             currency: "INR",
             couponCode: appliedCoupon?.code || null,
             shippingDetails: { name, phone, address, pincode },
+            orderType,
           }),
         });
         
@@ -718,19 +724,65 @@ export function CartModal({
   
   
   const triggerWhatsAppOrder = async () => {
-    if (!requireCheckoutAuth()) return;
+    // If user is currently in cart step, navigate them to checkout first so they fill all required details
     if (step === "cart") {
+      if (!requireCheckoutAuth()) return;
       setStep("checkout");
+      showToast("Please enter your delivery details (Name, Phone, Address, PIN Code) to complete your WhatsApp order.", "info");
       return;
     }
-    if (!validateForm()) return;
+
+    if (!requireCheckoutAuth()) return;
+    if (!validateForm()) {
+      showToast("All delivery details (Full Name, Phone Number, Full Address, PIN Code) are mandatory for WhatsApp orders.", "error");
+      return;
+    }
+
+    const minOrder = settings.minOrderAmount || 0;
+    if (minOrder > 0 && cartTotal < minOrder) {
+      showToast(
+        `Minimum order amount is ₹${minOrder}. Add ₹${(minOrder - cartTotal).toFixed(2)} more to continue.`,
+        "error",
+      );
+      return;
+    }
+
+    const cleanPin = normalizeIndianPincode(pincode);
+    if (orderType === "retail") {
+      const enabledPins = new Set(
+        activeRetailAreas.filter((a) => a.enabled).map((a) => a.pincode),
+      );
+      if (enabledPins.size > 0 && !enabledPins.has(cleanPin)) {
+        showToast(
+          `Retail delivery is currently active only in our 13 Bangalore areas (PINs: ${Array.from(enabledPins).join(", ")}). Switch to Wholesale for All-India shipping.`,
+          "error",
+        );
+        return;
+      }
+    } else if (!/^[1-9]\d{5}$/.test(cleanPin)) {
+      showToast("Please enter a valid 6-digit Indian PIN code for Wholesale shipping.", "error");
+      return;
+    }
+
+    saveUserAddressLocally(address, pincode, name);
 
     setIsProcessing(true);
+    let serverOrderId: string | null = null;
+    let verificationCode: string | undefined;
+    let verifiedSubtotal = cartTotal;
+    let verifiedDiscount = discountAmount;
+    let verifiedDeliveryFee = effectiveDeliveryFee;
+    let verifiedGrandTotal = grandTotal;
+
     try {
-      const token = await getAuthToken();
-      const headers: any = { "Content-Type": "application/json", "Idempotency-Key": getCheckoutIdempotencyKey() };
+      const token = await getAuthToken().catch(() => null);
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Idempotency-Key": getCheckoutIdempotencyKey(),
+      };
       if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch("/api/orders/create", {
+
+      const res = await fetch("/api/whatsapp/prepare-order", {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -740,26 +792,60 @@ export function CartModal({
             name: i.name,
             quantity: i.quantity,
             price: getValidPrice(i),
-            selectedWeight: (i as any).selectedWeight,
-            selectedCut: (i as any).selectedCut,
+            selectedWeight: (i as any).selectedWeight || null,
+            selectedCut: (i as any).selectedCut || null,
             image: i.image,
           })),
-          shippingDetails: { name, phone, address, pincode },
-          paymentMethod: "WhatsApp Express",
-          userId: user?.id,
+          shippingDetails: {
+            name: name.trim(),
+            phone: phone.trim(),
+            address: address.trim(),
+            pincode: cleanPin,
+          },
           couponCode: appliedCoupon?.code || null,
+          orderType,
         }),
       });
-      
-      const apiData = await res.json();
-      if (!res.ok || !apiData.success) {
-        throw new Error(apiData.error || "Failed to create WhatsApp order on server");
-      }
-      
-      const serverOrderId = apiData.orderId;
 
+      const apiData = await res.json().catch(() => ({}));
+      if (!res.ok || !apiData.success) {
+        throw new Error(apiData.error || "Could not validate WhatsApp order");
+      }
+
+      serverOrderId = apiData.orderId || null;
+      verificationCode = apiData.verificationCode || undefined;
+      if (typeof apiData.subtotal === "number") verifiedSubtotal = apiData.subtotal;
+      if (typeof apiData.discountAmount === "number") verifiedDiscount = apiData.discountAmount;
+      if (typeof apiData.deliveryFee === "number") verifiedDeliveryFee = apiData.deliveryFee;
+      if (typeof apiData.grandTotal === "number") verifiedGrandTotal = apiData.grandTotal;
+    } catch (e: any) {
+      if (
+        e?.message &&
+        (e.message.includes("PIN code") ||
+          e.message.includes("stock") ||
+          e.message.includes("Minimum") ||
+          e.message.includes("unavailable") ||
+          e.message.includes("mandatory"))
+      ) {
+        showToast(e.message, "error");
+        setIsProcessing(false);
+        return;
+      }
+      // Resilient fallback when server/database is offline so WhatsApp ordering never breaks
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const rand = Array.from(crypto.getRandomValues(new Uint8Array(6)))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("")
+        .toUpperCase();
+      serverOrderId = `JY-${dateStr}-${rand}`;
+      verificationCode = `LOC-${rand.slice(0, 6)}`;
+    }
+
+    try {
       const url = createWhatsAppOrderUrl({
         orderId: serverOrderId || undefined,
+        verificationCode,
+        orderType,
         whatsappNumber: settings.whatsappNumber,
         items: items.map((i) => ({
           name: i.name,
@@ -769,13 +855,15 @@ export function CartModal({
           selectedWeight: (i as any).selectedWeight,
           selectedCut: (i as any).selectedCut,
         })),
-        subtotal: cartTotal,
-        deliveryFee: effectiveDeliveryFee,
-        totalAmount: grandTotal,
-        customerName: name || user?.name || "Customer",
-        customerPhone: phone || user?.phone || "",
-        customerAddress: address || user?.address || "N/A",
-        customerPincode: pincode || user?.pincode || "N/A",
+        subtotal: verifiedSubtotal,
+        discountAmount: verifiedDiscount,
+        deliveryFee: verifiedDeliveryFee,
+        totalAmount: verifiedGrandTotal,
+        customerName: name.trim(),
+        customerPhone: phone.trim(),
+        selectedArea: selectedRetailArea || undefined,
+        customerAddress: address.trim(),
+        customerPincode: cleanPin,
         paymentMethod:
           paymentMethod === "cod"
             ? "Cash on Delivery (WhatsApp)"
@@ -783,13 +871,9 @@ export function CartModal({
       });
       setGeneratedWhatsAppUrl(url);
       setPendingOrderId(serverOrderId || null);
-      setStep("success");
-      window.open(url, "_blank");
+      setStep("whatsapp_confirm");
       resetCheckoutIdempotencyKey();
       setTimeout(clearCart, 1500);
-    } catch (e: any) {
-      console.error("Failed to save WhatsApp order:", e);
-      showToast("Failed to generate order reference. Please ensure your database is active. Error: " + (e.message || "Unknown error"), "error");
     } finally {
       setIsProcessing(false);
     }
@@ -828,7 +912,7 @@ export function CartModal({
                     animate={{ opacity: 1 }}
                     className="p-8 text-center min-h-full flex flex-col items-center justify-center"
                   >
-                    <ShieldCheck className="w-10 h-10 text-gray-500 mb-4" />
+                    <PremiumShieldMark className="w-12 h-12 mb-4 shrink-0" variant="emerald" />
                     <h2 className="text-2xl font-serif text-gray-900">Login required</h2>
                     <p className="mt-2 text-sm text-gray-500 max-w-sm">Please log in or create an account to continue with your order.</p>
                     <button type="button" onClick={() => onRequestAuth?.()} className="mt-6 w-full max-w-xs h-12 rounded-full bg-[#1C1917] text-[#FAF9F5] text-xs font-bold uppercase tracking-wider">
@@ -1022,10 +1106,95 @@ export function CartModal({
 
 
 
-                        {/* PROMO CODE */}
-                        <div className="mt-6 p-4 bg-[#FAF9F5] border border-stone-200 rounded-2xl">
+                        {/* DELIVERY MODE & ACTIVE RETAIL AREAS (13 BANGALORE AREAS / PAN-INDIA WHOLESALE) */}
+                        <div className="mt-6 p-4 bg-white border border-stone-200 rounded-2xl space-y-3 shadow-2xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1C1917] flex items-center gap-1.5">
+                              <MapPin className="w-3.5 h-3.5 text-emerald-600" /> Delivery Coverage
+                            </span>
+                            <div className="inline-flex rounded-lg bg-[#FAF9F5] p-0.5 border border-stone-200 text-[10px] font-bold">
+                              <button
+                                type="button"
+                                onClick={() => setOrderType("retail")}
+                                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                                  orderType === "retail"
+                                    ? "bg-[#1C1917] text-white"
+                                    : "text-stone-600 hover:text-black"
+                                }`}
+                              >
+                                Retail (13 Areas)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setOrderType("wholesale")}
+                                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                                  orderType === "wholesale"
+                                    ? "bg-emerald-700 text-white"
+                                    : "text-stone-600 hover:text-black"
+                                }`}
+                              >
+                                Wholesale (All India)
+                              </button>
+                            </div>
+                          </div>
+
+                          {orderType === "retail" ? (
+                            <div className="space-y-2">
+                              <p className="text-[11px] text-stone-600 leading-snug">
+                                Select your active Bangalore retail locality (auto-sets PIN code):
+                              </p>
+                              <select
+                                value={selectedRetailArea}
+                                onChange={(e) => {
+                                  const areaVal = e.target.value;
+                                  setSelectedRetailArea(areaVal);
+                                  const match = activeRetailAreas.find(
+                                    (a) => `${a.areaName} (${a.displayPincode})` === areaVal,
+                                  );
+                                  if (match) {
+                                    setPincode(match.pincode);
+                                    if (!address.trim()) {
+                                      setAddress(match.areaName);
+                                    }
+                                  }
+                                }}
+                                className="w-full bg-[#FAF9F5] border border-stone-300 rounded-xl px-3 py-2 text-xs text-[#1C1917] font-medium outline-none focus:border-[#1C1917]"
+                              >
+                                <option value="">
+                                  -- Choose from 13 Active Bangalore Retail Areas --
+                                </option>
+                                {activeRetailAreas
+                                  .filter((a) => a.enabled)
+                                  .map((a) => (
+                                    <option
+                                      key={a.id}
+                                      value={`${a.areaName} (${a.displayPincode})`}
+                                    >
+                                      {a.slNo}. {a.areaName} — {a.displayPincode}
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <p className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 font-medium">
+                                Pan-India Wholesale Active — Shipping to all 6-digit PIN codes across India.
+                              </p>
+                              <input
+                                type="text"
+                                value={pincode}
+                                onChange={(e) => setPincode(e.target.value.slice(0, 12))}
+                                placeholder="Enter destination 6-digit India PIN code (optional for WhatsApp)"
+                                className="w-full bg-[#FAF9F5] border border-stone-300 rounded-xl px-3 py-2 text-xs text-[#1C1917] font-mono outline-none focus:border-[#1C1917]"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* PROMO / COUPON CODE */}
+                        <div className="mt-4 p-4 bg-[#FAF9F5] border border-stone-200 rounded-2xl">
                           <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#1C1917] mb-3">
-                            Privilege Code
+                            Coupon Code
                           </h4>
                           <div className="flex gap-2">
                             <input
@@ -1036,7 +1205,7 @@ export function CartModal({
                                 setPromoError("");
                               }}
                               disabled={isPromoApplied}
-                              placeholder="Enter Privilege Code"
+                              placeholder="Enter Coupon Code"
                               className="flex-1 bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-xs text-[#1C1917] font-mono tracking-wider outline-none focus:border-[#1C1917] transition-colors disabled:bg-stone-100 disabled:text-stone-500"
                             />
                             {isPromoApplied ? (
@@ -1185,9 +1354,49 @@ export function CartModal({
                           )}
                         </div>
                         <div>
-                          <label className="block text-xs uppercase tracking-wider text-gray-500 mb-2 font-medium">
-                            Postal / ZIP code
-                          </label>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs uppercase tracking-wider text-gray-500 font-medium">
+                              Postal / ZIP code
+                            </label>
+                            <span className="text-[10px] font-semibold text-emerald-700">
+                              {orderType === "retail"
+                                ? "Retail: 13 Bangalore Areas"
+                                : "Wholesale: All Over India"}
+                            </span>
+                          </div>
+                          {orderType === "retail" && (
+                            <select
+                              value={selectedRetailArea}
+                              onChange={(e) => {
+                                const areaVal = e.target.value;
+                                setSelectedRetailArea(areaVal);
+                                const match = activeRetailAreas.find(
+                                  (a) => `${a.areaName} (${a.displayPincode})` === areaVal,
+                                );
+                                if (match) {
+                                  setPincode(match.pincode);
+                                  if (!address.trim()) {
+                                    setAddress(match.areaName);
+                                  }
+                                }
+                              }}
+                              className="w-full mb-2 bg-emerald-50/60 border border-emerald-200 rounded-xl px-3 py-2.5 text-xs text-gray-900 font-medium outline-none focus:border-emerald-600"
+                            >
+                              <option value="">
+                                Quick-select active Bangalore retail area...
+                              </option>
+                              {activeRetailAreas
+                                .filter((a) => a.enabled)
+                                .map((a) => (
+                                  <option
+                                    key={a.id}
+                                    value={`${a.areaName} (${a.displayPincode})`}
+                                  >
+                                    {a.slNo}. {a.areaName} — {a.displayPincode}
+                                  </option>
+                                ))}
+                            </select>
+                          )}
                           <input
                             type="text"
                             value={pincode}
@@ -1195,7 +1404,11 @@ export function CartModal({
                               setPincode(e.target.value.slice(0, 12))
                             }
                             className={`w-full bg-gray-50 border ${formErrors.pincode ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-black"} rounded-xl p-3.5 text-gray-900 transition-colors outline-none`}
-                            placeholder="Postal / ZIP code"
+                            placeholder={
+                              orderType === "retail"
+                                ? "560084 / 560043 / 560045 / 560032 / 560005"
+                                : "Any 6-digit Indian PIN code"
+                            }
                           />
                           {formErrors.pincode && (
                             <p className="text-red-500 text-xs mt-1.5">
@@ -1215,8 +1428,8 @@ export function CartModal({
                             Select Checkout Mode
                           </h3>
                         </div>
-                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <ShieldCheck className="w-3 h-3 text-emerald-700" />{" "}
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full flex items-center gap-1.5">
+                          <PremiumShieldMark className="w-3.5 h-3.5 shrink-0" variant="emerald" />
                           Verified Merchant
                         </span>
                       </div>
@@ -1235,17 +1448,20 @@ export function CartModal({
                             No advance payment needed
                           </p>
                         </div>
-                        <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-2xs space-y-1">
+                        <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-2xs space-y-1.5">
                           <span className="text-[10px] uppercase font-bold text-blue-700 flex items-center gap-1">
                             <Zap className="w-3 h-3 text-blue-600 fill-blue-100" />{" "}
                             Instant UPI
                           </span>
                           <p className="text-[11px] font-semibold text-gray-900 leading-tight">
-                            Paytm QR / Mobile
+                            Fast UPI QR &amp; Apps
                           </p>
-                          <p className="text-[10px] text-gray-500 leading-tight">
-                            Paytm, PhonePe, GPay
-                          </p>
+                          <div className="flex items-center gap-2.5 pt-0.5">
+                            <GooglePayIcon className="h-3.5 w-auto" />
+                            <PhonePeIcon className="h-3.5 w-auto" />
+                            <PaytmIcon className="h-3 w-auto" />
+                            <UpiOfficialIcon className="h-3.5 w-auto" />
+                          </div>
                         </div>
                       </div>
 
@@ -1277,12 +1493,21 @@ export function CartModal({
                               <span className="font-medium text-gray-900 block text-sm">
                                 Online Payment (Cards, NetBanking, UPI)
                               </span>
-                              <span className="text-xs text-gray-500 block">
+                              <span className="text-xs text-gray-500 block mb-1.5">
                                 Pay securely via Cards, NetBanking, UPI or Wallets
                               </span>
+                              <div className="flex flex-wrap items-center gap-3 pt-0.5">
+                                <GooglePayIcon className="h-3.5 w-auto" />
+                                <PhonePeIcon className="h-3.5 w-auto" />
+                                <PaytmIcon className="h-3 w-auto" />
+                                <UpiOfficialIcon className="h-3.5 w-auto" />
+                                <VisaIcon className="h-3 w-auto" />
+                                <MastercardIcon className="h-3.5 w-auto" />
+                                <RuPayIcon className="h-3 w-auto" />
+                              </div>
                             </div>
                           </div>
-                          <ShieldCheck className="w-5 h-5 text-gray-700 flex-shrink-0" />
+                          <PremiumShieldMark className="w-5 h-5 shrink-0" variant="emerald" />
                         </button>
 
                         <button
@@ -1440,12 +1665,15 @@ export function CartModal({
                   </div>
                   {isPromoApplied && (
                     <div className="flex justify-between text-emerald-600 text-sm font-medium">
-                      <span>Privilege Discount{appliedCoupon?.code ? ` (${appliedCoupon.code})` : ""}</span>
+                      <span>Coupon Discount{appliedCoupon?.code ? ` (${appliedCoupon.code})` : ""}</span>
                       <span>-₹{discountAmount}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-gray-500 text-sm">
-                    <span>Delivery Fee</span>
+                  <div className="flex justify-between items-center text-gray-500 text-sm">
+                    <span className="inline-flex items-center gap-1.5">
+                      <RealisticDeliveryScooter className="w-5 h-3.5 shrink-0" />
+                      <span>Delivery Fee</span>
+                    </span>
                     {effectiveDeliveryFee === 0 ? (
                       <span className="text-emerald-600 font-medium">Free</span>
                     ) : (
@@ -1525,13 +1753,18 @@ export function CartModal({
                 )}
                 
                 <div className="mt-6 pt-4 border-t border-stone-100 flex flex-col items-center justify-center gap-3">
-                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-emerald-700 font-bold">
-                    <ShieldCheck className="w-3.5 h-3.5" /> 100% Secure Checkout
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-emerald-800 font-bold">
+                    <PremiumShieldMark className="w-3.5 h-3.5 shrink-0" variant="emerald" /> 100% Secure Checkout
                   </div>
-                  <div className="flex items-center justify-center gap-4 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
-                     <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/UPI-Logo.png" alt="UPI" className="h-4 object-contain" />
-                     <img src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Mastercard_2019_logo.svg" alt="Mastercard" className="h-5 object-contain" />
-                     <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-3.5 object-contain" />
+                  <div className="flex flex-wrap items-center justify-center gap-4 py-1">
+                     <GooglePayIcon className="h-4 w-auto" />
+                     <PhonePeIcon className="h-4 w-auto" />
+                     <PaytmIcon className="h-3.5 w-auto" />
+                     <UpiOfficialIcon className="h-4 w-auto" />
+                     <span className="h-4 w-[1px] bg-stone-300" aria-hidden="true" />
+                     <VisaIcon className="h-3.5 w-auto" />
+                     <MastercardIcon className="h-4 w-auto" />
+                     <RuPayIcon className="h-3.5 w-auto" />
                   </div>
                 </div>
               </div>

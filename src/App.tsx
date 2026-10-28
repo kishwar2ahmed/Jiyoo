@@ -7,6 +7,7 @@ import { useCart, CartProvider } from "./contexts/CartContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import { ErrorBoundary } from './features/core/components/ErrorBoundary';
 import { OfflineBanner } from './features/core/components/OfflineBanner';
+import { ScrollProgress } from './features/core/components/ScrollProgress';
 import { AnimatePresence } from "motion/react";
 
 import { ToastNotification } from './features/cart/components/ToastNotification';
@@ -175,6 +176,7 @@ function AppContent() {
 
   return (
     <div className="bg-paper-texture min-h-[100dvh] flex flex-col text-brand-black font-sans selection:bg-brand-gray-900 selection:text-brand-white overflow-x-hidden">
+      <ScrollProgress />
       <OfflineBanner />
       <Suspense fallback={<div />}>
         {isAdminOpen && <AdminPanel onClose={() => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Heart,
@@ -17,21 +17,9 @@ import { useWhatsAppOrder } from "../hooks/useWhatsAppOrder";
 import { getOptimizedImageUrl } from "../../../utils/imageUtils";
 import { useToast } from "../../core/contexts/ToastContext";
 import { useModalBackButton } from "../../core/hooks/useModalBackButton";
-
-function DeliveryScootyIcon({ className = "w-4 h-4" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 32 32" fill="currentColor">
-      <rect x="2" y="9" width="8" height="8" rx="1.5" />
-      <path d="M10 17h6l2.5-6h3.5l1.5 3h3a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M18.5 11l-2-4h-3" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="7" cy="22" r="3.5" fill="none" stroke="currentColor" strokeWidth="2.2" />
-      <circle cx="7" cy="22" r="1.5" />
-      <circle cx="23" cy="22" r="3.5" fill="none" stroke="currentColor" strokeWidth="2.2" />
-      <circle cx="23" cy="22" r="1.5" />
-      <path d="M10.5 22h9" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-    </svg>
-  );
-}
+import { InstaBlueTickIcon } from "../../core/components/SocialIcons";
+import { PremiumShieldMark } from "../../core/components/PremiumShieldMark";
+import { RealisticDeliveryScooter } from "../../core/components/RealisticDeliveryScooter";
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -70,6 +58,8 @@ export function ProductDetailModal({
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [showWhatsappSuccess, setShowWhatsappSuccess] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
+  const modalImgRef = useRef<HTMLImageElement>(null);
 
   // Let the device/browser back button close this modal one step at a time
   // instead of navigating away from the site.
@@ -108,11 +98,39 @@ export function ProductDetailModal({
   };
 
   const handleAddToCart = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
+    const btnRect = e.currentTarget.getBoundingClientRect();
+    const imgEl = modalImgRef.current;
+    const imgRect = imgEl?.getBoundingClientRect();
+
+    const useImageOrigin =
+      imgRect &&
+      imgRect.width > 0 &&
+      imgRect.height > 0 &&
+      imgRect.bottom > 0 &&
+      imgRect.top < window.innerHeight;
+
+    const startX = useImageOrigin
+      ? imgRect.left + imgRect.width / 2
+      : btnRect.left + btnRect.width / 2;
+    const startY = useImageOrigin
+      ? imgRect.top + imgRect.height / 2
+      : btnRect.top + btnRect.height / 2;
+
+    const optimizedModalImage = getOptimizedImageUrl(
+      activeImage || product.image,
+      800,
+      85,
+    );
+    const activeRenderedImage =
+      imgEl?.currentSrc || imgEl?.src || optimizedModalImage;
+
     triggerFlyingItem({
-      image: product.image,
-      startX: rect.left + rect.width / 2,
-      startY: rect.top + rect.height / 2,
+      image: activeRenderedImage,
+      name: product.name,
+      price: `₹${Number(currentPrice) * quantity}`,
+      badge: currentUnit,
+      startX,
+      startY,
     });
 
     let itemName = product.name;
@@ -132,13 +150,14 @@ export function ProductDetailModal({
           typeof currentPrice === "number"
             ? currentPrice
             : parseFloat(String(currentPrice).replace(/[^0-9.]/g, "")),
-        image: product.image,
+        image: activeRenderedImage,
         badge: currentUnit,
       },
       quantity,
     );
 
-    // Optionally close the modal or keep it open with visual confirmation
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1150);
   };
 
   const handleWhatsAppOrder = async () => {
@@ -210,6 +229,7 @@ export function ProductDetailModal({
               <div className="w-full md:w-1/2 shrink-0 flex flex-col">
                 <div className="relative w-full aspect-[4/3] md:aspect-auto md:min-h-[500px] bg-white flex items-center justify-center overflow-hidden">
                   <img
+                    ref={modalImgRef}
                     src={getOptimizedImageUrl(activeImage || product.image, 800, 85)}
                     alt={product.name}
                     className="w-full h-full object-contain"
@@ -316,13 +336,20 @@ export function ProductDetailModal({
                         Cut: {product.cutType}
                       </span>
                     )}
+                    {product.freshnessBadge && (
+                      <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-850 px-2.5 py-1 rounded-lg text-xs font-semibold">
+                        <PremiumShieldMark className="w-3.5 h-3.5 shrink-0" variant="emerald" />
+                        <span>{product.freshnessBadge}</span>
+                      </span>
+                    )}
                     {isOutOfStock ? (
                       <span className="inline-flex items-center gap-1 text-red-600 font-semibold text-xs uppercase tracking-wider">
                         Out of Stock
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs uppercase tracking-wider">
-                        <Check className="w-3.5 h-3.5" /> In Stock
+                      <span className="inline-flex items-center gap-1.5 text-brand-black font-semibold text-xs uppercase tracking-wider">
+                        <InstaBlueTickIcon className="w-4 h-4 shrink-0" />
+                        <span>In Stock</span>
                       </span>
                     )}
                   </div>
@@ -461,9 +488,9 @@ export function ProductDetailModal({
                 <div className="pt-6 border-t border-brand-gray-100 space-y-4">
                   <div className="flex items-center justify-between">
                     {/* Delivery Info */}
-                    <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-bold uppercase tracking-wider bg-emerald-50 border border-emerald-200/80 px-3 py-1 rounded-full">
-                      <DeliveryScootyIcon className="w-4 h-4 text-emerald-600 animate-pulse" />
-                      Delivery: {product.deliveryEstimate || "60 mins"}
+                    <div className="flex items-center gap-2 text-xs text-emerald-900 font-bold uppercase tracking-wider bg-emerald-50 border border-emerald-200/80 px-3.5 py-1.5 rounded-full shadow-2xs">
+                      <RealisticDeliveryScooter className="w-8 h-5.5 shrink-0" />
+                      <span>Delivery: {product.deliveryEstimate || "60 mins"}</span>
                     </div>
 
                     {/* Price display */}
@@ -534,12 +561,23 @@ export function ProductDetailModal({
                     <button
                       onClick={handleAddToCart}
                       disabled={isOutOfStock}
-                      className="group relative flex-1 h-[52px] text-[11px] font-bold uppercase tracking-[0.15em] text-[#FAF9F5] bg-[#1C1917] transition-all duration-500 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(28,25,23,0.3)] hover:shadow-[0_8px_20px_-5px_rgba(28,25,23,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] disabled:opacity-50 disabled:cursor-not-allowed"
+                      className={`group relative flex-1 h-[52px] text-[11px] font-bold uppercase tracking-[0.15em] text-[#FAF9F5] transition-all duration-300 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(28,25,23,0.3)] hover:shadow-[0_8px_20px_-5px_rgba(28,25,23,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] disabled:opacity-50 disabled:cursor-not-allowed ${
+                        justAdded ? "bg-emerald-700" : "bg-[#1C1917]"
+                      }`}
                     >
-                      <span className="absolute inset-0 w-full h-full bg-[#292524] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                      <span className="absolute inset-0 w-full h-full bg-[#292524] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       <span className="relative z-10 flex items-center justify-center gap-2">
-                        <ShoppingBag className="w-4 h-4" /> 
-                        {isOutOfStock ? "Sold Out" : "Add to Bag"}
+                        {justAdded ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            <span>Added to Bag</span>
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingBag className="w-4 h-4" />
+                            <span>{isOutOfStock ? "Sold Out" : "Add to Bag"}</span>
+                          </>
+                        )}
                       </span>
                     </button>
 

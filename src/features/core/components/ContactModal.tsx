@@ -98,23 +98,31 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                   </a>
                 </div>
 
-                {/* Email Support (Secondary) */}
+                {/* Email Support (Primary: shamsjiyoo@gmail.com) */}
                 <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm flex flex-col h-full">
                   <div className="w-10 h-10 rounded-full bg-stone-100 text-stone-900 flex items-center justify-center mb-4">
                     <EmailEnvelopeIcon className="w-5 h-5" />
                   </div>
-                  <h4 className="text-stone-900 font-bold mb-1">Email Support</h4>
-                  <p className="text-stone-500 text-sm mb-4 flex-grow">
-                    Best for detailed inquiries, feedback, and support tickets.
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <h4 className="text-stone-900 font-bold">Email Support</h4>
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-[10px] font-bold uppercase tracking-wider">
+                      Primary
+                    </span>
+                  </div>
+                  <p className="text-stone-900 font-mono text-xs font-semibold mb-0.5">
+                    shamsjiyoo@gmail.com
                   </p>
-                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold text-stone-400 mb-4">
+                  <p className="text-stone-400 font-mono text-[11px] mb-3">
+                    Backup: jiyooshams@gmail.com
+                  </p>
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold text-stone-400 mb-4 mt-auto">
                     <Clock className="w-3.5 h-3.5" /> Average response: 24 hrs
                   </div>
                   <a
-                    href="mailto:jiyooshams@gmail.com,shamsjiyoo@gmail.com"
-                    className="w-full py-3 bg-white border border-stone-300 hover:border-stone-400 text-stone-900 text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+                    href="mailto:shamsjiyoo@gmail.com?cc=jiyooshams@gmail.com"
+                    className="w-full py-3 bg-[#1C1917] hover:bg-black text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 active:scale-[0.98] shadow-sm"
                   >
-                    <EmailEnvelopeIcon className="w-4 h-4" /> Email Us
+                    <EmailEnvelopeIcon className="w-4 h-4" /> Email Us (Primary)
                   </a>
                 </div>
               </div>
@@ -180,8 +188,9 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                     <WhatsAppIcon className="w-4 h-4" />
                   </a>
                   <a
-                    href="mailto:jiyooshams@gmail.com,shamsjiyoo@gmail.com"
-                    aria-label="Email"
+                    href="mailto:shamsjiyoo@gmail.com?cc=jiyooshams@gmail.com"
+                    aria-label="Email Primary (shamsjiyoo@gmail.com)"
+                    title="Primary Support: shamsjiyoo@gmail.com"
                     className="w-10 h-10 rounded-full bg-white border border-stone-200 flex items-center justify-center text-[#3B82F6] hover:border-[#1C1917] hover:shadow-md transition-all"
                   >
                     <EmailEnvelopeIcon className="w-4 h-4" />

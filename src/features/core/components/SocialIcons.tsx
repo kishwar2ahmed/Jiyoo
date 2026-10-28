@@ -1,6 +1,30 @@
 import { useState, useId } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { Check, Copy } from 'lucide-react';
+
+/**
+ * Official Instagram-style Verified Blue Tick SVG (#0095F6 scalloped seal + crisp white checkmark)
+ */
+export function InstaBlueTickIcon({ className = 'w-3.5 h-3.5 shrink-0' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 40 40"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M19.998 3.094 14.638 0l-2.972 5.15H5.432v6.354L0 14.64 3.094 20 0 25.359l5.432 3.137v5.905h5.975L14.638 40l5.36-3.094L25.358 40l3.232-5.6h6.162v-6.01L40 25.359 36.905 20 40 14.641l-5.248-3.03v-6.46h-6.419L25.358 0l-5.36 3.094Z"
+        fill="#0095F6"
+      />
+      <path
+        d="M27.413 14.319l2.254 2.287-11.43 11.5-6.835-6.93 2.244-2.258 4.587 4.581 9.18-9.18Z"
+        fill="#FFFFFF"
+      />
+    </svg>
+  );
+}
 
 /**
  * Official WhatsApp full-color brand SVG (#25D366 circle/bubble + crisp white handset)
@@ -104,11 +128,12 @@ export function EmailEnvelopeIcon({ className = 'w-5 h-5' }: { className?: strin
 export const SOCIAL_LINKS = [
   {
     id: 'whatsapp',
-    label: 'WhatsApp',
+    label: 'WhatsApp Chat',
     handle: '+91 97393 91891',
     href: 'https://wa.me/919739391891',
     icon: (props: { className?: string }) => <WhatsAppIcon className={props.className || 'w-5 h-5'} />,
-    badge: 'Fast Support',
+    badge: 'Fast Reply',
+    purpose: 'Order easily or ask about today\'s fresh arrivals',
     accentColor: '#25D366',
   },
   {
@@ -117,16 +142,18 @@ export const SOCIAL_LINKS = [
     handle: '+91 78997 44335',
     href: 'tel:+917899744335',
     icon: (props: { className?: string }) => <PhoneCallIcon className={props.className || 'w-5 h-5'} />,
-    badge: 'Customer Desk',
+    badge: 'Phone Desk',
+    purpose: 'Quick answers and custom meat or fish cut requests',
     accentColor: '#10B981',
   },
   {
     id: 'email',
-    label: 'Email Care',
-    handle: 'jiyooshams@gmail.com',
-    href: 'mailto:jiyooshams@gmail.com,shamsjiyoo@gmail.com',
+    label: 'Email Support',
+    handle: 'shamsjiyoo@gmail.com',
+    href: 'mailto:shamsjiyoo@gmail.com?cc=jiyooshams@gmail.com',
     icon: (props: { className?: string }) => <EmailEnvelopeIcon className={props.className || 'w-5 h-5'} />,
-    badge: 'Inquiries',
+    badge: 'Primary Email',
+    purpose: 'Primary customer support desk & order inquiries (Backup: jiyooshams@gmail.com)',
     accentColor: '#EA4335',
   },
   {
@@ -135,7 +162,8 @@ export const SOCIAL_LINKS = [
     handle: '@shamsjiyoo2026',
     href: 'https://www.instagram.com/shamsjiyoo2026?utm_source=qr&igsh=MWh3YWlzOWV1N3Aweg==',
     icon: (props: { className?: string }) => <InstagramIcon className={props.className || 'w-5 h-5'} />,
-    badge: 'Official',
+    badge: 'Daily Photos',
+    purpose: 'See today\'s fresh farm arrivals, fruits, and stories',
     accentColor: '#E1306C',
   },
 ];
@@ -152,101 +180,160 @@ export function PremiumSocialBar() {
   };
 
   return (
-    <div className="w-full my-6 sm:my-8">
-      <motion.div
-        initial={{ opacity: 0, y: 14 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.3 }}
-        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-        className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 sm:gap-4 mb-5 sm:mb-6"
-      >
+    <div className="w-full mb-12 sm:mb-16">
+      {/* Editorial Section Header with Kinetic Mask Reveal */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8 sm:mb-10">
         <div>
-          <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#C5A880] font-semibold block">
-            Concierge &amp; Direct Support
-          </span>
-          <h3 className="font-serif-luxury text-xl sm:text-2xl font-normal text-[#FAF9F5] mt-1">
-            Official Customer Care &amp; Ordering Channels
-          </h3>
-          <p className="text-xs sm:text-sm text-[#A8A29E] font-sans-clean font-light mt-1 max-w-2xl">
-            Direct assistance with our sourcing desk for farm orders, custom butcher cuts, and express delivery
-          </p>
+          <motion.span
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            className="font-sans-clean text-[11px] uppercase tracking-[0.22em] text-[#C5A880] font-medium block"
+          >
+            Quick Help &amp; Direct Ordering
+          </motion.span>
+          <motion.h3
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.65, delay: 0.06, ease: [0.16, 1, 0.3, 1] }}
+            className="font-serif-luxury text-2xl sm:text-3xl md:text-[34px] font-normal text-[#FAF9F5] mt-2 tracking-tight leading-[1.15]"
+          >
+            Talk Directly with our{" "}
+            <span className="italic font-normal text-[#D8C3A5]">
+              Fresh Food Team
+            </span>
+          </motion.h3>
         </div>
-      </motion.div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {SOCIAL_LINKS.map((item, idx) => {
-          const isCopied = copiedId === item.id;
+        <motion.p
+          initial={{ opacity: 0, y: 14 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{ duration: 0.6, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+          className="text-xs sm:text-sm text-[#A69F95] font-sans-clean font-light max-w-md leading-relaxed lg:text-right"
+        >
+          Have questions about today's fresh arrivals or special cutting requests?
+          Reach out anytime on WhatsApp, phone, or email.
+        </motion.p>
+      </div>
 
-          return (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, y: 18 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.2 }}
-              transition={{ duration: 0.5, delay: idx * 0.06, ease: [0.16, 1, 0.3, 1] }}
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.99 }}
-              className="group relative rounded-xl border border-[#2B2622] hover:border-[#443D36] bg-[#181513] hover:bg-[#1E1B18] transition-all duration-300 p-3.5 sm:p-4 shadow-[0_4px_16px_rgba(0,0,0,0.2)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
-            >
-              <div className="flex items-center justify-between gap-3 h-full">
-                <a
-                  href={item.href}
-                  target={item.href.startsWith('http') ? '_blank' : '_self'}
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 min-w-0 flex-1 group/link"
-                >
-                  <div 
-                    className="w-10 h-10 rounded-lg bg-[#24201D] border border-[#332D28] flex items-center justify-center shrink-0 transition-transform duration-300 group-hover/link:scale-105"
-                    style={{ color: item.accentColor }}
-                  >
-                    {item.icon({ className: 'w-5 h-5' })}
-                  </div>
+      {/* Architectural Hairline-Divided 4-Column Concierge Ledger (Zero Nested Boxes) */}
+      <div className="relative">
+        {/* Top Scroll-Drawn Architectural Hairline */}
+        <motion.div
+          aria-hidden="true"
+          initial={{ scaleX: 0 }}
+          whileInView={{ scaleX: 1 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.95, ease: [0.16, 1, 0.3, 1] }}
+          className="h-[1px] w-full bg-gradient-to-r from-[#C5A880]/45 via-[#2E2822] to-[#2E2822] origin-left"
+        />
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-medium text-[#FAF9F5] group-hover/link:text-white transition-colors">
-                        {item.label}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#241F1B]">
+          {SOCIAL_LINKS.map((item, idx) => {
+            const isCopied = copiedId === item.id;
+            const chapterNum = `0${idx + 1}`;
+
+            return (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 26 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={{
+                  duration: 0.65,
+                  delay: 0.08 + idx * 0.075,
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+                className="group relative py-6 sm:py-7 px-0 sm:px-6 first:sm:pl-0 last:sm:pr-0 flex flex-col justify-between transition-colors duration-300"
+              >
+                {/* Subtle Top Hover Illumination Bar */}
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-0 left-0 right-0 h-[1.5px] bg-[#C5A880] scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-left"
+                />
+
+                <div>
+                  {/* Editorial Numeral + Reintegrated Original Social Brand Icon */}
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <span className="font-serif-luxury italic text-sm text-[#C5A880]/80">
+                        {chapterNum}.
                       </span>
-                      <span className="text-[10px] text-[#78716C] font-mono tracking-wider">
-                        · {item.badge}
+                      <span className="text-[11px] font-sans-clean uppercase tracking-[0.16em] text-[#8E867E] group-hover:text-[#D8C3A5] transition-colors">
+                        {item.badge}
                       </span>
                     </div>
-                    <p className="text-xs text-[#A8A29E] font-mono truncate mt-0.5 tabular-nums">
-                      {item.handle}
-                    </p>
+
+                    <div className="transition-transform duration-300 group-hover:scale-110 drop-shadow-sm shrink-0">
+                      {item.icon({ className: 'w-7 h-7 sm:w-8 sm:h-8' })}
+                    </div>
                   </div>
-                </a>
 
-                <button
-                  type="button"
-                  onClick={(e) => handleCopy(e, item.id, item.handle)}
-                  className="p-2 rounded-lg bg-[#24201D] hover:bg-[#2F2A26] border border-[#332D28] text-[#A8A29E] hover:text-[#FAF9F5] transition-colors relative cursor-pointer shrink-0"
-                  title={`Copy ${item.label}`}
-                  aria-label={`Copy ${item.label} handle`}
-                >
-                  {isCopied ? (
-                    <Check className="w-3.5 h-3.5 text-[#10B981]" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5" />
-                  )}
+                  {/* Channel Title & Editorial Purpose */}
+                  <a
+                    href={item.href}
+                    target={item.href.startsWith('http') ? '_blank' : '_self'}
+                    rel="noopener noreferrer"
+                    className="block group/title focus-visible:outline-none"
+                  >
+                    <h4 className="font-serif-luxury text-lg sm:text-xl font-normal text-[#FAF9F5] group-hover:text-[#D8C3A5] transition-colors tracking-wide">
+                      {item.label}
+                    </h4>
+                    <p className="text-xs text-[#9A9288] font-sans-clean font-light mt-1.5 leading-relaxed">
+                      {item.purpose}
+                    </p>
+                  </a>
+                </div>
 
-                  <AnimatePresence>
-                    {isCopied && (
-                      <motion.span
-                        initial={{ opacity: 0, y: 8, scale: 0.85 }}
-                        animate={{ opacity: 1, y: -26, scale: 1 }}
-                        exit={{ opacity: 0, y: -32 }}
-                        className="absolute -top-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-[#FAF9F5] text-[#181513] text-[10px] font-bold whitespace-nowrap shadow-md pointer-events-none"
-                      >
-                        Copied!
-                      </motion.span>
+                {/* Unboxed Direct Handle + Whisper-Quiet Copy Trigger */}
+                <div className="mt-5 pt-3.5 border-t border-[#1F1B17] flex items-center justify-between gap-2">
+                  <a
+                    href={item.href}
+                    target={item.href.startsWith('http') ? '_blank' : '_self'}
+                    rel="noopener noreferrer"
+                    className="text-xs sm:text-[13px] font-sans-clean font-medium text-[#EDE9E0] hover:text-[#C5A880] transition-colors truncate tabular-nums tracking-wide focus-visible:outline-none focus-visible:underline"
+                    title={`Connect via ${item.label}`}
+                  >
+                    {item.handle}
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={(e) => handleCopy(e, item.id, item.handle)}
+                    className="relative inline-flex items-center gap-1 text-[10.5px] font-sans-clean uppercase tracking-[0.14em] text-[#7E766D] hover:text-[#FAF9F5] transition-colors py-1 pl-2 cursor-pointer shrink-0"
+                    title={`Copy ${item.handle}`}
+                    aria-label={`Copy ${item.handle} to clipboard`}
+                  >
+                    {isCopied ? (
+                      <>
+                        <Check className="w-3 h-3 text-[#C5A880]" />
+                        <span className="text-[#C5A880] font-medium">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3 opacity-75" />
+                        <span>Copy</span>
+                      </>
                     )}
-                  </AnimatePresence>
-                </button>
-              </div>
-            </motion.div>
-          );
-        })}
+                  </button>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Bottom Scroll-Drawn Architectural Hairline */}
+        <motion.div
+          aria-hidden="true"
+          initial={{ scaleX: 0 }}
+          whileInView={{ scaleX: 1 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.95, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+          className="h-[1px] w-full bg-[#241F1B] origin-right"
+        />
       </div>
     </div>
   );

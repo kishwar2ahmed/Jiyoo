@@ -59,6 +59,8 @@ const LEGACY_PRODUCT_IMAGE_MIGRATIONS: Record<string, string> = {
   '/products/s_blueberry.jpg': '/products/s_blueberry_jiyoo.jpg',
   '/products/s_raspberry.jpg': '/products/s_raspberry_jiyoo.jpg',
   '/products/s_red_grape.jpg': '/products/s_red_grape_jiyoo.jpg',
+  '/products/f_red_ice_guava.jpg': '/products/rediceguava.jpeg',
+  '/products/f_ice_guava.jpg': '/products/rediceguava.jpeg',
 };
 
 export function resolveProductImage(url: string | undefined | null): string | undefined | null {

@@ -67,6 +67,30 @@ service cloud.firestore {
       // { valid, discount, ... } and never the coupon documents themselves.
       allow read: if isAdmin();
       allow write: if isAdmin();
+
+      match /redemptions/{userId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /inventoryReservations/{reservationId} {
+      allow read, write: if false;
+    }
+
+    match /razorpayPendingOrders/{orderId} {
+      allow read, write: if false;
+    }
+
+    match /razorpayWebhookEvents/{eventId} {
+      allow read, write: if false;
+    }
+
+    match /idempotencyKeys/{keyId} {
+      allow read, write: if false;
+    }
+
+    match /_images/{imageId} {
+      allow read, write: if false;
     }
 
     match /settings/{settingId} {

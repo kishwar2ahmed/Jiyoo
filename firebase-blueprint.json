@@ -1,0 +1,260 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account profile information and role",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Full display name"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "admin"],
+          "description": "Access control role"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Account creation timestamp"
+        }
+      },
+      "required": ["email", "role"]
+    },
+    "Address": {
+      "title": "Delivery Address",
+      "description": "Customer saved shipping address",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Address label or recipient name"
+        },
+        "address": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "Full street address"
+        },
+        "pincode": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 12,
+          "description": "Postal PIN code"
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 30,
+          "description": "Contact telephone number"
+        }
+      },
+      "required": ["name", "address", "pincode"]
+    },
+    "Product": {
+      "title": "Store Product",
+      "description": "Organic food catalog item",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Product display name"
+        },
+        "price": {
+          "type": "number",
+          "description": "Retail price in INR"
+        },
+        "stock": {
+          "type": "number",
+          "description": "Available stock quantity"
+        },
+        "category": {
+          "type": "string",
+          "description": "Product category"
+        }
+      },
+      "required": ["name", "price", "stock"]
+    },
+    "Order": {
+      "title": "Customer Order",
+      "description": "Server-authorized purchase record",
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "description": "Unique cryptographic order reference"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Purchasing user identifier"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Final paid amount in INR"
+        },
+        "orderStatus": {
+          "type": "string",
+          "enum": ["pending", "confirmed", "processing", "packed", "shipped", "dispatched", "out_for_delivery", "delivered", "cancelled", "refunded", "whatsapp_pending"],
+          "description": "Fulfillment status"
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["unpaid", "paid", "refund_pending", "partially_refunded", "refunded"],
+          "description": "Payment capture state"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Payment channel used"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["orderId", "amount", "orderStatus", "paymentStatus", "createdAt"]
+    },
+    "Coupon": {
+      "title": "Promotion Coupon",
+      "description": "Admin-created discount code",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Uppercase coupon voucher code"
+        },
+        "discountType": {
+          "type": "string",
+          "enum": ["percentage", "flat"],
+          "description": "Discount calculation type"
+        },
+        "discountValue": {
+          "type": "number",
+          "description": "Percentage or flat rupee discount"
+        },
+        "minOrderValue": {
+          "type": "number",
+          "description": "Minimum subtotal required to apply"
+        },
+        "maxUses": {
+          "type": "number",
+          "description": "Total redemption capacity"
+        },
+        "usedCount": {
+          "type": "number",
+          "description": "Total times redeemed"
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether coupon is active"
+        }
+      },
+      "required": ["code", "discountType", "discountValue", "isActive"]
+    },
+    "Review": {
+      "title": "Product Review",
+      "description": "Verified-buyer customer review",
+      "type": "object",
+      "properties": {
+        "productId": {
+          "type": "string",
+          "description": "Reviewed product ID"
+        },
+        "rating": {
+          "type": "number",
+          "description": "Rating score 1 to 5"
+        },
+        "comment": {
+          "type": "string",
+          "description": "Review text"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Review submission timestamp"
+        }
+      },
+      "required": ["productId", "rating", "comment", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "System Audit Log",
+      "description": "Immutable server-logged administrative action",
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "description": "Action performed"
+        },
+        "category": {
+          "type": "string",
+          "description": "Action classification"
+        },
+        "actor": {
+          "type": "string",
+          "description": "Admin user email or identifier"
+        },
+        "details": {
+          "type": "string",
+          "description": "Audit details"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp"
+        }
+      },
+      "required": ["action", "category", "actor", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "User profile documents"
+    },
+    "/users/{userId}/addresses/{addressId}": {
+      "schema": {
+        "$ref": "#/entities/Address"
+      },
+      "description": "User saved delivery addresses"
+    },
+    "/products/{productId}": {
+      "schema": {
+        "$ref": "#/entities/Product"
+      },
+      "description": "Storefront product catalogue"
+    },
+    "/orders/{orderId}": {
+      "schema": {
+        "$ref": "#/entities/Order"
+      },
+      "description": "Customer order records"
+    },
+    "/coupons/{couponId}": {
+      "schema": {
+        "$ref": "#/entities/Coupon"
+      },
+      "description": "Store coupons and discount rules"
+    },
+    "/reviews/{reviewId}": {
+      "schema": {
+        "$ref": "#/entities/Review"
+      },
+      "description": "Customer reviews for verified purchases"
+    },
+    "/audit_logs/{logId}": {
+      "schema": {
+        "$ref": "#/entities/AuditLog"
+      },
+      "description": "Administrative audit trail"
+    }
+  }
+}

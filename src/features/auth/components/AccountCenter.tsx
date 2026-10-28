@@ -17,6 +17,8 @@ import { getOptimizedImageUrl } from '../../../utils/imageUtils';
 import { useToast } from '../../core/contexts/ToastContext';
 import { useConfirm } from '../../core/contexts/ConfirmContext';
 import { useModalBackButton } from '../../core/hooks/useModalBackButton';
+import { PremiumShieldMark } from '../../core/components/PremiumShieldMark';
+import { useStorefrontProducts } from '../../storefront/hooks/useStorefrontProducts';
 
 
 
@@ -89,7 +91,9 @@ const OrderTrackingTimeline = ({ status }: { status: string }) => {
 };
 
 export function AccountCenter({ onClose }: { onClose: () => void }) {
-  const { user, logoutUser, wishlist, addToCart } = useCart();
+  const { user, logoutUser, wishlist, addToCart, toggleWishlist } = useCart();
+  const { currentProducts } = useStorefrontProducts();
+  const wishlistedProducts = (currentProducts || []).filter(p => wishlist?.includes(String(p.id)));
   const { showToast } = useToast();
   const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState('orders');
@@ -989,16 +993,150 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                 {/* Wishlist Tab */}
                 {activeTab === 'wishlist' && (
                   <div className="space-y-4">
-                    {wishlist && wishlist.length > 0 ? (
-                      <div className="text-center py-12 bg-white rounded-2xl border border-stone-200 shadow-sm">
-                        <Heart className="w-12 h-12 text-stone-200 mx-auto mb-3" fill="#DC2626" stroke="#DC2626" />
-                        <p className="text-sm text-stone-900 font-medium mb-2">You have {wishlist.length} item{wishlist.length !== 1 ? 's' : ''} in your wishlist.</p>
-                        <p className="text-xs text-stone-500">Close this modal and browse the store to see your saved items.</p>
+                    <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+                      <div>
+                        <h3 className="font-bold text-stone-900 text-base flex items-center gap-2">
+                          <Heart className="w-5 h-5 text-red-500 fill-red-500" />
+                          My Wishlist
+                        </h3>
+                        <p className="text-xs text-stone-500 mt-0.5">
+                          {wishlist?.length || 0} saved item{(wishlist?.length || 0) === 1 ? '' : 's'} ready for your cart
+                        </p>
+                      </div>
+                      {wishlistedProducts.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            wishlistedProducts.forEach(p => {
+                              addToCart({
+                                id: String(p.id),
+                                baseId: p.id,
+                                name: p.name,
+                                price: typeof p.price === 'number' ? `₹${p.price}` : String(p.price),
+                                numericPrice: typeof p.price === 'number' ? p.price : parseFloat(String(p.price).replace(/[^0-9.]/g, '')),
+                                image: p.image,
+                                badge: p.unit
+                              }, 1);
+                            });
+                            showToast(`Added all ${wishlistedProducts.length} items to cart!`, 'success');
+                          }}
+                          className="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
+                        >
+                          <ShoppingBag className="w-3.5 h-3.5 text-emerald-700" />
+                          Add All to Cart
+                        </button>
+                      )}
+                    </div>
+
+                    {wishlistedProducts.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        {wishlistedProducts.map((p) => {
+                          const displayPrice = typeof p.price === 'number' ? `₹${p.price}` : String(p.price).startsWith('₹') ? p.price : `₹${p.price}`;
+                          const isOutOfStock = p.stock === 0 || p.stockStatus === 'out_of_stock';
+                          return (
+                            <div
+                              key={p.id}
+                              className="bg-white rounded-xl p-3.5 border border-stone-200 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between gap-3 group relative"
+                            >
+                              <div className="flex gap-3">
+                                <div className="w-20 h-20 shrink-0 bg-stone-50 rounded-lg overflow-hidden border border-stone-100 p-1 flex items-center justify-center">
+                                  <img
+                                    src={getOptimizedImageUrl(p.image, 200, 80)}
+                                    alt={p.name}
+                                    className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                                    loading="lazy"
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0 pr-6">
+                                  <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400">
+                                    {p.category || p.categoryId || 'Produce'}
+                                  </span>
+                                  <h4 className="font-semibold text-stone-900 text-sm leading-snug truncate mt-0.5">
+                                    {p.name}
+                                  </h4>
+                                  <p className="text-xs text-stone-500 font-medium mt-0.5">
+                                    {p.unit || 'Standard'}
+                                  </p>
+                                  <div className="mt-1.5 flex items-baseline gap-2">
+                                    <span className="font-bold text-stone-900 text-sm">
+                                      {displayPrice}
+                                    </span>
+                                    {p.originalPrice && (
+                                      <span className="text-xs text-stone-400 line-through">
+                                        {String(p.originalPrice).startsWith('₹') ? p.originalPrice : `₹${p.originalPrice}`}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Remove Wishlist Button */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  toggleWishlist(String(p.id));
+                                  showToast(`Removed from wishlist`, 'info');
+                                }}
+                                className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full flex items-center justify-center bg-stone-50 hover:bg-red-50 text-stone-400 hover:text-red-500 border border-stone-200 transition-colors cursor-pointer"
+                                title="Remove from wishlist"
+                                aria-label="Remove from wishlist"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+
+                              <div className="pt-2 border-t border-stone-100 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  disabled={isOutOfStock}
+                                  onClick={() => {
+                                    addToCart({
+                                      id: String(p.id),
+                                      baseId: p.id,
+                                      name: p.name,
+                                      price: displayPrice,
+                                      numericPrice: typeof p.price === 'number' ? p.price : parseFloat(String(p.price).replace(/[^0-9.]/g, '')),
+                                      image: p.image,
+                                      badge: p.unit
+                                    }, 1);
+                                    showToast(`Added ${p.name} to cart!`, 'success');
+                                  }}
+                                  className={`w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                                    isOutOfStock
+                                      ? 'bg-stone-100 text-stone-400 cursor-not-allowed'
+                                      : 'bg-stone-900 hover:bg-stone-800 text-white shadow-2xs'
+                                  }`}
+                                >
+                                  <ShoppingBag className="w-3.5 h-3.5" />
+                                  {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="text-center py-12 bg-white rounded-2xl border border-stone-200 shadow-sm">
-                        <Heart className="w-12 h-12 text-stone-200 mx-auto mb-3" strokeWidth={1} />
-                        <p className="text-sm text-stone-500">Your wishlist is empty.</p>
+                        <div className="w-16 h-16 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-3">
+                          <Heart className="w-8 h-8" strokeWidth={1.5} />
+                        </div>
+                        <h4 className="text-sm font-bold text-stone-900 mb-1">Your wishlist is empty</h4>
+                        <p className="text-xs text-stone-500 max-w-xs mx-auto mb-5">
+                          Tap the heart icon on any product in our store to save your favorite fruits, veggies, and cuts for later.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            const el = document.getElementById('products');
+                            if (el) {
+                              el.scrollIntoView({ behavior: 'smooth' });
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
+                        >
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                          Explore Catalog
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1008,7 +1146,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                 {activeTab === 'payment' && (
                    <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-sm">
                      <div className="flex items-center gap-3 mb-6">
-                       <Shield className="w-5 h-5 text-green-600" />
+                       <PremiumShieldMark className="w-5 h-5 shrink-0" variant="emerald" />
                        <p className="text-sm text-stone-600 font-medium">Secured by Razorpay Tokenization. We do not store card details.</p>
                      </div>
                      <button className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 border border-stone-200 text-stone-700 rounded-lg font-medium hover:bg-stone-50 transition-colors">

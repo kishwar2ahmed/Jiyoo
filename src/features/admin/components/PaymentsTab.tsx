@@ -7,6 +7,7 @@ import { CreditCard, ExternalLink, Search, RefreshCw, ArrowUpRight, DollarSign, 
 import { format } from 'date-fns';
 import { useToast } from '../../core/contexts/ToastContext';
 import { logAuditEvent } from '../../../services/auditService';
+import { PhonePeIcon, PaytmIcon, UpiOfficialIcon } from '../../core/components/UpiIcons';
 
 // Orders' `createdAt` may be a Firestore Timestamp (has `.seconds`) or an
 // ISO date string - both are in active use depending on which server path
@@ -269,9 +270,15 @@ export function PaymentsTab() {
         <form onSubmit={handleSaveKeys} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-brand-gray-700 mb-1 flex items-center gap-1">
-                <QrCode className="w-3.5 h-3.5 text-brand-gray-400" />
-                Primary Store UPI VPA (QR 1)
+              <label className="block text-xs font-medium text-brand-gray-700 mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <QrCode className="w-3.5 h-3.5 text-brand-gray-400" />
+                  Primary Store UPI VPA (QR 1)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <PhonePeIcon className="h-3.5 w-3.5" />
+                  <UpiOfficialIcon className="h-3 w-auto" />
+                </span>
               </label>
               <input 
                 type="text" 
@@ -282,9 +289,15 @@ export function PaymentsTab() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-brand-gray-700 mb-1 flex items-center gap-1">
-                <QrCode className="w-3.5 h-3.5 text-brand-gray-400" />
-                Secondary Store UPI VPA (QR 2)
+              <label className="block text-xs font-medium text-brand-gray-700 mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <QrCode className="w-3.5 h-3.5 text-brand-gray-400" />
+                  Secondary Store UPI VPA (QR 2)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <PaytmIcon className="h-2.5 w-auto" />
+                  <UpiOfficialIcon className="h-3 w-auto" />
+                </span>
               </label>
               <input 
                 type="text" 

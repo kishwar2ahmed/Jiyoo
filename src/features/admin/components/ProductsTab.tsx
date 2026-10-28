@@ -5,10 +5,11 @@ import { collection, doc, setDoc, onSnapshot, writeBatch, query, limit } from 'f
 import { db } from '../../../services/firebase';
 import { Category, Product } from '../../../types';
 import { CATEGORIES, PRODUCTS } from '../../../constants/data';
-import { Plus, Edit2, Trash2, Search, Image as ImageIcon, Database, PackageCheck, PackageX } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Image as ImageIcon, Database, PackageX } from 'lucide-react';
 import { useToast } from '../../core/contexts/ToastContext';
 import { useConfirm } from '../../core/contexts/ConfirmContext';
 import { resolveProductImage } from '../../../utils/imageUtils';
+import { InstaBlueTickIcon } from '../../core/components/SocialIcons';
 
 
 import React from 'react';
@@ -35,10 +36,10 @@ const ProductRow = React.memo(({ p, setEditingProduct, setIsModalOpen, handleDel
         className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full transition-colors ${
           isOutOfStock
             ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
-            : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+            : 'bg-sky-50 text-slate-900 hover:bg-sky-100 border border-sky-200'
         }`}
       >
-        {isOutOfStock ? <PackageX className="w-3.5 h-3.5" /> : <PackageCheck className="w-3.5 h-3.5" />}
+        {isOutOfStock ? <PackageX className="w-3.5 h-3.5" /> : <InstaBlueTickIcon className="w-3.5 h-3.5 shrink-0" />}
         {isOutOfStock ? 'Out of Stock' : 'In Stock'}
       </button>
     </td>

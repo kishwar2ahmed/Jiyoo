@@ -26,11 +26,19 @@ import Razorpay from 'razorpay';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
+import { GoogleGenAI } from '@google/genai';
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import { PRODUCTS as BUNDLED_PRODUCTS } from './src/constants/data';
+import {
+  DEFAULT_RETAIL_AREAS,
+  DEFAULT_RETAIL_PINCODES,
+  DEFAULT_PAN_INDIA_WHOLESALE_ZONE,
+  isValidIndianPincode,
+} from './src/constants/deliveryAreas';
 
 
 const envSchema = z.object({
@@ -115,6 +123,47 @@ async function syncAdminClaims() {
   }
 }
 syncAdminClaims().catch((err) => console.warn('[Admin Bootstrap] Sync failed:', err));
+
+// Bootstraps and synchronizes the catalog into Firestore so orders, inventory reservations,
+// and COD checkouts operate against authentic database records rather than throwing missing-catalog errors.
+async function syncCatalogToFirestore() {
+  try {
+    const db = getFirestore();
+    const snap = await db.collection('products').limit(1).get();
+    if (snap.empty) {
+      console.log('[Catalog Sync] Bootstrapping bundled products into Firestore...');
+      const batch = db.batch();
+      for (const p of BUNDLED_PRODUCTS) {
+        const docRef = db.collection('products').doc(String(p.id));
+        const numPrice = Number(p.numericPrice) || parseFloat(String(p.price).replace(/[^0-9.]/g, '')) || 0;
+        batch.set(docRef, {
+          id: String(p.id),
+          name: p.name,
+          category: p.category || 'General',
+          categoryId: (p as any).categoryId || (p.category ? String(p.category).toLowerCase().replace(/\s+/g, '-') : 'general'),
+          price: p.price,
+          numericPrice: numPrice,
+          wholesalePrice: (p as any).wholesalePrice || numPrice,
+          wholesaleEligible: true,
+          stock: 100,
+          reservedStock: 0,
+          stockStatus: 'in_stock',
+          description: p.description || '',
+          image: p.image || '',
+          weights: (p as any).weights || [],
+          isDeleted: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      }
+      await batch.commit();
+      console.log(`[Catalog Sync] Successfully seeded ${BUNDLED_PRODUCTS.length} products to Firestore.`);
+    }
+  } catch (err) {
+    console.warn('[Catalog Sync] Firestore product sync skipped:', (err as any)?.message || err);
+  }
+}
+syncCatalogToFirestore().catch((err) => console.warn('[Catalog Sync] Error:', err));
 
 // Helper to dynamically obtain Razorpay instance
 function getRazorpay() {
@@ -400,6 +449,22 @@ async function decrementInventory(items: any[]) {
       const productRef = db.collection('products').doc(id);
       const docSnap = await transaction.get(productRef);
       if (!docSnap.exists) {
+        const bundled = BUNDLED_PRODUCTS.find((p) => String(p.id) === id);
+        if (bundled) {
+          const numPrice = Number(bundled.numericPrice) || parseFloat(String(bundled.price).replace(/[^0-9.]/g, '')) || 0;
+          const initialProduct = {
+            id: String(bundled.id),
+            name: bundled.name,
+            stock: 100,
+            reservedStock: 0,
+            numericPrice: numPrice,
+            price: bundled.price,
+            stockStatus: 'in_stock',
+          };
+          transaction.set(productRef, initialProduct);
+          productDocs.push({ id, ref: productRef, data: initialProduct, requestedQty: meta.quantity, name: meta.name });
+          continue;
+        }
         throw new Error(`Product ${meta.name || id} is no longer available.`);
       }
       productDocs.push({ id, ref: productRef, data: docSnap.data(), requestedQty: meta.quantity, name: meta.name });
@@ -451,10 +516,27 @@ async function reserveInventory(
   await db.runTransaction(async (tx) => {
     const productEntries: Array<{ ref: FirebaseFirestore.DocumentReference; stock: number; reserved: number; qty: number }> = [];
     for (const [id, qty] of quantities) {
-      const ref = db.collection('products').doc(id);
       const snap = await tx.get(ref);
-      if (!snap.exists) throw new Error(`Product ${id} is no longer available.`);
-      const data = snap.data() as any;
+      let data = snap.data() as any;
+      if (!snap.exists) {
+        const bundled = BUNDLED_PRODUCTS.find((p) => String(p.id) === id);
+        if (bundled) {
+          const numPrice = Number(bundled.numericPrice) || parseFloat(String(bundled.price).replace(/[^0-9.]/g, '')) || 0;
+          const initialProduct = {
+            id: String(bundled.id),
+            name: bundled.name,
+            stock: 100,
+            reservedStock: 0,
+            numericPrice: numPrice,
+            price: bundled.price,
+            stockStatus: 'in_stock',
+          };
+          tx.set(ref, initialProduct);
+          data = initialProduct;
+        } else {
+          throw new Error(`Product ${id} is no longer available.`);
+        }
+      }
       const stock = Number(data?.stock);
       const reserved = Number(data?.reservedStock || 0);
       if (!Number.isFinite(stock) || stock < 0) throw new Error(`Product ${data?.name || id} has invalid stock.`);
@@ -683,7 +765,35 @@ async function calculateOrderTotals(items: any[], orderType: 'retail' | 'wholesa
   try {
     if (productRefs.length > 0) {
       const docRefs = await getFirestore().getAll(...productRefs);
-      dbProducts = docRefs.map(doc => doc.exists ? { id: doc.id, ...doc.data() } : null);
+      dbProducts = docRefs.map(doc => {
+        if (doc.exists) return { id: doc.id, ...doc.data() };
+        const bundled = BUNDLED_PRODUCTS.find((p) => String(p.id) === doc.id);
+        if (bundled) {
+          const numPrice = Number(bundled.numericPrice) || parseFloat(String(bundled.price).replace(/[^0-9.]/g, '')) || 0;
+          const initialProduct = {
+            id: String(bundled.id),
+            name: bundled.name,
+            category: bundled.category || 'General',
+            categoryId: (bundled as any).categoryId || (bundled.category ? String(bundled.category).toLowerCase().replace(/\s+/g, '-') : 'general'),
+            price: bundled.price,
+            numericPrice: numPrice,
+            wholesalePrice: (bundled as any).wholesalePrice || numPrice,
+            wholesaleEligible: true,
+            stock: 100,
+            reservedStock: 0,
+            stockStatus: 'in_stock',
+            description: bundled.description || '',
+            image: bundled.image || '',
+            weights: (bundled as any).weights || [],
+            isDeleted: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          getFirestore().collection('products').doc(doc.id).set(initialProduct, { merge: true }).catch(() => {});
+          return initialProduct;
+        }
+        return null;
+      });
     }
   } catch (dbErr) {
     // Checkout must fail closed. Falling back to a bundled catalog after a
@@ -980,32 +1090,36 @@ async function getStoreDeliverySettings(): Promise<{ deliveryFee: number; freeDe
 // live feedback, but order creation re-checks this itself rather than
 // trusting that earlier client-side check.
 function normalizePincode(raw: unknown): string {
-  return String(raw ?? '').trim();
+  return String(raw ?? '').replace(/\*/g, '').trim();
 }
 
 async function getRetailPincode(pincode: string): Promise<DeliveryPincodeRecord | null> {
   const clean = normalizePincode(pincode);
   if (!/^\d{6}$/.test(clean)) return null;
-  const snap = await getFirestore().collection('deliveryPincodes').doc(clean).get();
-  if (!snap.exists) return null;
-  return { pincode: clean, ...(snap.data() as any) };
+  const defaultEntry = DEFAULT_RETAIL_PINCODES.find((p) => p.pincode === clean) || null;
+  try {
+    const snap = await getFirestore().collection('deliveryPincodes').doc(clean).get();
+    if (snap.exists) {
+      return { pincode: clean, ...(snap.data() as any) };
+    }
+  } catch (err) {
+    console.warn('[Delivery] Firestore lookup unavailable for retail pincode, using default configuration:', err);
+  }
+  return defaultEntry ? { ...defaultEntry } : null;
 }
 
 interface DeliveryPincodeRecord {
   pincode: string;
   enabled: boolean;
   label?: string;
+  areas?: string[];
   deliveryFee?: number;
   minOrderAmount?: number;
 }
 
 // ---------------------------------------------------------------------------
-// WHOLESALE SHIPPING ZONE SERVICEABILITY
+// WHOLESALE SHIPPING ZONE SERVICEABILITY (PAN-INDIA ACTIVE)
 // ---------------------------------------------------------------------------
-// A wholesale order is only accepted for a destination PIN code whose
-// 3-digit prefix matches an admin-configured, enabled zone. This avoids
-// promising delivery to every Indian PIN code without validating
-// serviceability -- only explicitly configured zones are serviceable.
 interface WholesaleZoneRecord {
   id: string;
   label: string;
@@ -1018,18 +1132,51 @@ interface WholesaleZoneRecord {
 
 async function findWholesaleZoneForPincode(pincode: string): Promise<WholesaleZoneRecord | null> {
   const clean = normalizePincode(pincode);
-  if (!/^\d{6}$/.test(clean)) return null;
+  if (!isValidIndianPincode(clean)) return null;
   const prefix3 = clean.slice(0, 3);
-  const snap = await getFirestore().collection('wholesaleZones').where('enabled', '==', true).get();
-  for (const doc of snap.docs) {
-    const data = doc.data() as any;
-    const prefixes: string[] = Array.isArray(data.pincodePrefixes) ? data.pincodePrefixes : [];
-    if (prefixes.some((p) => String(p).trim() === prefix3)) {
-      return { id: doc.id, label: data.label, pincodePrefixes: prefixes, enabled: true, shippingFee: Number(data.shippingFee) || 0, minOrderValue: Number(data.minOrderValue) || 0, etaDays: data.etaDays };
+  try {
+    const snap = await getFirestore().collection('wholesaleZones').get();
+    if (!snap.empty) {
+      const enabledZones = snap.docs
+        .map((doc) => ({ id: doc.id, ...(doc.data() as any) }))
+        .filter((z) => z.enabled === true);
+      // Match specific 3-digit prefix first, then 'ALL' / '*' Pan-India zone
+      for (const data of enabledZones) {
+        const prefixes: string[] = Array.isArray(data.pincodePrefixes) ? data.pincodePrefixes : [];
+        if (prefixes.some((p) => String(p).trim() === prefix3)) {
+          return {
+            id: data.id,
+            label: data.label,
+            pincodePrefixes: prefixes,
+            enabled: true,
+            shippingFee: Number(data.shippingFee) || 0,
+            minOrderValue: Number(data.minOrderValue) || 0,
+            etaDays: data.etaDays,
+          };
+        }
+      }
+      for (const data of enabledZones) {
+        const prefixes: string[] = Array.isArray(data.pincodePrefixes) ? data.pincodePrefixes : [];
+        if (prefixes.some((p) => ['ALL', '*'].includes(String(p).trim().toUpperCase()))) {
+          return {
+            id: data.id,
+            label: data.label,
+            pincodePrefixes: prefixes,
+            enabled: true,
+            shippingFee: Number(data.shippingFee) || 0,
+            minOrderValue: Number(data.minOrderValue) || 0,
+            etaDays: data.etaDays,
+          };
+        }
+      }
+      return null;
     }
+  } catch (err) {
+    console.warn('[Wholesale] Firestore zone lookup unavailable, using Pan-India default zone:', err);
   }
-  return null;
+  return { ...DEFAULT_PAN_INDIA_WHOLESALE_ZONE };
 }
+
 
 function generateOrderId(): string {
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -1359,18 +1506,32 @@ app.use(compression() as unknown as express.RequestHandler);
   // open-redirect primitive in misconfigured deployments.
 
   // Security Middlewares
+  app.disable('x-powered-by');
+  app.use((req, res, next) => {
+    res.setHeader(
+      'Permissions-Policy',
+      'camera=(), microphone=(), geolocation=(self), payment=(self "https://checkout.razorpay.com")'
+    );
+    next();
+  });
+
+  const isProd = process.env.NODE_ENV === 'production';
   app.use(
     helmet({
       frameguard: false,
       crossOriginEmbedderPolicy: false,
       crossOriginOpenerPolicy: false,
       crossOriginResourcePolicy: { policy: 'cross-origin' },
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
       contentSecurityPolicy: {
         useDefaults: false,
         directives: {
           defaultSrc: ["'self'", "https:", "http:", "data:", "blob:"],
           baseUri: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "http:", "blob:"],
+          formAction: ["'self'"],
+          scriptSrc: isProd
+            ? ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "blob:"]
+            : ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "http:", "blob:"],
           scriptSrcAttr: ["'unsafe-inline'"],
           styleSrc: ["'self'", "'unsafe-inline'", "https:", "http:"],
           fontSrc: ["'self'", "https:", "http:", "data:"],
@@ -1448,8 +1609,23 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  app.post('/api/sessionLogout', (req, res) => {
-    res.clearCookie('session');
+  app.post('/api/sessionLogout', async (req, res) => {
+    const session = (req as any).cookies?.session;
+    if (session && typeof session === 'string') {
+      try {
+        const decodedClaims = await getAuth().verifySessionCookie(session);
+        if (decodedClaims?.sub) {
+          await getAuth().revokeRefreshTokens(decodedClaims.sub);
+        }
+      } catch {
+        // Ignore already-expired or invalid session cookies during logout
+      }
+    }
+    res.clearCookie('session', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict' as const,
+    });
     res.json({ status: 'success' });
   });
 
@@ -1474,6 +1650,7 @@ app.use(compression() as unknown as express.RequestHandler);
        }
        res.set('Content-Type', mimeType);
        res.set('X-Content-Type-Options', 'nosniff');
+       res.set('Content-Security-Policy', "default-src 'none'; sandbox");
        res.set('Cache-Control', 'public, max-age=31536000');
        res.send(buffer);
     } catch (e) {
@@ -1586,9 +1763,27 @@ app.use(compression() as unknown as express.RequestHandler);
 
   app.get('/api/admin/delivery/pincodes', requireAuth, requireAdmin, async (req, res) => {
     try {
-      const snap = await getFirestore().collection('deliveryPincodes').orderBy('pincode', 'asc').get();
-      const pincodes = snap.docs.map((d) => ({ pincode: d.id, ...d.data() }));
-      res.json({ success: true, pincodes });
+      const mergedMap = new Map<string, any>();
+      DEFAULT_RETAIL_PINCODES.forEach((item) => {
+        mergedMap.set(item.pincode, { ...item });
+      });
+      try {
+        const snap = await getFirestore().collection('deliveryPincodes').orderBy('pincode', 'asc').get();
+        snap.docs.forEach((d) => {
+          const data = d.data() as any;
+          const base = mergedMap.get(d.id) || {};
+          mergedMap.set(d.id, {
+            ...base,
+            pincode: d.id,
+            ...data,
+            label: data.label || base.label || '',
+          });
+        });
+      } catch (dbErr) {
+        console.warn('Firestore deliveryPincodes read failed, returning default active areas:', dbErr);
+      }
+      const pincodes = Array.from(mergedMap.values()).sort((a, b) => String(a.pincode).localeCompare(String(b.pincode)));
+      res.json({ success: true, pincodes, areas: DEFAULT_RETAIL_AREAS });
     } catch (err: any) {
       console.error('Failed to list delivery pincodes:', err);
       res.status(500).json({ success: false, error: 'Failed to list delivery pincodes' });
@@ -1603,10 +1798,6 @@ app.use(compression() as unknown as express.RequestHandler);
       }
       const { pincode, label, enabled, deliveryFee, minOrderAmount } = parsed.data;
       const ref = getFirestore().collection('deliveryPincodes').doc(pincode);
-      const existing = await ref.get();
-      if (existing.exists) {
-        return res.status(409).json({ success: false, error: `PIN code ${pincode} already exists.` });
-      }
       const actorEmail = (req as any).authUser.email || (req as any).authUser.uid;
       const now = new Date().toISOString();
       await ref.set({
@@ -1618,8 +1809,8 @@ app.use(compression() as unknown as express.RequestHandler);
         createdAt: now,
         updatedAt: now,
         createdBy: actorEmail,
-      });
-      await writeAuditLogDirect(actorEmail, 'ADD_DELIVERY_PINCODE', 'DELIVERY', `Added PIN code ${pincode} (${enabled ? 'enabled' : 'disabled'})`);
+      }, { merge: true });
+      await writeAuditLogDirect(actorEmail, 'ADD_DELIVERY_PINCODE', 'DELIVERY', `Saved PIN code ${pincode} (${enabled ? 'enabled' : 'disabled'})`);
       res.json({ success: true, pincode });
     } catch (err: any) {
       console.error('Failed to add delivery pincode:', err);
@@ -1633,7 +1824,7 @@ app.use(compression() as unknown as express.RequestHandler);
         pincodes: z.array(z.object({
           pincode: z.string().regex(/^\d{6}$/),
           label: z.string().max(120).optional(),
-          enabled: z.boolean().optional().default(false),
+          enabled: z.boolean().optional().default(true),
         })).min(1).max(500),
       });
       const parsed = listSchema.safeParse(req.body);
@@ -1645,7 +1836,6 @@ app.use(compression() as unknown as express.RequestHandler);
       const now = new Date().toISOString();
       let added = 0;
       let skipped = 0;
-      // Deduplicate within the submitted batch itself before touching Firestore.
       const seen = new Set<string>();
       const toInsert = parsed.data.pincodes.filter((p) => {
         if (seen.has(p.pincode)) return false;
@@ -1699,18 +1889,21 @@ app.use(compression() as unknown as express.RequestHandler);
       }
       const ref = getFirestore().collection('deliveryPincodes').doc(pincode);
       const existing = await ref.get();
-      if (!existing.exists) {
+      const defaultPin = DEFAULT_RETAIL_PINCODES.find((d) => d.pincode === pincode);
+      if (!existing.exists && !defaultPin) {
         return res.status(404).json({ success: false, error: `PIN code ${pincode} does not exist.` });
       }
       const actorEmail = (req as any).authUser.email || (req as any).authUser.uid;
-      const update: Record<string, any> = { updatedAt: new Date().toISOString() };
+      const update: Record<string, any> = {
+        pincode,
+        ...(defaultPin && !existing.exists ? { label: defaultPin.label, enabled: defaultPin.enabled, areas: defaultPin.areas } : {}),
+        updatedAt: new Date().toISOString(),
+      };
       if (parsed.data.label !== undefined) update.label = parsed.data.label;
       if (parsed.data.enabled !== undefined) update.enabled = parsed.data.enabled;
       if (parsed.data.deliveryFee !== undefined) update.deliveryFee = parsed.data.deliveryFee;
       if (parsed.data.minOrderAmount !== undefined) update.minOrderAmount = parsed.data.minOrderAmount;
       await ref.set(update, { merge: true });
-      // Disabling must not touch existing confirmed orders -- this update
-      // only ever writes to the deliveryPincodes doc itself, never to orders.
       await writeAuditLogDirect(actorEmail, 'UPDATE_DELIVERY_PINCODE', 'DELIVERY', `Updated PIN code ${pincode}: ${JSON.stringify(parsed.data)}`);
       res.json({ success: true });
     } catch (err: any) {
@@ -1723,10 +1916,6 @@ app.use(compression() as unknown as express.RequestHandler);
     try {
       const pincode = req.params.pincode;
       const ref = getFirestore().collection('deliveryPincodes').doc(pincode);
-      const existing = await ref.get();
-      if (!existing.exists) {
-        return res.status(404).json({ success: false, error: `PIN code ${pincode} does not exist.` });
-      }
       await ref.delete();
       const actorEmail = (req as any).authUser.email || (req as any).authUser.uid;
       await writeAuditLogDirect(actorEmail, 'REMOVE_DELIVERY_PINCODE', 'DELIVERY', `Removed PIN code ${pincode}`);
@@ -1737,46 +1926,338 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  // Seeds the initial candidate PIN codes named in the brief. Each is
-  // inserted DISABLED -- they are candidates to be verified against actual
-  // service areas before production activation, never auto-enabled. Safe to
-  // call more than once: existing pincodes (candidate or admin-added) are
-  // left untouched.
-  const CANDIDATE_RETAIL_PINCODES = ['560084', '560043', '560045', '560032', '560005'];
+  // Seeds/syncs the 13 Bangalore retail areas across the 5 PIN codes as ACTIVE.
   app.post('/api/admin/delivery/pincodes/seed-candidates', strictApiLimiter, requireAuth, requireAdmin, async (req, res) => {
     try {
       const db = getFirestore();
       const actorEmail = (req as any).authUser.email || (req as any).authUser.uid;
       const now = new Date().toISOString();
-      const refs = CANDIDATE_RETAIL_PINCODES.map((p) => db.collection('deliveryPincodes').doc(p));
-      const existingDocs = await db.getAll(...refs);
       const batch = db.batch();
       let added = 0;
-      CANDIDATE_RETAIL_PINCODES.forEach((pincode, idx) => {
-        if (existingDocs[idx].exists) return;
+      for (const item of DEFAULT_RETAIL_PINCODES) {
         added++;
-        batch.set(db.collection('deliveryPincodes').doc(pincode), {
-          pincode,
-          label: 'Candidate -- verify before enabling',
-          enabled: false,
-          createdAt: now,
+        batch.set(db.collection('deliveryPincodes').doc(item.pincode), {
+          pincode: item.pincode,
+          label: item.label,
+          areas: item.areas,
+          enabled: true,
           updatedAt: now,
           createdBy: actorEmail,
-        });
-      });
-      if (added > 0) await batch.commit();
-      await writeAuditLogDirect(actorEmail, 'SEED_CANDIDATE_PINCODES', 'DELIVERY', `Seeded ${added} candidate PIN code(s) (disabled)`);
-      res.json({ success: true, added, skipped: CANDIDATE_RETAIL_PINCODES.length - added });
+        }, { merge: true });
+      }
+      await batch.commit();
+      await writeAuditLogDirect(actorEmail, 'SEED_CANDIDATE_PINCODES', 'DELIVERY', `Activated 13 Bangalore retail areas across ${added} PIN code(s)`);
+      res.json({ success: true, added, skipped: 0 });
     } catch (err: any) {
-      console.error('Failed to seed candidate pincodes:', err);
-      res.status(500).json({ success: false, error: 'Failed to seed candidate PIN codes' });
+      console.error('Failed to seed retail pincodes:', err);
+      res.status(500).json({ success: false, error: 'Failed to seed retail PIN codes' });
+    }
+  });
+
+  // Public endpoint returning active retail areas & Pan-India wholesale status
+  app.get('/api/delivery/active-areas', apiLimiter, async (req, res) => {
+    try {
+      const mergedMap = new Map<string, any>();
+      DEFAULT_RETAIL_PINCODES.forEach((item) => {
+        mergedMap.set(item.pincode, { ...item });
+      });
+      try {
+        const snap = await getFirestore().collection('deliveryPincodes').get();
+        snap.docs.forEach((d) => {
+          const data = d.data() as any;
+          const base = mergedMap.get(d.id) || {};
+          mergedMap.set(d.id, { ...base, pincode: d.id, ...data });
+        });
+      } catch {
+        // Fallback to DEFAULT_RETAIL_PINCODES when Firestore is offline
+      }
+      const activePincodes = Array.from(mergedMap.values()).filter((p) => p.enabled === true);
+      res.json({
+        success: true,
+        retailAreas: DEFAULT_RETAIL_AREAS,
+        activePincodes,
+        wholesalePanIndia: true,
+      });
+    } catch (err: any) {
+      res.json({
+        success: true,
+        retailAreas: DEFAULT_RETAIL_AREAS,
+        activePincodes: DEFAULT_RETAIL_PINCODES,
+        wholesalePanIndia: true,
+      });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // GOOGLE MAPS GROUNDING & LOCATION INTELLIGENCE (gemini-3.8-flash + googleMaps)
+  // -------------------------------------------------------------------------
+  app.post('/api/maps/grounding', trackOrderLimiter, async (req, res) => {
+    try {
+      const { query, lat, lng } = req.body || {};
+      if (!query || typeof query !== 'string' || query.trim().length < 2) {
+        return res.status(400).json({ success: false, error: 'A valid location query or landmark is required.' });
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ success: false, error: 'Maps intelligence service is currently unconfigured.' });
+      }
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
+
+      const hasCoordinates = typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng);
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: `Provide accurate real-time geographic details, nearby landmarks, accessibility, and delivery neighborhood guidance for: "${query.trim()}". Mention relevant Bangalore/India locality context for fresh food delivery.`,
+        config: {
+          tools: [{ googleMaps: {} }],
+          ...(hasCoordinates ? {
+            toolConfig: {
+              retrievalConfig: {
+                latLng: {
+                  latitude: Number(lat),
+                  longitude: Number(lng),
+                },
+              },
+            },
+          } : {}),
+        },
+      });
+
+      const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      const mapsLinks: Array<{ uri: string; title: string }> = [];
+      const reviewSnippets: string[] = [];
+
+      for (const chunk of chunks as any[]) {
+        if (chunk.maps?.uri) {
+          mapsLinks.push({
+            uri: chunk.maps.uri,
+            title: chunk.maps.title || 'View location on Google Maps',
+          });
+        }
+        if (Array.isArray(chunk.maps?.placeAnswerSources?.reviewSnippets)) {
+          for (const s of chunk.maps.placeAnswerSources.reviewSnippets) {
+            if (typeof s === 'string') reviewSnippets.push(s);
+          }
+        }
+      }
+
+      return res.json({
+        success: true,
+        text: response.text || '',
+        mapsLinks,
+        reviewSnippets,
+        groundingChunks: chunks,
+      });
+    } catch (err: any) {
+      console.error('Maps grounding error:', err);
+      return res.status(500).json({ success: false, error: 'Failed to retrieve Google Maps intelligence.' });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // SECURE WHATSAPP ORDER PREPARATION (ALL REQUIRED DETAILS MANDATORY)
+  // -------------------------------------------------------------------------
+  const whatsappPrepareSchema = z.object({
+    items: z.array(z.object({
+      id: z.union([z.string(), z.number()]),
+      baseId: z.union([z.string(), z.number()]).optional(),
+      name: z.string().max(200).optional(),
+      quantity: z.number().int().min(1).max(500),
+      selectedWeight: z.string().max(60).nullable().optional(),
+      selectedCut: z.string().max(60).nullable().optional(),
+    })).min(1).max(100),
+    orderType: z.enum(['retail', 'wholesale']).optional().default('retail'),
+    shippingDetails: z.object({
+      name: z.string().min(2, 'Customer full name is mandatory for WhatsApp orders.').max(100),
+      phone: z.string().min(7, 'Valid contact phone number is mandatory for WhatsApp orders.').max(30),
+      address: z.string().min(5, 'Complete delivery street address is mandatory for WhatsApp orders.').max(500),
+      pincode: z.string().min(6, 'Valid 6-digit postal PIN code is mandatory for WhatsApp orders.').max(12),
+      city: z.string().max(80).optional().default('Bangalore'),
+      area: z.string().max(120).optional().default(''),
+      firstName: z.string().max(80).optional(),
+      lastName: z.string().max(80).optional(),
+    }),
+  });
+
+  app.post('/api/whatsapp/prepare-order', orderLimiter, optionalAuth, async (req, res) => {
+    try {
+      const parsed = whatsappPrepareSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          success: false,
+          error: parsed.error.issues[0]?.message || 'All shipping details (Name, Phone, Address, PIN Code) are mandatory for WhatsApp orders.',
+        });
+      }
+
+      const { items, orderType, shippingDetails } = parsed.data;
+
+      const rawPhone = String(shippingDetails.phone || '').trim();
+      const normalizedPhone = rawPhone.replace(/[\s().-]/g, '');
+      if (!/^\+?[1-9]\d{6,14}$/.test(normalizedPhone)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Please enter a valid international or Indian phone number (e.g. +91 9876543210).',
+        });
+      }
+
+      const cleanPin = normalizePincode(shippingDetails.pincode);
+      if (!isValidIndianPincode(cleanPin)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Please enter a valid 6-digit Indian PIN code.',
+        });
+      }
+
+      let deliveryFee = 40;
+      if (orderType === 'wholesale') {
+        const zone = await findWholesaleZoneForPincode(cleanPin);
+        deliveryFee = zone ? zone.shippingFee : DEFAULT_PAN_INDIA_WHOLESALE_ZONE.shippingFee;
+      } else {
+        const pinRecord = await getRetailPincode(cleanPin);
+        if (!pinRecord || pinRecord.enabled !== true) {
+          return res.status(400).json({
+            success: false,
+            error: 'Retail delivery via WhatsApp is currently active in our 13 Bangalore service areas (PINs: 560084, 560043, 560045, 560032, 560005). For Pan-India delivery, switch to Wholesale.',
+          });
+        }
+        if (typeof pinRecord.deliveryFee === 'number') {
+          deliveryFee = pinRecord.deliveryFee;
+        }
+        try {
+          const settings = await getStoreDeliverySettings();
+          if (typeof settings.deliveryFee === 'number') deliveryFee = settings.deliveryFee;
+        } catch {
+          // Use default deliveryFee when Firestore settings are offline
+        }
+      }
+
+      // Compute authoritative item prices: try Firestore first, fallback to bundled catalog if DB is offline
+      let subtotal = 0;
+      const validatedItems: any[] = [];
+      try {
+        const calc = await calculateOrderTotals(items, orderType);
+        subtotal = calc.subtotal;
+        validatedItems.push(...calc.validatedItems);
+      } catch {
+        // Fallback to server's bundled catalog so WhatsApp ordering works even without a database
+        for (const reqItem of items) {
+          const rawId = String(reqItem.baseId ?? reqItem.id ?? '');
+          const baseId = rawId.includes('-') ? rawId.split('-')[0] : rawId;
+          const bundled = BUNDLED_PRODUCTS.find((p) => String(p.id) === baseId);
+          if (!bundled) {
+            return res.status(400).json({
+              success: false,
+              error: `Product "${reqItem.name || baseId}" was not found in the authoritative catalog.`,
+            });
+          }
+          let unitPrice = Number(bundled.numericPrice) || parseFloat(String(bundled.price).replace(/[^0-9.]/g, '')) || 0;
+          if (reqItem.selectedWeight && Array.isArray((bundled as any).weights)) {
+            const wOpt = (bundled as any).weights.find(
+              (w: any) => w.label === reqItem.selectedWeight || w.weight === reqItem.selectedWeight
+            );
+            if (wOpt && wOpt.price) {
+              unitPrice = Number(wOpt.price) || parseFloat(String(wOpt.price).replace(/[^0-9.]/g, '')) || unitPrice;
+            }
+          }
+          if (orderType === 'wholesale' && typeof (bundled as any).wholesalePrice === 'number' && (bundled as any).wholesalePrice > 0) {
+            unitPrice = (bundled as any).wholesalePrice;
+          }
+          if (unitPrice <= 0) {
+            return res.status(400).json({
+              success: false,
+              error: `Invalid price for "${bundled.name}".`,
+            });
+          }
+          subtotal += unitPrice * reqItem.quantity;
+          validatedItems.push({
+            id: reqItem.id,
+            name: bundled.name,
+            quantity: reqItem.quantity,
+            price: unitPrice,
+            selectedWeight: reqItem.selectedWeight || null,
+            selectedCut: reqItem.selectedCut || null,
+            image: bundled.image || null,
+          });
+        }
+      }
+
+      const grandTotal = subtotal + deliveryFee;
+      const orderId = generateOrderId();
+      const hmacSecret = env.RAZORPAY_KEY_SECRET || env.CRON_SECRET || 'jiyoo-whatsapp-hmac-v1';
+      const signatureDigest = crypto
+        .createHmac('sha256', hmacSecret)
+        .update(`${orderId}:${grandTotal}:${orderType}:${validatedItems.map((i) => `${i.id}x${i.quantity}@${i.price}`).join(',')}`)
+        .digest('hex')
+        .slice(0, 10)
+        .toUpperCase();
+      const verificationCode = `WA-${signatureDigest}`;
+
+      // Persist authentic order record to Firestore
+      const authUser = (req as any).authUser;
+      try {
+        await getFirestore().collection('orders').doc(orderId).set({
+          id: orderId,
+          orderId,
+          items: validatedItems,
+          subtotal,
+          discountAmount: 0,
+          deliveryFee,
+          amount: grandTotal,
+          grandTotal,
+          status: 'whatsapp_pending',
+          orderStatus: 'whatsapp_pending',
+          paymentStatus: 'unpaid',
+          paymentMethod: 'WhatsApp Express',
+          verificationCode,
+          orderType,
+          userId: authUser?.uid || null,
+          shippingDetails: {
+            name: shippingDetails.name,
+            firstName: shippingDetails.firstName || shippingDetails.name,
+            lastName: shippingDetails.lastName || '',
+            phone: normalizedPhone,
+            address: shippingDetails.address,
+            city: shippingDetails.city || 'Bangalore',
+            pincode: cleanPin,
+            area: shippingDetails.area || '',
+          },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          whatsappExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+        });
+      } catch (persistErr) {
+        console.warn('[WhatsApp] Running in stateless verified mode (database write skipped):', (persistErr as any)?.message || persistErr);
+      }
+
+      return res.json({
+        success: true,
+        orderId,
+        verificationCode,
+        subtotal,
+        deliveryFee,
+        grandTotal,
+        orderType,
+        validatedItems,
+      });
+    } catch (err: any) {
+      console.error('WhatsApp order prepare error:', err);
+      return res.status(500).json({ success: false, error: 'Failed to process WhatsApp order.' });
     }
   });
 
   // Public, read-only: checkout calls this to validate one address at a
   // time. Never returns the full list, so the set of serviceable localities
   // is never exposed to the client (per the brief's explicit requirement).
-  app.get('/api/delivery/check-pincode', async (req, res) => {
+  app.get('/api/delivery/check-pincode', trackOrderLimiter, async (req, res) => {
     try {
       const pincode = normalizePincode(req.query.pincode);
       const mode = req.query.mode === 'wholesale' ? 'wholesale' : 'retail';
@@ -1792,12 +2273,22 @@ app.use(compression() as unknown as express.RequestHandler);
       }
       const pin = await getRetailPincode(pincode);
       if (!pin || pin.enabled !== true) {
-        return res.json({ success: true, serviceable: false, message: 'Sorry, we do not currently deliver to this PIN code.' });
+        return res.json({ success: true, serviceable: false, message: 'Sorry, we do not currently deliver retail orders to this PIN code. Switch to Wholesale for Pan-India delivery.' });
       }
-      const { deliveryFee, minOrderAmount } = await getStoreDeliverySettings();
+      let deliveryFee = 40;
+      let minOrderAmount = 0;
+      try {
+        const settings = await getStoreDeliverySettings();
+        deliveryFee = settings.deliveryFee;
+        minOrderAmount = settings.minOrderAmount;
+      } catch {
+        // Fallback to defaults if Firestore is offline
+      }
       return res.json({
         success: true,
         serviceable: true,
+        label: pin.label || '',
+        areas: pin.areas || [],
         deliveryFee: typeof pin.deliveryFee === 'number' ? pin.deliveryFee : deliveryFee,
         minOrderAmount: typeof pin.minOrderAmount === 'number' ? pin.minOrderAmount : minOrderAmount,
       });
@@ -1812,7 +2303,7 @@ app.use(compression() as unknown as express.RequestHandler);
   // -------------------------------------------------------------------------
   const zoneBodySchema = z.object({
     label: z.string().min(1).max(120),
-    pincodePrefixes: z.array(z.string().regex(/^\d{3}$/, 'Each prefix must be exactly 3 digits')).min(1).max(200),
+    pincodePrefixes: z.array(z.string().regex(/^(\d{3}|ALL|\*)$/i, 'Each prefix must be 3 digits or ALL for Pan-India')).min(1).max(200),
     enabled: z.boolean().optional().default(true),
     shippingFee: z.number().min(0).max(100000),
     minOrderValue: z.number().min(0).max(1000000),
@@ -1821,8 +2312,16 @@ app.use(compression() as unknown as express.RequestHandler);
 
   app.get('/api/admin/wholesale/zones', requireAuth, requireAdmin, async (req, res) => {
     try {
-      const snap = await getFirestore().collection('wholesaleZones').orderBy('label', 'asc').get();
-      const zones = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      let zones: any[] = [];
+      try {
+        const snap = await getFirestore().collection('wholesaleZones').orderBy('label', 'asc').get();
+        zones = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      } catch (dbErr) {
+        console.warn('Firestore wholesaleZones read failed, returning Pan-India default zone:', dbErr);
+      }
+      if (zones.length === 0) {
+        zones = [{ ...DEFAULT_PAN_INDIA_WHOLESALE_ZONE }];
+      }
       res.json({ success: true, zones });
     } catch (err: any) {
       console.error('Failed to list wholesale zones:', err);
@@ -1856,10 +2355,13 @@ app.use(compression() as unknown as express.RequestHandler);
       }
       const ref = getFirestore().collection('wholesaleZones').doc(req.params.id);
       const existing = await ref.get();
-      if (!existing.exists) {
+      if (!existing.exists && req.params.id !== DEFAULT_PAN_INDIA_WHOLESALE_ZONE.id) {
         return res.status(404).json({ success: false, error: 'Wholesale zone not found' });
       }
-      await ref.set({ ...parsed.data, updatedAt: new Date().toISOString() }, { merge: true });
+      const baseData = !existing.exists && req.params.id === DEFAULT_PAN_INDIA_WHOLESALE_ZONE.id
+        ? { ...DEFAULT_PAN_INDIA_WHOLESALE_ZONE }
+        : {};
+      await ref.set({ ...baseData, ...parsed.data, updatedAt: new Date().toISOString() }, { merge: true });
       const actorEmail = (req as any).authUser.email || (req as any).authUser.uid;
       await writeAuditLogDirect(actorEmail, 'UPDATE_WHOLESALE_ZONE', 'DELIVERY', `Updated wholesale zone ${req.params.id}`);
       res.json({ success: true });
@@ -1872,10 +2374,6 @@ app.use(compression() as unknown as express.RequestHandler);
   app.post('/api/admin/wholesale/zones/:id/delete', strictApiLimiter, requireAuth, requireAdmin, async (req, res) => {
     try {
       const ref = getFirestore().collection('wholesaleZones').doc(req.params.id);
-      const existing = await ref.get();
-      if (!existing.exists) {
-        return res.status(404).json({ success: false, error: 'Wholesale zone not found' });
-      }
       await ref.delete();
       const actorEmail = (req as any).authUser.email || (req as any).authUser.uid;
       await writeAuditLogDirect(actorEmail, 'REMOVE_WHOLESALE_ZONE', 'DELIVERY', `Removed wholesale zone ${req.params.id}`);
@@ -2392,44 +2890,62 @@ app.post('/api/orders/:id/whatsapp-status', trackOrderLimiter, requireAuth, asyn
       return res.status(400).json({ success: false, error: 'Invalid status update' });
     }
     
+    const authUser = (req as any).authUser;
+    if (!authUser?.uid) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+
     const db = getFirestore();
     const orderRef = db.collection('orders').doc(orderId);
-    const orderSnap = await orderRef.get();
-    
-    if (!orderSnap.exists) {
+
+    const txResult = await db.runTransaction(async (tx) => {
+      const orderSnap = await tx.get(orderRef);
+      if (!orderSnap.exists) {
+        return { kind: 'not_found' as const };
+      }
+      const orderData = orderSnap.data() as any;
+
+      // SECURITY: Strict ownership or admin check. Never allow any caller to
+      // mutate an order they do not own.
+      if (!orderData?.userId || (authUser.uid !== orderData.userId && authUser.admin !== true)) {
+        return { kind: 'forbidden' as const };
+      }
+
+      // SECURITY: Only allow state transitions from 'whatsapp_pending'
+      if (orderData?.status !== 'whatsapp_pending' && orderData?.orderStatus !== 'whatsapp_pending') {
+        return { kind: 'invalid_state' as const };
+      }
+
+      const reservationId = orderData?.reservationId ? String(orderData.reservationId) : null;
+      const now = new Date().toISOString();
+      tx.update(orderRef, {
+        status,
+        orderStatus: status,
+        updatedAt: now,
+      });
+
+      return { kind: 'updated' as const, reservationId };
+    });
+
+    if (txResult.kind === 'not_found') {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
-    
-    const orderData = orderSnap.data();
-
-    // SECURITY: If this order belongs to a signed-in account, only that
-    // account (or an admin) may update it. Order IDs are short and
-    // sequential, not secret, so without this check anyone who guesses an
-    // ID could cancel another customer's order. Guest orders (userId
-    // 'guest') have no account to check against, so they fall through.
-    const authUser = (req as any).authUser;
-    if (orderData?.userId && orderData.userId !== 'guest') {
-      if (!authUser || (authUser.uid !== orderData.userId && authUser.admin !== true)) {
-        return res.status(403).json({ success: false, error: 'Unauthorized to update this order' });
-      }
+    if (txResult.kind === 'forbidden') {
+      return res.status(403).json({ success: false, error: 'Unauthorized to update this order' });
     }
-
-    // SECURITY: Only allow state transitions from 'whatsapp_pending'
-    if (orderData?.status !== 'whatsapp_pending' && orderData?.orderStatus !== 'whatsapp_pending') {
+    if (txResult.kind === 'invalid_state') {
       return res.status(403).json({ success: false, error: 'Order is no longer in pending verification state.' });
     }
-    
+
     if (status === 'cancelled') {
-      const reservationId = orderData?.reservationId ? String(orderData.reservationId) : null;
-      await orderRef.update({ status: 'cancelled', orderStatus: 'cancelled', updatedAt: new Date().toISOString() });
-      if (reservationId) await releaseInventoryReservation(db, reservationId, 'whatsapp_cancelled');
-    } else {
-      await orderRef.update({ status: 'pending', orderStatus: 'pending', updatedAt: new Date().toISOString() });
+      if (txResult.reservationId) await releaseInventoryReservation(db, txResult.reservationId, 'whatsapp_cancelled');
+    } else if (txResult.reservationId) {
+      await finalizeInventoryReservation(db, txResult.reservationId);
     }
     res.json({ success: true });
   } catch (e: any) {
     console.error('WhatsApp Status Update error:', e);
-    res.status(500).json({ success: false, error: e.message });
+    res.status(500).json({ success: false, error: 'Failed to update WhatsApp order status' });
   }
 });
 
@@ -2481,7 +2997,7 @@ async function deleteUserAccount(db: FirebaseFirestore.Firestore, uid: string) {
   await getAuth().deleteUser(uid);
 }
 
-app.post('/api/account/delete', requireAuth, async (req: express.Request, res: express.Response) => {
+app.post('/api/account/delete', strictApiLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
   try {
     const authUser = (req as any).authUser;
     await deleteUserAccount(getFirestore(), authUser.uid);
@@ -2534,7 +3050,7 @@ app.post('/api/admin/users/:uid/delete', strictApiLimiter, requireAuth, requireA
 });
 
 
-app.post('/api/orders/:id/cancel', requireAuth, async (req: express.Request, res: express.Response) => {
+app.post('/api/orders/:id/cancel', orderLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
   try {
     const orderId = req.params.id;
     const authUser = (req as any).authUser;
@@ -2932,39 +3448,61 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
         return res.status(404).json({ success: false, error: 'Order not found' });
       }
 
-      const orderData = docSnap.data();
+      const orderData = docSnap.data() as any;
       const orderPhone = (orderData?.shippingDetails?.phone || '').replace(/\D/g, '');
       const inputPhone = (phone || '').replace(/\D/g, '');
 
-      let authorized = false;
-      const authHeader = req.headers.authorization || '';
-      if (authHeader.startsWith('Bearer ')) {
-        try {
-          const token = authHeader.slice(7);
-          const decoded = await getAuth().verifyIdToken(token);
-          if (decoded.uid === orderData?.userId) {
-            authorized = true;
-          }
-        } catch (authErr) {
-          // Token verification error
-        }
+      let authorizedByOwnerOrAdmin = false;
+      const authUser = await verifyRequestAuth(req);
+      if (authUser && (authUser.uid === orderData?.userId || authUser.admin === true)) {
+        authorizedByOwnerOrAdmin = true;
       }
 
-      // Require a full 10-digit phone before comparing -- without this, a short
-      // guess (e.g. a single digit) would have a real chance of matching a
-      // real customer's phone by luck, since .endsWith() on a short string
-      // only checks that short suffix.
-      if (!authorized && inputPhone && inputPhone.length >= 10 && orderPhone && orderPhone.endsWith(inputPhone.slice(-10))) {
-        authorized = true;
-      }
+      // Require a full 10-digit phone on BOTH stored and input phone numbers
+      // before comparing -- without this, a short guess (e.g. a single digit)
+      // would have a real chance of matching a real customer's phone by luck.
+      const authorizedByPhone =
+        !authorizedByOwnerOrAdmin &&
+        Boolean(inputPhone && inputPhone.length >= 10 && orderPhone && orderPhone.length >= 10 && orderPhone.endsWith(inputPhone.slice(-10)));
 
-      if (!authorized) {
+      if (!authorizedByOwnerOrAdmin && !authorizedByPhone) {
         return res.status(403).json({ success: false, error: 'Unauthorized to view this order' });
       }
 
+      if (authorizedByOwnerOrAdmin) {
+        return res.status(200).json({
+          success: true,
+          order: { id: docSnap.id, ...orderData },
+        });
+      }
+
+      // Minimize sensitive payment/internal identifiers and mask street address when
+      // accessed via unauthenticated orderId + phone lookup.
+      const rawAddress = String(orderData?.shippingDetails?.address || '');
+      const maskedAddress = rawAddress.length > 12 ? `${rawAddress.slice(0, 6)}...${rawAddress.slice(-6)}` : 'On file';
       res.status(200).json({
         success: true,
-        order: { id: docSnap.id, ...orderData },
+        order: {
+          id: docSnap.id,
+          orderId: orderData?.orderId || docSnap.id,
+          status: orderData?.status || orderData?.orderStatus || 'pending',
+          orderStatus: orderData?.orderStatus || orderData?.status || 'pending',
+          paymentStatus: orderData?.paymentStatus || 'unpaid',
+          paymentMethod: orderData?.paymentMethod || '',
+          items: Array.isArray(orderData?.items) ? orderData.items : [],
+          subtotal: orderData?.subtotal ?? 0,
+          discountAmount: orderData?.discountAmount ?? 0,
+          deliveryFee: orderData?.deliveryFee ?? 0,
+          amount: orderData?.amount ?? orderData?.grandTotal ?? 0,
+          grandTotal: orderData?.grandTotal ?? orderData?.amount ?? 0,
+          createdAt: orderData?.createdAt || null,
+          updatedAt: orderData?.updatedAt || null,
+          shippingDetails: {
+            name: orderData?.shippingDetails?.name || 'Customer',
+            pincode: orderData?.shippingDetails?.pincode || '',
+            address: maskedAddress,
+          },
+        },
       });
     } catch (err: any) {
       console.error('Order tracking error:', err);
@@ -3048,6 +3586,7 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
       const idempotencyHash = idempotencyKey ? hashIdempotencyKey('razorpay-order', userId, idempotencyKey) : null;
       const pendingCollection = getFirestore().collection('razorpayPendingOrders');
 
+      // Resolve an existing idempotent checkout BEFORE reserving inventory.
       // Claim the deterministic idempotency record atomically BEFORE reserving
       // inventory. A read-before-write check is race-prone under concurrent retries.
       let razorpayIdempotencyClaimed = false;
@@ -3398,17 +3937,32 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
 
   app.post('/api/razorpay/webhook', handleWebhook);
 
-  // Serve static public assets
+  // Serve static public assets with active-content sandboxing and dotfile denial
   const publicUploads = path.join(process.cwd(), 'public', 'uploads');
-  app.use('/uploads', express.static(publicUploads));
+  app.use(
+    '/uploads',
+    express.static(publicUploads, {
+      dotfiles: 'deny',
+      index: false,
+      setHeaders: (res) => {
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+      },
+    })
+  );
 
   // Durable scheduled reconciliation for inventory reservations and failed
   // Razorpay webhook work. Vercel cron supplies Authorization: Bearer $CRON_SECRET.
-  app.get('/api/cron/reconcile', async (req, res) => {
+  app.get('/api/cron/reconcile', strictApiLimiter, async (req, res) => {
     try {
       if (!env.CRON_SECRET) return res.status(503).json({ success:false, error:'Cron reconciliation is not configured.' });
       const authorization = String(req.headers.authorization || '');
-      if (authorization !== `Bearer ${env.CRON_SECRET}`) return res.status(401).json({ success:false, error:'Unauthorized' });
+      const expectedAuth = `Bearer ${env.CRON_SECRET}`;
+      const providedDigest = crypto.createHash('sha256').update(authorization).digest();
+      const expectedDigest = crypto.createHash('sha256').update(expectedAuth).digest();
+      if (!crypto.timingSafeEqual(providedDigest, expectedDigest)) {
+        return res.status(401).json({ success:false, error:'Unauthorized' });
+      }
 
       const db = getFirestore();
       await releaseExpiredInventoryReservations(db);

@@ -1,5 +1,7 @@
 import { motion, AnimatePresence } from "motion/react";
-import { X, ShieldCheck } from "lucide-react";
+import { X } from "lucide-react";
+import { PremiumShieldMark } from "./PremiumShieldMark";
+import { FssaiLogo } from "./FssaiLogo";
 import { useSettings } from "../../../contexts/SettingsContext";
 import { useModalBackButton } from "../hooks/useModalBackButton";
 import { SOCIAL_LINKS } from "./SocialIcons";
@@ -139,15 +141,18 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
             {/* Legal & Registrations */}
             <div className="border-t border-brand-gray-200 pt-8">
               <h3 className="text-lg font-bold text-brand-black mb-4 flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                <PremiumShieldMark className="w-5 h-5 shrink-0" variant="emerald" />
                 Legal &amp; Registrations
               </h3>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="bg-brand-gray-50 rounded-xl p-4 border border-brand-gray-200">
-                  <p className="text-xs text-brand-gray-500 uppercase tracking-wider mb-1">
-                    FSSAI Registration No.
-                  </p>
-                  <p className="font-mono font-semibold text-brand-black text-sm">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <FssaiLogo className="h-4.5 w-auto" />
+                    <p className="text-xs text-brand-gray-500 uppercase tracking-wider">
+                      FSSAI Registration No.
+                    </p>
+                  </div>
+                  <p className="font-mono font-semibold text-brand-black text-sm tabular-nums">
                     21226112000732
                   </p>
                 </div>

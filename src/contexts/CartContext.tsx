@@ -12,8 +12,19 @@ interface CartItem extends CartProduct {
 export interface FlyingItem {
   id: string;
   image: string;
+  name?: string;
+  price?: string;
+  badge?: string;
   startX: number;
   startY: number;
+}
+
+export interface AddedItemToastData {
+  id: string;
+  name: string;
+  image?: string;
+  price?: string;
+  badge?: string;
 }
 
 interface CartContextType {
@@ -32,8 +43,8 @@ interface CartContextType {
   wishlist: string[];
   toggleWishlist: (id: string) => void;
   setSearchQuery: (query: string) => void;
-  addedItemToast: { id: string; name: string } | null;
-  setAddedItemToast: (toast: { id: string; name: string } | null) => void;
+  addedItemToast: AddedItemToastData | null;
+  setAddedItemToast: (toast: AddedItemToastData | null) => void;
   flyingItems: FlyingItem[];
   triggerFlyingItem: (item: Omit<FlyingItem, 'id'>) => void;
   removeFlyingItem: (id: string) => void;
@@ -93,7 +104,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [wishlist, setWishlist] = useState<string[]>(() => { try { const local = localStorage.getItem('jiyoo_wishlist'); return local ? JSON.parse(local) : []; } catch { return []; } });
   useEffect(() => { localStorage.setItem('jiyoo_wishlist', JSON.stringify(wishlist)); }, [wishlist]);
-  const [addedItemToast, setAddedItemToast] = useState<{ id: string; name: string } | null>(null);
+  const [addedItemToast, setAddedItemToast] = useState<AddedItemToastData | null>(null);
   const [flyingItems, setFlyingItems] = useState<FlyingItem[]>([]);
 
   const triggerFlyingItem = React.useCallback((item: Omit<FlyingItem, 'id'>) => {
@@ -225,7 +236,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Trigger premium notification toast
-    setAddedItemToast({ id: String(product.id), name: product.name });
+    setAddedItemToast({
+      id: String(product.id),
+      name: product.name,
+      image: product.image,
+      price: typeof product.price === 'number' ? `₹${product.price}` : String(product.price),
+      badge: product.badge || product.selectedWeight,
+    });
   }, []);
 
   const removeFromCart = React.useCallback((id: string | number) => {

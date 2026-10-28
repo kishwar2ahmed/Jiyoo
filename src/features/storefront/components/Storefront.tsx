@@ -29,7 +29,7 @@ export function Storefront() {
     setIsDetailOpen(true);
   }, []);
 
-  const { searchQuery } = useCart();
+  const { searchQuery, setSearchQuery } = useCart();
   const [visibleCount, setVisibleCount] = useState(24);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useCallback((node: HTMLDivElement) => {
@@ -167,9 +167,19 @@ export function Storefront() {
         document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
       }
     };
+    const handleSelectProduct = (e: any) => {
+      const product = e.detail?.product;
+      if (product) {
+        handleProductClick(product, 'details');
+      }
+    };
     window.addEventListener('select-category' as any, handleSelectCategory);
-    return () => window.removeEventListener('select-category' as any, handleSelectCategory);
-  }, [categoriesList]);
+    window.addEventListener('select-product' as any, handleSelectProduct);
+    return () => {
+      window.removeEventListener('select-category' as any, handleSelectCategory);
+      window.removeEventListener('select-product' as any, handleSelectProduct);
+    };
+  }, [categoriesList, handleProductClick]);
 
   const categoryThumbnails = useMemo(() => {
     const map = new Map<string, { type: 'real-composite' | 'products', urls: string[] }>();
@@ -329,7 +339,7 @@ export function Storefront() {
 
       {/* Search Header */}
       {searchQuery && (
-        <div className="mb-12 border-b border-brand-gray-200 pb-6 flex items-center justify-between">
+        <div className="mb-12 border-b border-brand-gray-200 pb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-brand-gray-100 flex items-center justify-center">
               <Search className="w-5 h-5 text-brand-gray-600" />
@@ -341,6 +351,13 @@ export function Storefront() {
               </p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            className="px-4 py-2 rounded-xl bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+          >
+            Clear Search
+          </button>
         </div>
       )}
 
@@ -392,6 +409,15 @@ export function Storefront() {
               We couldn't find any products matching your current selection. 
               Try browsing a different category or refining your search.
             </p>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="mt-5 px-5 py-2.5 rounded-xl bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Show All Categories
+              </button>
+            )}
           </motion.div>
         ) : (
           <motion.div
