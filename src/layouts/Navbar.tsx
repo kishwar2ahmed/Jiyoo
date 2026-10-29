@@ -6,7 +6,7 @@ import { useSettings } from "../contexts/SettingsContext";
 import { useStorefrontCategories } from "../features/storefront/hooks/useStorefrontCategories";
 import { useStorefrontProducts } from "../features/storefront/hooks/useStorefrontProducts";
 import { SOCIAL_LINKS } from "../features/core/components/SocialIcons";
-import { fuzzyTextMatch } from "../utils/fuzzyMatch";
+import { searchCatalogProducts } from "../utils/fuzzyMatch";
 import { getOptimizedImageUrl } from "../utils/imageUtils";
 import { Product } from "../types";
 
@@ -101,23 +101,8 @@ export function Navbar({
   const liveSearchResults = useMemo(() => {
     const q = searchQuery.trim();
     if (!q) return [];
-    const lowerQuery = q.toLowerCase();
     const searchable = currentProducts.filter((p) => !frozenCategoryIds.has(p.categoryId));
-    const exactMatches = searchable.filter(
-      (p) =>
-        p.name.toLowerCase().includes(lowerQuery) ||
-        p.description?.toLowerCase().includes(lowerQuery) ||
-        p.tags?.some((tag) => tag.toLowerCase().includes(lowerQuery)) ||
-        p.categoryId?.toLowerCase().includes(lowerQuery) ||
-        p.subcategoryId?.toLowerCase().includes(lowerQuery)
-    );
-    if (exactMatches.length > 0) return exactMatches;
-    return searchable.filter(
-      (p) =>
-        fuzzyTextMatch(p.name, q) ||
-        (p.description ? fuzzyTextMatch(p.description, q) : false) ||
-        (p.tags?.some((tag) => fuzzyTextMatch(tag, q)) ?? false)
-    );
+    return searchCatalogProducts(searchable, q);
   }, [searchQuery, currentProducts, frozenCategoryIds]);
 
   const scrollToProductsSection = () => {

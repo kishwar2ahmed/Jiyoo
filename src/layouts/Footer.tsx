@@ -234,11 +234,11 @@ export function Footer() {
                   </a>
 
                   <a
-                    href="https://instagram.com/jiyoofresh"
+                    href="https://www.instagram.com/shamsjiyoo2026?exln=aG43cXdnZmgwZDRu"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-sans-clean font-medium text-stone-800 transition-colors cursor-pointer group"
-                    title="Follow on Instagram"
+                    title="Instagram Customer Support"
                   >
                     <InstagramIcon className="w-4 h-4" />
                     <span>Instagram</span>

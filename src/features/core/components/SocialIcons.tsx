@@ -125,6 +125,9 @@ export function EmailEnvelopeIcon({ className = 'w-5 h-5' }: { className?: strin
   );
 }
 
+export const OFFICIAL_INSTAGRAM_URL = 'https://www.instagram.com/shamsjiyoo2026?exln=aG43cXdnZmgwZDRu';
+export const OFFICIAL_INSTAGRAM_HANDLE = '@shamsjiyoo2026';
+
 export const SOCIAL_LINKS = [
   {
     id: 'whatsapp',
@@ -158,12 +161,12 @@ export const SOCIAL_LINKS = [
   },
   {
     id: 'instagram',
-    label: 'Instagram',
-    handle: '@shamsjiyoo2026',
-    href: 'https://www.instagram.com/shamsjiyoo2026?utm_source=qr&igsh=MWh3YWlzOWV1N3Aweg==',
+    label: 'Instagram Support',
+    handle: OFFICIAL_INSTAGRAM_HANDLE,
+    href: OFFICIAL_INSTAGRAM_URL,
     icon: (props: { className?: string }) => <InstagramIcon className={props.className || 'w-5 h-5'} />,
-    badge: 'Daily Photos',
-    purpose: 'See today\'s fresh farm arrivals, fruits, and stories',
+    badge: 'Official Support',
+    purpose: 'Customer support via Instagram DM & daily fresh arrivals',
     accentColor: '#E1306C',
   },
 ];

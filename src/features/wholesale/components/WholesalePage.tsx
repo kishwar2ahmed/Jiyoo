@@ -1,25 +1,17 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import { motion } from "motion/react";
 import {
   ArrowLeft,
   Truck,
   MapPin,
-  Search,
   MessageCircle,
   CheckCircle2,
   Package,
-  Plus,
-  Minus,
-  ShoppingBag,
   ShieldCheck,
+  Clock,
 } from "lucide-react";
-import { useStorefrontProducts } from "../../storefront/hooks/useStorefrontProducts";
-import { useStorefrontCategories } from "../../storefront/hooks/useStorefrontCategories";
-import { useCart } from "../../../contexts/CartContext";
 import { useSettings } from "../../../contexts/SettingsContext";
-import { useWhatsAppOrder } from "../../product/hooks/useWhatsAppOrder";
-import { getOptimizedImageUrl } from "../../../utils/imageUtils";
-import { Product } from "../../../types";
+import { sanitizeWhatsAppNumber } from "../../../utils/whatsapp";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -28,14 +20,8 @@ export function WholesalePage({
 }: {
   onBackToRetail: () => void;
 }) {
-  const { currentProducts, isProductsLoading } = useStorefrontProducts();
-  const { categoriesList } = useStorefrontCategories();
-  const { addToCart, triggerFlyingItem, user } = useCart();
   const { settings } = useSettings();
-  const { handleWhatsAppOrder } = useWhatsAppOrder();
 
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [wholesaleSearch, setWholesaleSearch] = useState<string>("");
   const [pincodeInput, setPincodeInput] = useState<string>("");
   const [pincodeStatus, setPincodeStatus] = useState<{
     checked: boolean;
@@ -44,15 +30,6 @@ export function WholesalePage({
     etaDays?: string;
   } | null>(null);
   const [checkingPin, setCheckingPin] = useState(false);
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
-
-  const getQty = (id: string | number) => quantities[String(id)] ?? 5;
-  const setQty = (id: string | number, val: number) => {
-    setQuantities((prev) => ({
-      ...prev,
-      [String(id)]: Math.max(1, Math.min(100, val)),
-    }));
-  };
 
   const handleCheckWholesalePincode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +63,6 @@ export function WholesalePage({
         });
       }
     } catch {
-      // Fallback Pan-India confirmation for valid Indian 6-digit PIN codes
       setPincodeStatus({
         checked: true,
         serviceable: true,
@@ -98,59 +74,11 @@ export function WholesalePage({
     }
   };
 
-  const filteredProducts = useMemo(() => {
-    return currentProducts.filter((p) => {
-      if (selectedCategory !== "all" && p.categoryId !== selectedCategory) return false;
-      if (wholesaleSearch.trim()) {
-        const q = wholesaleSearch.toLowerCase();
-        const match =
-          p.name.toLowerCase().includes(q) ||
-          p.description?.toLowerCase().includes(q) ||
-          p.tags?.some((t) => t.toLowerCase().includes(q));
-        if (!match) return false;
-      }
-      return true;
-    });
-  }, [currentProducts, selectedCategory, wholesaleSearch]);
-
-  const handleAddWholesaleToBag = (
-    e: React.MouseEvent<HTMLButtonElement>,
-    product: Product
-  ) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const qty = getQty(product.id);
-    const defaultWeight = product.weights?.[0];
-    const unitPrice = defaultWeight ? defaultWeight.price : product.price;
-    const unitLabel = defaultWeight ? defaultWeight.label : product.unit;
-    const numericPrice =
-      typeof unitPrice === "number"
-        ? unitPrice
-        : parseFloat(String(unitPrice).replace(/[^0-9.]/g, "")) || 0;
-    const optimizedImg = getOptimizedImageUrl(product.image, 500, 82);
-
-    triggerFlyingItem({
-      image: optimizedImg,
-      name: product.name,
-      price: `₹${numericPrice * qty}`,
-      badge: `${qty} × ${unitLabel}`,
-      startX: rect.left + rect.width / 2,
-      startY: rect.top + rect.height / 2,
-    });
-
-    addToCart(
-      {
-        id: `${product.id}-${unitLabel || ""}-wholesale`,
-        baseId: product.id,
-        selectedWeight: unitLabel,
-        name: `${product.name} (Wholesale)`,
-        price: `₹${numericPrice}`,
-        numericPrice,
-        image: optimizedImg,
-        badge: unitLabel,
-      },
-      qty
-    );
-  };
+  const whatsappB2BUrl = `https://wa.me/${sanitizeWhatsAppNumber(
+    settings?.whatsappNumber
+  )}?text=${encodeURIComponent(
+    "Hello JIYOO Team! I would like to register interest for the upcoming Pan-India Wholesale & B2B catalog."
+  )}`;
 
   return (
     <section className="min-h-[80vh] bg-[#FAF9F5] text-[#1C1917] flex flex-col pb-16">
@@ -160,7 +88,7 @@ export function WholesalePage({
           <button
             type="button"
             onClick={onBackToRetail}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1C1917] text-[#FAF9F5] hover:bg-[#292524] text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1C1917] text-[#FAF9F5] hover:bg-[#292524] text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Back to Retail Store</span>
@@ -168,7 +96,7 @@ export function WholesalePage({
 
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold">
             <Truck className="w-4 h-4 text-emerald-700" />
-            <span>Pan-India Wholesale Active — All 28 States &amp; 8 UTs</span>
+            <span>Pan-India Wholesale Network — All 28 States &amp; 8 UTs</span>
           </div>
         </div>
 
@@ -182,7 +110,7 @@ export function WholesalePage({
               Wholesale Supply Across All of India
             </h1>
             <p className="text-sm sm:text-base text-[#57534E] leading-relaxed max-w-2xl">
-              Direct farm-to-business &amp; importer-grade supply for hotels, restaurants, cafes (HoReCa), supermarkets, and bulk buyers. We ship wholesale orders across every serviceable 6-digit PIN code in India.
+              Direct farm-to-business &amp; importer-grade supply for hotels, restaurants, cafes (HoReCa), supermarkets, and bulk buyers across India.
             </p>
             <div className="flex flex-wrap gap-3 pt-1 text-xs text-[#57534E]">
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FAF9F5] border border-[#E7E3DA]">
@@ -216,7 +144,7 @@ export function WholesalePage({
               <button
                 type="submit"
                 disabled={checkingPin}
-                className="px-4 py-2.5 bg-[#1C1917] hover:bg-black text-[#FAF9F5] rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-colors disabled:opacity-50"
+                className="px-4 py-2.5 bg-[#1C1917] hover:bg-black text-[#FAF9F5] rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
               >
                 {checkingPin ? "Checking..." : "Check PIN"}
               </button>
@@ -243,166 +171,50 @@ export function WholesalePage({
           </div>
         </div>
 
-        {/* Search & Category Filter Bar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        {/* Launching Soon Showcase (Wholesale Products Removed) */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: EASE_OUT_EXPO }}
+          className="bg-white rounded-3xl border border-[#E7E3DA] px-6 py-16 sm:py-24 text-center shadow-xs flex flex-col items-center justify-center space-y-6"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-[#FAF9F5] border border-[#E7E3DA] flex items-center justify-center text-[#1C1917] shadow-2xs">
+            <Clock className="w-7 h-7 text-emerald-700" />
+          </div>
+
+          <div className="space-y-3 max-w-xl mx-auto">
+            <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-emerald-800 block">
+              JIYOO B2B Wholesale Catalog
+            </span>
+            <h2 className="font-serif-luxury text-3xl sm:text-5xl font-bold text-[#1C1917] tracking-tight">
+              Launching Soon ‼️
+            </h2>
+            <p className="text-sm sm:text-base text-[#57534E] leading-relaxed">
+              Our dedicated bulk &amp; HoReCa wholesale catalog is being curated for direct Pan-India dispatch. Connect with our B2B desk on WhatsApp for early trade enquiries or return to our live Retail store.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
               type="button"
-              onClick={() => setSelectedCategory("all")}
-              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-colors cursor-pointer ${
-                selectedCategory === "all"
-                  ? "bg-[#1C1917] text-[#FAF9F5]"
-                  : "bg-white border border-[#E7E3DA] text-[#57534E] hover:text-[#1C1917]"
-              }`}
+              onClick={onBackToRetail}
+              className="px-6 py-3.5 rounded-full bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-xs font-bold uppercase tracking-[0.15em] transition-all cursor-pointer whitespace-nowrap shrink-0"
             >
-              All Wholesale ({currentProducts.length})
+              Browse Retail Store
             </button>
-            {categoriesList.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-colors cursor-pointer ${
-                  selectedCategory === cat.id
-                    ? "bg-[#1C1917] text-[#FAF9F5]"
-                    : "bg-white border border-[#E7E3DA] text-[#57534E] hover:text-[#1C1917]"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+            <a
+              href={whatsappB2BUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-6 py-3.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-[0.15em] transition-all inline-flex items-center gap-2 whitespace-nowrap shrink-0"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>Enquire on WhatsApp</span>
+            </a>
           </div>
-
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-[#78716C] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="search"
-              value={wholesaleSearch}
-              onChange={(e) => setWholesaleSearch(e.target.value)}
-              placeholder="Search wholesale catalog..."
-              className="w-full bg-white border border-[#DCD6CA] focus:border-[#1C1917] rounded-xl pl-10 pr-4 py-2 text-xs sm:text-sm outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Wholesale Products Grid */}
-        {isProductsLoading ? (
-          <div className="py-16 text-center text-sm text-[#78716C]">
-            Loading wholesale catalog...
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {filteredProducts.slice(0, 48).map((product, idx) => {
-              const qty = getQty(product.id);
-              const defaultWeight = product.weights?.[0];
-              const unitPrice = defaultWeight ? defaultWeight.price : product.price;
-              const unitLabel = defaultWeight ? defaultWeight.label : product.unit;
-              const numericPrice =
-                typeof unitPrice === "number"
-                  ? unitPrice
-                  : parseFloat(String(unitPrice).replace(/[^0-9.]/g, "")) || 0;
-
-              return (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 22 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.12 }}
-                  whileHover={{ y: -4, transition: { duration: 0.25, ease: EASE_OUT_EXPO } }}
-                  transition={{
-                    duration: 0.5,
-                    delay: (idx % 4) * 0.045,
-                    ease: EASE_OUT_EXPO,
-                  }}
-                  className="bg-white rounded-2xl border border-[#E7E3DA] hover:border-[#C5A880]/70 overflow-hidden flex flex-col justify-between p-4 shadow-2xs hover:shadow-[0_16px_36px_-12px_rgba(28,25,23,0.12)] transition-shadow"
-                >
-                  <div>
-                    <div className="aspect-[4/3] rounded-xl overflow-hidden bg-[#FAF9F5] mb-3 relative group">
-                      <img
-                        src={getOptimizedImageUrl(product.image, 500, 82)}
-                        alt={product.name}
-                        className="w-full h-full object-cover transition-transform duration-500 ease-out hover:scale-105"
-                        loading="lazy"
-                      />
-                      <span className="absolute top-2 left-2 px-2.5 py-1 rounded-md bg-[#1C1917]/85 text-[#FAF9F5] text-[10px] font-bold uppercase tracking-wider">
-                        Pan-India Bulk
-                      </span>
-                    </div>
-                    <h3 className="font-serif text-base font-semibold text-[#1C1917] line-clamp-1">
-                      {product.name}
-                    </h3>
-                    <p className="text-xs text-[#78716C] mt-0.5">
-                      Unit: {unitLabel} • Rate:{" "}
-                      <span className="font-bold text-[#1C1917]">₹{numericPrice}</span>
-                    </p>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-[#F4F1EA] space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold text-[#57534E]">
-                        Bulk Qty:
-                      </span>
-                      <div className="flex items-center gap-2 bg-[#FAF9F5] border border-[#E7E3DA] rounded-lg px-2 py-1">
-                        <motion.button
-                          type="button"
-                          whileTap={{ scale: 0.88 }}
-                          onClick={() => setQty(product.id, qty - 1)}
-                          className="p-1 text-[#57534E] hover:text-[#1C1917] cursor-pointer"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </motion.button>
-                        <span className="text-xs font-bold w-6 text-center tabular-nums">
-                          {qty}
-                        </span>
-                        <motion.button
-                          type="button"
-                          whileTap={{ scale: 0.88 }}
-                          onClick={() => setQty(product.id, qty + 1)}
-                          className="p-1 text-[#57534E] hover:text-[#1C1917] cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </motion.button>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <motion.button
-                        type="button"
-                        whileTap={{ scale: 0.94 }}
-                        whileHover={{ scale: 1.02 }}
-                        onClick={(e) => handleAddWholesaleToBag(e, product)}
-                        className="py-2 px-3 rounded-xl bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs"
-                      >
-                        <ShoppingBag className="w-3.5 h-3.5" /> Add ({qty})
-                      </motion.button>
-                      <motion.button
-                        type="button"
-                        whileTap={{ scale: 0.94 }}
-                        whileHover={{ scale: 1.02 }}
-                        onClick={() =>
-                          handleWhatsAppOrder({
-                            product,
-                            user,
-                            settings,
-                            quantity: qty,
-                            currentPrice: numericPrice,
-                            currentUnit: unitLabel,
-                            orderType: "wholesale",
-                            pincode: pincodeInput.trim() || undefined,
-                          })
-                        }
-                        className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
-                      </motion.button>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
+        </motion.div>
       </div>
     </section>
   );
 }
+

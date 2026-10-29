@@ -1,18 +1,26 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { useCart } from '../../../contexts/CartContext';
 import { CATEGORIES as defaultCategories } from '../../../constants/data';
 import { ProductCard } from '../../product/components/ProductCard';
 import { ProductDetailModal } from '../../product/components/ProductDetailModal';
 import { Product } from '../../../types';
-import { Search } from 'lucide-react';
+import { Search, RefreshCw, AlertCircle } from 'lucide-react';
 import { useStorefrontCategories } from '../hooks/useStorefrontCategories';
-import { fuzzyTextMatch } from '../../../utils/fuzzyMatch';
+import { searchCatalogProducts } from '../../../utils/fuzzyMatch';
 import { useStorefrontProducts } from '../hooks/useStorefrontProducts';
 
 export function Storefront() {
   const { categoriesList } = useStorefrontCategories();
-  const { currentProducts, dbProducts, isProductsLoading } = useStorefrontProducts();
+  const {
+    currentProducts,
+    isProductsLoading,
+    catalogStatus,
+    catalogError,
+    lastSyncedAt,
+    isUsingCachedCatalog,
+    retrySync,
+  } = useStorefrontProducts();
 
   const [activeCategoryId, setActiveCategoryId] = useState(defaultCategories[0].id);
   const [activeSubcategoryId, setActiveSubcategoryId] = useState<string | null>(defaultCategories[0].items?.[0]?.id ?? null);
@@ -133,31 +141,28 @@ export function Storefront() {
   );
 
   const displayedProducts = useMemo(() => {
-    if (searchQuery) {
-      const lowerQuery = searchQuery.toLowerCase();
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery) {
       const searchable = currentProducts.filter(p => !frozenCategoryIds.has(p.categoryId));
-      const exactMatches = searchable.filter(p => 
-        p.name.toLowerCase().includes(lowerQuery) || 
-        p.description?.toLowerCase().includes(lowerQuery) ||
-        p.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))
-      );
-      if (exactMatches.length > 0) return exactMatches;
-      // Typo-tolerant fallback: only engages when the exact search found
-      // nothing, so normal search behavior/ranking is unchanged.
-      return searchable.filter(p =>
-        fuzzyTextMatch(p.name, searchQuery) ||
-        (p.description ? fuzzyTextMatch(p.description, searchQuery) : false) ||
-        (p.tags?.some(tag => fuzzyTextMatch(tag, searchQuery)) ?? false)
-      );
+      return searchCatalogProducts(searchable, trimmedQuery);
     }
+
+    const isDefaultFirstSubcat =
+      activeCategory?.items && activeCategory.items.length > 0 && activeSubcategoryId === activeCategory.items[0].id;
 
     return currentProducts.filter(p => {
       if (p.categoryId !== activeCategoryId) return false;
-      if (activeSubcategoryId && p.subcategoryId !== activeSubcategoryId) return false;
-      if (activeSubSubcategoryId && p.subSubcategoryId !== activeSubSubcategoryId) return false;
+      if (activeSubcategoryId) {
+        if (p.subcategoryId) {
+          if (p.subcategoryId !== activeSubcategoryId) return false;
+        } else if (!isDefaultFirstSubcat) {
+          return false;
+        }
+      }
+      if (activeSubSubcategoryId && p.subSubcategoryId && p.subSubcategoryId !== activeSubSubcategoryId) return false;
       return true;
     });
-  }, [activeCategoryId, activeSubcategoryId, activeSubSubcategoryId, searchQuery, currentProducts, frozenCategoryIds]);
+  }, [activeCategoryId, activeSubcategoryId, activeSubSubcategoryId, searchQuery, currentProducts, frozenCategoryIds, activeCategory]);
 
   useEffect(() => {
     const handleSelectCategory = (e: CustomEvent<string | { categoryId: string }>) => {
@@ -361,6 +366,35 @@ export function Storefront() {
         </div>
       )}
 
+      {/* Resilient Catalog Sync Notice Banner */}
+      {isUsingCachedCatalog && catalogError && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 bg-[#FAF9F5] px-4 py-2.5 text-xs text-stone-700"
+        >
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              {catalogError}
+              {lastSyncedAt && (
+                <span className="text-stone-500 ml-1 tabular-nums">
+                  · Last synced {new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={retrySync}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-stone-900 text-white text-[11px] font-semibold hover:bg-black transition-colors cursor-pointer whitespace-nowrap shrink-0"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Retry Sync
+          </button>
+        </div>
+      )}
+
       {/* Products Grid */}
       <div className="relative min-h-[400px]">
         {isProductsLoading ? (
@@ -404,10 +438,13 @@ export function Storefront() {
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-brand-white shadow-xl shadow-brand-gray-200/50 flex items-center justify-center mb-6">
               <Search className="w-8 h-8 sm:w-10 sm:h-10 text-brand-gray-400" />
             </div>
-            <h3 className="text-xl sm:text-2xl font-serif text-brand-black mb-2">No items found</h3>
+            <h3 className="text-xl sm:text-2xl font-serif text-brand-black mb-2">
+              {catalogStatus === 'SUCCESS_EMPTY' ? 'No products available' : 'No items found'}
+            </h3>
             <p className="text-sm sm:text-base text-brand-gray-500 max-w-md mx-auto">
-              We couldn't find any products matching your current selection. 
-              Try browsing a different category or refining your search.
+              {catalogStatus === 'SUCCESS_EMPTY'
+                ? 'Our catalog is currently being updated. Please check back shortly.'
+                : "We couldn't find any products matching your current selection. Try browsing a different category or refining your search."}
             </p>
             {searchQuery && (
               <button
@@ -420,22 +457,20 @@ export function Storefront() {
             )}
           </motion.div>
         ) : (
-          <motion.div
+          <div
             className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-3 gap-y-5 sm:gap-x-6 sm:gap-y-10"
           >
-            <AnimatePresence mode="popLayout">
-              {displayedProducts.slice(0, visibleCount).map((product, idx) => (
-                <ProductCard 
-                  key={product.id} 
-                  index={idx}
-                  product={product} 
-                  isWishlisted={wishlist.includes(String(product.id))}
-                  toggleWishlist={toggleWishlist}
-                  onProductClick={handleProductClick}
-                />
-              ))}
-            </AnimatePresence>
-          </motion.div>
+            {displayedProducts.slice(0, visibleCount).map((product, idx) => (
+              <ProductCard 
+                key={product.id} 
+                index={idx}
+                product={product} 
+                isWishlisted={wishlist.includes(String(product.id))}
+                toggleWishlist={toggleWishlist}
+                onProductClick={handleProductClick}
+              />
+            ))}
+          </div>
         )}
         
         {displayedProducts.length > visibleCount && (

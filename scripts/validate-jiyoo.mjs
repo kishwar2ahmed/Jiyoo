@@ -30,8 +30,16 @@ checks.push(['Client has no guest userId checkout fallback', !/userId:\s*user\?\
 checks.push(['Firebase config missing does not throw during module startup', !/Missing required env var\(s\)/.test(fs.readFileSync(path.join(root,'src/services/firebase.ts'),'utf8'))]);
 checks.push(['Global postal code field allows non-numeric formats', !/pincode.*replace\(\/\\D\/g/.test(cart)]);
 checks.push(['International phone validation is used in checkout UI', /\^\\\+\?\[1-9\]\\d\{6,14\\\\\\\\?\\$/.test(cart) || /international phone number required/.test(cart)]);
+const storefrontHook = fs.readFileSync(path.join(root, 'src/features/storefront/hooks/useStorefrontProducts.ts'), 'utf8');
+const wholesalePage = fs.readFileSync(path.join(root, 'src/features/wholesale/components/WholesalePage.tsx'), 'utf8');
+
 checks.push(['Locked visual tokens still present', /rounded-xl/.test(fs.readFileSync(path.join(root,'src/features/product/components/ProductCard.tsx'),'utf8'))]);
 checks.push(['No new global sticky bar component introduced', !files.some(f => /Sticky.*Bar|Global.*Sticky/i.test(path.basename(f)) && f.includes('src'))]);
+checks.push(['WhatsApp prepare-order allows guest checkout via optionalAuth', /app\.post\('\/api\/whatsapp\/prepare-order', orderLimiter, optionalAuth/.test(server)]);
+checks.push(['WhatsApp order creates AWAITING_WHATSAPP_CONFIRMATION status', server.includes("orderStatus: 'AWAITING_WHATSAPP_CONFIRMATION'")]);
+checks.push(['Structured delivery fields present in checkout UI', cart.includes('houseNo') && cart.includes('street') && cart.includes('area') && cart.includes('landmark') && cart.includes('addressType')]);
+checks.push(['Catalog hook implements all 7 explicit sync states', ['LOADING', 'SUCCESS_WITH_PRODUCTS', 'SUCCESS_EMPTY', 'FETCH_ERROR', 'PERMISSION_ERROR', 'CONFIGURATION_ERROR', 'OFFLINE'].every(s => storefrontHook.includes(`'${s}'`))]);
+checks.push(['Wholesale page displays Launching Soon ‼️ without product grid', wholesalePage.includes('Launching Soon ‼️') && !wholesalePage.includes('ProductCard')]);
 
 let failed = 0;
 for (const [name, ok] of checks) {
@@ -40,3 +48,4 @@ for (const [name, ok] of checks) {
 }
 console.log(`Checked ${files.length} TypeScript/TSX source files structurally.`);
 process.exitCode = failed ? 1 : 0;
+

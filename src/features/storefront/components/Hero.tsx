@@ -55,8 +55,6 @@ export function Hero({
     `Hi ${settings.storeName || 'JIYOO'}! I would like to place a fresh order.`
   )}`;
 
-  const deliveryWindow = settings.estimatedDeliveryTime || '30 - 60 mins';
-
   return (
     <section
       ref={heroRef}
@@ -208,7 +206,7 @@ export function Hero({
                 transition={{ duration: 0.68, delay: 0.38, ease: EASE_OUT_EXPO }}
                 className="mt-4 sm:mt-5 text-sm sm:text-base text-[#44403C] font-sans-clean font-normal leading-[1.68] max-w-[58ch] text-left"
               >
-                Fresh imported fruits, farm-fresh daily vegetables, and clean custom-cut meats made just how you like—delivered to your doorstep in {deliveryWindow}.
+                Fresh imported fruits, farm-fresh daily vegetables, and clean custom-cut meats made just how you like.
               </motion.p>
 
               {/* Primary & Secondary Conversion Actions */}

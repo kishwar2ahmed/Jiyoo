@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, User, MapPin, CreditCard, Globe, Bell, Shield, Heart, Package, Star, 
   HelpCircle, LogOut, Trash2, Camera, Loader2, ChevronRight, Edit3, Plus, 
   Search, Printer, RotateCcw, MessageSquare, CheckCircle2, Clock, 
-  Truck, ShoppingBag, RefreshCw 
+  Truck, ShoppingBag, RefreshCw, ExternalLink, Copy, Check 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCart } from '../../../contexts/CartContext';
+import { useSettings } from '../../../contexts/SettingsContext';
 import { useOrderActions } from '../hooks/useOrderActions';
 import { auth, db, storage } from '../../../services/firebase';
 import { doc, updateDoc, collection, query, where, getDocs, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -18,68 +19,183 @@ import { useToast } from '../../core/contexts/ToastContext';
 import { useConfirm } from '../../core/contexts/ConfirmContext';
 import { useModalBackButton } from '../../core/hooks/useModalBackButton';
 import { PremiumShieldMark } from '../../core/components/PremiumShieldMark';
+import { InstagramIcon, WhatsAppIcon, OFFICIAL_INSTAGRAM_URL } from '../../core/components/SocialIcons';
 import { useStorefrontProducts } from '../../storefront/hooks/useStorefrontProducts';
 
+const normalizeOrderStatus = (rawStatus?: string): string => {
+  const s = String(rawStatus || 'pending').trim().toLowerCase();
+  if (s === 'awaiting_whatsapp_confirmation' || s === 'whatsapp_pending') return 'awaiting_whatsapp';
+  if (s === 'received' || s === 'paid' || s === 'processing' || s === 'paid_upi_pending_verify') return 'pending';
+  if (s === 'shipped') return 'dispatched';
+  if (s === 'completed') return 'delivered';
+  return s;
+};
 
-
-const OrderTrackingTimeline = ({ status }: { status: string }) => {
-  let normalizedStatus = (status || 'pending').toLowerCase();
-  
-  if (normalizedStatus === 'paid' || normalizedStatus === 'processing') normalizedStatus = 'pending';
-  if (normalizedStatus === 'shipped') normalizedStatus = 'dispatched';
-  if (normalizedStatus === 'completed') normalizedStatus = 'delivered';
+const OrderTrackingTimeline = ({ order }: { order: any }) => {
+  const rawStatus = order?.orderStatus || order?.status || 'pending';
+  const normalizedStatus = normalizeOrderStatus(rawStatus);
+  const isWhatsAppPending = normalizedStatus === 'awaiting_whatsapp';
 
   const steps = [
-    { id: 'pending', label: 'Order Received' },
-    { id: 'confirmed', label: 'Confirmed' },
-    { id: 'packed', label: 'Packed' },
-    { id: 'dispatched', label: 'Dispatched' },
-    { id: 'out_for_delivery', label: 'Out for Delivery' },
-    { id: 'delivered', label: 'Delivered' }
+    {
+      id: 'pending',
+      label: isWhatsAppPending ? 'WhatsApp Request Logged' : 'Order Received',
+      desc: isWhatsAppPending
+        ? 'Your order reference is saved. Send the prefilled WhatsApp message so our team can confirm it.'
+        : 'We have received your order and logged your items.',
+    },
+    {
+      id: 'confirmed',
+      label: 'Order Confirmed',
+      desc: 'Your order and delivery slot have been verified by JIYOO.',
+    },
+    {
+      id: 'packed',
+      label: 'Cleaned & Packed',
+      desc: 'Freshly prepared, quality-checked, and sealed in temperature-locked packaging.',
+    },
+    {
+      id: 'dispatched',
+      label: 'Dispatched',
+      desc: 'Handed over to our cold-chain delivery partner.',
+    },
+    {
+      id: 'out_for_delivery',
+      label: 'Out for Delivery',
+      desc: 'Our delivery rider is on the way to your doorstep.',
+    },
+    {
+      id: 'delivered',
+      label: 'Delivered',
+      desc: 'Delivered successfully. Enjoy your fresh catch & produce!',
+    },
   ];
 
   if (['cancelled', 'refunded', 'failed'].includes(normalizedStatus)) {
     return (
-      <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl">
-        <h4 className="text-red-800 font-semibold text-sm mb-1 flex items-center gap-1.5"><X className="w-4 h-4" /> Order Cancelled</h4>
-        <p className="text-xs text-red-600">This order has been cancelled and will not be fulfilled.</p>
+      <div className="mt-4 p-4 bg-red-50/90 border border-red-200 rounded-xl">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <h4 className="text-red-900 font-bold text-xs sm:text-sm flex items-center gap-1.5">
+            <X className="w-4 h-4 text-red-600 shrink-0" />
+            {normalizedStatus === 'refunded' ? 'Order Cancelled & Refunded' : 'Order Cancelled'}
+          </h4>
+          <span className="text-[11px] font-mono text-red-700">
+            #{order?.orderId || order?.id}
+          </span>
+        </div>
+        <p className="text-xs text-red-700 leading-relaxed">
+          {order?.cancelReason
+            ? `Reason: ${order.cancelReason}`
+            : 'This order was cancelled and will not be fulfilled. If you paid online, any eligible refund is processed automatically.'}
+        </p>
       </div>
     );
   }
 
-  let currentStepIndex = steps.findIndex(s => s.id === normalizedStatus);
+  let currentStepIndex = steps.findIndex((s) => s.id === normalizedStatus);
   if (currentStepIndex === -1) currentStepIndex = 0;
+  const progressPercent = Math.round(((currentStepIndex + 1) / steps.length) * 100);
 
   return (
-    <div className="mt-4 pt-4 border-t border-stone-100">
-      <h4 className="font-bold text-stone-900 mb-3 text-xs flex items-center gap-1.5">
-        <Package className="w-3.5 h-3.5 text-emerald-600" />
-        Order Tracking Status
-      </h4>
-      <div className="relative">
-        <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-stone-200"></div>
-        <div className="space-y-4 relative">
+    <div className="mt-4 pt-4 border-t border-stone-200/80">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h4 className="font-bold text-stone-900 text-xs sm:text-sm flex items-center gap-1.5">
+          <Truck className="w-4 h-4 text-emerald-700" />
+          Live Order Status &amp; Tracking
+        </h4>
+        <span className="text-[11px] font-mono font-semibold text-emerald-800 tabular-nums">
+          Stage {currentStepIndex + 1} of {steps.length} · {progressPercent}%
+        </span>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="w-full h-1.5 bg-stone-200 rounded-full overflow-hidden mb-4">
+        <div
+          className="h-full bg-emerald-600 rounded-full transition-all duration-500"
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
+
+      {/* Carrier / Tracking metadata if assigned */}
+      {(order?.trackingNumber || order?.trackingCarrier || order?.trackingUrl) && (
+        <div className="mb-4 p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="space-y-0.5">
+            {order.trackingCarrier && (
+              <p className="text-stone-700">
+                Carrier: <span className="font-semibold text-stone-900">{order.trackingCarrier}</span>
+              </p>
+            )}
+            {order.trackingNumber && (
+              <p className="text-stone-700 font-mono">
+                Tracking #: <span className="font-semibold text-stone-900">{order.trackingNumber}</span>
+              </p>
+            )}
+          </div>
+          {order.trackingUrl && (
+            <a
+              href={order.trackingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-semibold text-xs hover:bg-emerald-800 transition-colors"
+            >
+              <span>Track Shipment</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Step-by-Step Timeline */}
+      <div className="relative pl-1">
+        <div className="absolute left-4 top-3 bottom-3 w-0.5 bg-stone-200" />
+        <div className="space-y-3.5 relative">
           {steps.map((step, idx) => {
             const isCompleted = idx <= currentStepIndex;
             const isCurrent = idx === currentStepIndex;
-            
+
             return (
               <div key={step.id} className="flex items-start gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 ${isCompleted ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200' : 'bg-stone-100 text-stone-400 border-2 border-white'}`}>
-                  {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : <div className="w-2 h-2 rounded-full bg-stone-300" />}
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 z-10 transition-colors ${
+                    isCompleted
+                      ? isCurrent
+                        ? 'bg-emerald-600 text-white ring-4 ring-emerald-100'
+                        : 'bg-emerald-600 text-white'
+                      : 'bg-stone-100 text-stone-400 border border-stone-300'
+                  }`}
+                >
+                  {isCompleted ? (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  ) : (
+                    <span className="text-[10px] font-mono font-bold tabular-nums">{idx + 1}</span>
+                  )}
                 </div>
-                <div className="pt-1.5">
-                  <p className={`text-sm font-bold ${isCompleted ? 'text-stone-900' : 'text-stone-400'}`}>{step.label}</p>
-                  <p className="text-[10px] text-stone-500">
-                    {isCurrent && idx === 0 && "We have received your order."}
-                    {isCurrent && idx === 1 && "Your order has been confirmed."}
-                    {isCurrent && idx === 2 && "Your order is packed."}
-                    {isCurrent && idx === 3 && "Your order has been dispatched."}
-                    {isCurrent && idx === 4 && "Your order is out for delivery."}
-                    {isCurrent && idx === 5 && "Your order has been delivered."}
-                    {isCompleted && !isCurrent && "Completed"}
-                    {!isCompleted && "Pending"}
-                  </p>
+                <div className="pt-0.5 flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p
+                      className={`text-xs sm:text-sm font-bold ${
+                        isCurrent
+                          ? 'text-emerald-800'
+                          : isCompleted
+                          ? 'text-stone-900'
+                          : 'text-stone-400'
+                      }`}
+                    >
+                      {step.label}
+                    </p>
+                    <span
+                      className={`text-[10px] font-medium ${
+                        isCurrent
+                          ? 'text-emerald-700 font-semibold'
+                          : isCompleted
+                          ? 'text-stone-500'
+                          : 'text-stone-400'
+                      }`}
+                    >
+                      {isCurrent ? 'Current Stage' : isCompleted ? 'Completed' : 'Upcoming'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-stone-500 mt-0.5 leading-relaxed">{step.desc}</p>
                 </div>
               </div>
             );
@@ -92,6 +208,7 @@ const OrderTrackingTimeline = ({ status }: { status: string }) => {
 
 export function AccountCenter({ onClose }: { onClose: () => void }) {
   const { user, logoutUser, wishlist, addToCart, toggleWishlist } = useCart();
+  const { settings } = useSettings();
   const { currentProducts } = useStorefrontProducts();
   const wishlistedProducts = (currentProducts || []).filter(p => wishlist?.includes(String(p.id)));
   const { showToast } = useToast();
@@ -107,6 +224,15 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [expandedAdvancedOrderId, setExpandedAdvancedOrderId] = useState<string | null>(null);
+  const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
+
+  // Direct Order ID Lookup & Tracking state (supports tracking Guest WhatsApp or any Order ID)
+  const [showOrderLookup, setShowOrderLookup] = useState(false);
+  const [lookupOrderId, setLookupOrderId] = useState('');
+  const [lookupPhone, setLookupPhone] = useState('');
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [trackedLookupOrder, setTrackedLookupOrder] = useState<any | null>(null);
 
   const { cancelOrder } = useOrderActions(setOrders);
   
@@ -123,33 +249,120 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
   // instead of navigating away from the site.
   useModalBackButton(true, onClose);
 
+  const getOrderTimestampMs = (order: any): number => {
+    const val = order?.createdAt;
+    if (!val) return 0;
+    if (typeof val === 'string') return Date.parse(val) || 0;
+    if (typeof val?.toDate === 'function') return val.toDate().getTime();
+    if (typeof val?.seconds === 'number') return val.seconds * 1000;
+    return new Date(val).getTime() || 0;
+  };
+
   const fetchOrders = async (reset = true) => {
     if (!user) return;
     setLoading(true);
+    const mergedMap = new Map<string, any>();
+
+    // 1. Try server-side authenticated order history endpoint
     try {
       const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error('Authentication required');
-      const statusParam = orderFilter === 'all' ? 'all' : orderFilter;
-      const params = new URLSearchParams({ status: statusParam, pageSize: '50' });
-      if (orderSearch.trim()) params.set('q', orderSearch.trim());
-      const res = await fetch(`/api/orders/history?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to load order history');
-      const loaded = Array.isArray(data.orders) ? data.orders : [];
-      setOrders(loaded);
-      // Local storage remains only a short-lived display fallback, never an
-      // authoritative order source. The server endpoint applies ownership,
-      // filtering and pagination before returning records.
-    } catch (err) {
-      console.error('Failed to fetch orders from server:', err);
-      try {
-        const local = JSON.parse(localStorage.getItem(`jiyoo_orders_history_v2:${user.id}`) || '[]');
-        if (reset) setOrders(Array.isArray(local) ? local.filter((o:any) => o?.userId === user.id) : []);
-      } catch {
-        // Ignore corrupt localStorage fallback
+      if (token) {
+        const params = new URLSearchParams({ status: 'all', pageSize: '50' });
+        const res = await fetch(`/api/orders/history?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success && Array.isArray(data.orders)) {
+          data.orders.forEach((o: any) => {
+            if (o && (o.id || o.orderId)) {
+              mergedMap.set(String(o.id || o.orderId), o);
+            }
+          });
+        }
       }
+    } catch (err) {
+      console.warn('Server order history fetch fallback:', err);
+    }
+
+    // 2. Also query Firestore `orders` collection directly for this authenticated user
+    try {
+      const qUser = query(collection(db, 'orders'), where('userId', '==', user.id));
+      const snapUser = await getDocs(qUser);
+      snapUser.docs.forEach((docSnap) => {
+        const data = { id: docSnap.id, ...docSnap.data() };
+        if (!mergedMap.has(docSnap.id)) {
+          mergedMap.set(docSnap.id, data);
+        }
+      });
+    } catch (firestoreErr) {
+      console.warn('Direct Firestore orders query fallback:', firestoreErr);
+    }
+
+    // 3. Merge any locally cached orders belonging to this user
+    try {
+      const local = JSON.parse(localStorage.getItem(`jiyoo_orders_history_v2:${user.id}`) || '[]');
+      if (Array.isArray(local)) {
+        local.forEach((lo: any) => {
+          const key = String(lo?.id || lo?.orderId || '');
+          if (key && (!lo.userId || lo.userId === user.id) && !mergedMap.has(key)) {
+            mergedMap.set(key, lo);
+          }
+        });
+      }
+    } catch {
+      // Ignore corrupt localStorage fallback
+    }
+
+    const sortedOrders = Array.from(mergedMap.values()).sort(
+      (a, b) => getOrderTimestampMs(b) - getOrderTimestampMs(a)
+    );
+
+    if (reset || sortedOrders.length > 0) {
+      setOrders(sortedOrders);
+      // Automatically expand the most recent order if none is expanded yet
+      if (sortedOrders.length > 0 && !expandedOrderId) {
+        setExpandedOrderId(sortedOrders[0].id || sortedOrders[0].orderId);
+      }
+    }
+    setLoading(false);
+  };
+
+  const handleTrackByOrderId = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanId = lookupOrderId.trim().replace(/^#/, '');
+    if (!cleanId) {
+      setLookupError('Please enter your Order ID (e.g. JY-123456).');
+      return;
+    }
+    setLookupLoading(true);
+    setLookupError(null);
+    setTrackedLookupOrder(null);
+    try {
+      const token = await auth.currentUser?.getIdToken().catch(() => null);
+      const res = await fetch('/api/orders/track', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          orderId: cleanId,
+          phone: lookupPhone.trim() || (user as any)?.phone || '',
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success || !data.order) {
+        setLookupError(
+          data.error ||
+            'Could not find a matching order. If this was a Guest WhatsApp order, please also enter the 10-digit mobile number used at checkout.'
+        );
+        return;
+      }
+      setTrackedLookupOrder(data.order);
+    } catch {
+      setLookupError('Unable to reach the order tracking service right now. Please try again.');
     } finally {
-      setLoading(false);
+      setLookupLoading(false);
     }
   };
 
@@ -190,7 +403,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
       };
       fetchReviews();
     }
-  }, [activeTab, user, orderFilter, orderSearch]);
+  }, [activeTab, user]);
 
   if (!user) return null;
 
@@ -388,9 +601,56 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
     showToast(`Successfully added ${addedCount} item(s) from this order back to your cart!`, "success");
   };
 
-  const filteredOrders = orders;
+  const filteredOrders = useMemo(() => {
+    const queryStr = orderSearch.trim().toLowerCase();
+    return orders.filter((o: any) => {
+      const rawStatus = String(o.orderStatus || o.status || 'pending').toLowerCase();
+      if (orderFilter === 'processing') {
+        const isProcessing = [
+          'pending',
+          'received',
+          'awaiting_whatsapp_confirmation',
+          'whatsapp_pending',
+          'paid_upi_pending_verify',
+          'confirmed',
+          'packed',
+          'shipped',
+          'dispatched',
+          'out_for_delivery',
+        ].includes(rawStatus);
+        if (!isProcessing) return false;
+      } else if (orderFilter === 'delivered') {
+        if (!['delivered', 'completed'].includes(rawStatus)) return false;
+      } else if (orderFilter === 'cancelled') {
+        if (!['cancelled', 'refunded', 'failed'].includes(rawStatus)) return false;
+      }
 
+      if (!queryStr) return true;
+      const orderIdText = String(o.orderId || o.id || '').toLowerCase();
+      const statusText = rawStatus.replace(/_/g, ' ');
+      const phoneText = String(o.shippingDetails?.phone || o.customerPhone || '').toLowerCase();
+      const itemMatch = Array.isArray(o.items) && o.items.some((it: any) => String(it?.name || '').toLowerCase().includes(queryStr));
+      return orderIdText.includes(queryStr) || statusText.includes(queryStr) || phoneText.includes(queryStr) || itemMatch;
+    });
+  }, [orders, orderFilter, orderSearch]);
 
+  const orderSummaryMetrics = useMemo(() => {
+    let activeCount = 0;
+    let deliveredCount = 0;
+    orders.forEach((o: any) => {
+      const st = String(o.orderStatus || o.status || 'pending').toLowerCase();
+      if (['delivered', 'completed'].includes(st)) {
+        deliveredCount += 1;
+      } else if (!['cancelled', 'refunded', 'failed'].includes(st)) {
+        activeCount += 1;
+      }
+    });
+    return {
+      total: orders.length,
+      active: activeCount,
+      delivered: deliveredCount,
+    };
+  }, [orders]);
 
   const getStatusBadge = (statusStr: string) => {
     const status = (statusStr || 'pending').toLowerCase();
@@ -426,7 +686,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
     if (['packed'].includes(status)) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-50 text-orange-700 border border-orange-200 rounded-full text-xs font-semibold">
-          <Package className="w-3.5 h-3.5" /> Packed
+          <Package className="w-3.5 h-3.5" /> Cleaned &amp; Packed
         </span>
       );
     }
@@ -437,9 +697,16 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
         </span>
       );
     }
+    if (['awaiting_whatsapp_confirmation', 'whatsapp_pending'].includes(status)) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-semibold">
+          <Clock className="w-3.5 h-3.5" /> Awaiting WhatsApp Confirmation
+        </span>
+      );
+    }
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-full text-xs font-semibold">
-        <Clock className="w-3.5 h-3.5" /> Pending
+        <Clock className="w-3.5 h-3.5" /> Order Received
       </span>
     );
   };
@@ -457,6 +724,8 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
     { id: 'devices', icon: Shield, label: 'Manage Devices' },
     { id: 'privacy', icon: Shield, label: 'Privacy Center' },
   ];
+
+  const cleanSupportWhatsapp = (settings.whatsappNumber || '919739391891').replace(/\D/g, '');
 
   return (
     <div className="fixed inset-0 z-50 bg-stone-100 flex overflow-hidden">
@@ -516,8 +785,20 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
           )}
           <button onClick={() => { document.dispatchEvent(new CustomEvent('open-contact')); onClose(); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors font-semibold">
             <HelpCircle className="w-4 h-4 text-emerald-600" />
-            <span className="text-sm font-medium">Help & Support</span>
+            <span className="text-sm font-medium">Help &amp; Support</span>
           </button>
+          <a
+            href={OFFICIAL_INSTAGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-between px-3 py-2.5 text-pink-700 bg-pink-50/70 hover:bg-pink-100/80 border border-pink-200/70 rounded-lg transition-colors font-semibold"
+          >
+            <span className="flex items-center gap-2.5 text-xs">
+              <InstagramIcon size={15} className="text-pink-600 shrink-0" />
+              <span>Instagram Support</span>
+            </span>
+            <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+          </a>
           <button onClick={() => { logoutUser(); onClose(); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-stone-600 hover:bg-stone-100 rounded-lg transition-colors">
             <LogOut className="w-4 h-4" />
             <span className="text-sm font-medium">Log Out</span>
@@ -562,18 +843,39 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
         <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-6 hidden md:flex">
-              <h1 className="text-2xl font-serif font-bold text-stone-900">
-                {tabs.find(t => t.id === activeTab)?.label}
-              </h1>
+              <div>
+                <h1 className="text-2xl font-serif font-bold text-stone-900">
+                  {tabs.find(t => t.id === activeTab)?.label}
+                </h1>
+                {activeTab === 'orders' && (
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    View past orders, download tax invoices, and track live preparation &amp; delivery status.
+                  </p>
+                )}
+              </div>
               {activeTab === 'orders' && (
-                <button 
-                  onClick={() => fetchOrders()}
-                  disabled={loading}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-stone-700 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors shadow-2xs"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                  Refresh Orders
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowOrderLookup((prev) => !prev)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors shadow-2xs ${
+                      showOrderLookup
+                        ? 'bg-stone-900 text-white border-stone-900'
+                        : 'text-stone-700 bg-white border-stone-200 hover:bg-stone-50'
+                    }`}
+                  >
+                    <Truck className="w-3.5 h-3.5" />
+                    Track Order by ID
+                  </button>
+                  <button 
+                    onClick={() => fetchOrders()}
+                    disabled={loading}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-stone-700 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors shadow-2xs"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                    Refresh Orders
+                  </button>
+                </div>
               )}
             </div>
             
@@ -588,6 +890,117 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                 {/* Orders Tab */}
                 {activeTab === 'orders' && (
                   <div className="space-y-6">
+                    {/* Summary KPI Bar + Mobile Track Button */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-2xs">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">Total Orders</span>
+                        <span className="text-xl font-extrabold text-stone-900 mt-0.5 block">{orderSummaryMetrics.total}</span>
+                      </div>
+                      <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-2xs">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">In Progress</span>
+                        <span className="text-xl font-extrabold text-emerald-700 mt-0.5 block">{orderSummaryMetrics.active}</span>
+                      </div>
+                      <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-2xs">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block">Delivered</span>
+                        <span className="text-xl font-extrabold text-stone-900 mt-0.5 block">{orderSummaryMetrics.delivered}</span>
+                      </div>
+                    </div>
+
+                    {/* Mobile Track Order by ID Toggle */}
+                    <div className="flex md:hidden items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowOrderLookup((prev) => !prev)}
+                        className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border transition-colors ${
+                          showOrderLookup
+                            ? 'bg-stone-900 text-white border-stone-900'
+                            : 'text-stone-700 bg-white border-stone-200'
+                        }`}
+                      >
+                        <Truck className="w-3.5 h-3.5" />
+                        {showOrderLookup ? 'Hide Order ID Tracker' : 'Track Any Order by ID'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => fetchOrders()}
+                        disabled={loading}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-stone-700 bg-white border border-stone-200 rounded-xl"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                        Refresh
+                      </button>
+                    </div>
+
+                    {/* Collapsible Track Order by ID Lookup Panel */}
+                    {showOrderLookup && (
+                      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-2xs space-y-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                              <Truck className="w-4 h-4 text-emerald-600" />
+                              Track Order Status by Order ID
+                            </h3>
+                            <p className="text-xs text-stone-500 mt-0.5">
+                              Placed a Guest WhatsApp order or want to check a specific Order ID? Enter it below for live status.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowOrderLookup(false);
+                              setTrackedLookupOrder(null);
+                            }}
+                            className="p-1 text-stone-400 hover:text-stone-600 rounded-lg"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <form onSubmit={handleTrackByOrderId} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <input
+                            type="text"
+                            value={lookupOrderId}
+                            onChange={(e) => setLookupOrderId(e.target.value)}
+                            placeholder="Order ID (e.g. JY-1761... or ORD-...)"
+                            className="px-3.5 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-900 focus:bg-white font-mono"
+                            required
+                          />
+                          <input
+                            type="tel"
+                            value={lookupPhone}
+                            onChange={(e) => setLookupPhone(e.target.value)}
+                            placeholder="Phone number (10 digits, for guest orders)"
+                            className="px-3.5 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-stone-900 focus:bg-white"
+                          />
+                          <button
+                            type="submit"
+                            disabled={lookupLoading}
+                            className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                          >
+                            {lookupLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                            Track Status
+                          </button>
+                        </form>
+
+                        {trackedLookupOrder && (
+                          <div className="pt-3 border-t border-stone-100">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-xs text-stone-900">
+                                  #{trackedLookupOrder.orderId || trackedLookupOrder.id}
+                                </span>
+                                {getStatusBadge(trackedLookupOrder.orderStatus || trackedLookupOrder.status)}
+                              </div>
+                              <span className="text-xs font-extrabold text-emerald-700">
+                                Total: ₹{trackedLookupOrder.amount || 0}
+                              </span>
+                            </div>
+                            <OrderTrackingTimeline order={trackedLookupOrder} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Filter and Search Bar */}
                     <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4">
                       {/* Search */}
@@ -610,9 +1023,9 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                       {/* Status Filter Chips */}
                       <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
                         {[
-                          { id: 'all', label: 'All Orders' },
-                          { id: 'processing', label: 'Processing' },
-                          { id: 'delivered', label: 'Delivered' },
+                          { id: 'all', label: `All (${orderSummaryMetrics.total})` },
+                          { id: 'processing', label: `Processing (${orderSummaryMetrics.active})` },
+                          { id: 'delivered', label: `Delivered (${orderSummaryMetrics.delivered})` },
                           { id: 'cancelled', label: 'Cancelled' }
                         ].map((chip) => (
                           <button
@@ -647,16 +1060,25 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                         <p className="text-xs text-stone-500 max-w-sm mx-auto mb-6">
                           {orderSearch || orderFilter !== 'all' 
                             ? 'Try clearing your search query or filter settings.' 
-                            : 'When you place an order, its real-time updates and invoices will appear here.'}
+                            : 'When you place an order, its real-time status timeline and tax invoices will appear here.'}
                         </p>
-                        {(orderSearch || orderFilter !== 'all') && (
-                          <button 
-                            onClick={() => { setOrderSearch(''); setOrderFilter('all'); }}
-                            className="px-4 py-2 bg-stone-900 text-white text-xs font-semibold rounded-xl hover:bg-stone-800 transition-colors"
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          {(orderSearch || orderFilter !== 'all') && (
+                            <button 
+                              onClick={() => { setOrderSearch(''); setOrderFilter('all'); }}
+                              className="px-4 py-2 bg-stone-900 text-white text-xs font-semibold rounded-xl hover:bg-stone-800 transition-colors"
+                            >
+                              Reset Filters
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setShowOrderLookup(true)}
+                            className="px-4 py-2 bg-white border border-stone-200 text-stone-700 text-xs font-semibold rounded-xl hover:bg-stone-50 transition-colors"
                           >
-                            Reset Filters
+                            Track Order by ID
                           </button>
-                        )}
+                        </div>
                       </div>
                     ) : (
                       filteredOrders.map((order) => {
@@ -665,7 +1087,17 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                           ? new Date(order.createdAt.seconds * 1000).toLocaleDateString('en-IN', {
                               day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
                             })
-                          : (order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : 'Recent');
+                          : (order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN', {
+                              day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                            }) : 'Recent');
+
+                        const computedItemsSubtotal = (order.items || []).reduce(
+                          (sum: number, it: any) => sum + Number(it.price || it.numericPrice || 0) * Number(it.quantity || 1),
+                          0
+                        );
+                        const subtotalVal = Number(order.subtotal ?? computedItemsSubtotal);
+                        const discountVal = Number(order.discountAmount ?? 0);
+                        const deliveryFeeVal = Number(order.deliveryFee ?? Math.max(0, Number(order.amount || 0) - subtotalVal + discountVal));
 
                         return (
                           <div key={order.id} className="bg-white rounded-2xl border border-stone-200 shadow-2xs overflow-hidden transition-all hover:border-stone-300">
@@ -678,7 +1110,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                                   </h3>
                                   {getStatusBadge(order.orderStatus || order.status)}
                                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${String(order.paymentStatus || '').toLowerCase() === 'paid' ? 'bg-emerald-100 text-emerald-800' : String(order.paymentStatus || '').toLowerCase() === 'failed' ? 'bg-red-100 text-red-800' : 'bg-stone-100 text-stone-600'}`}>Payment: {String(order.paymentStatus || (order.paymentMethod === 'Cash on Delivery' ? 'COD' : 'Pending')).replace(/_/g, ' ')}</span>
-                                  {order.paymentMethod === 'WhatsApp Express' && (
+                                  {(order.paymentMethod === 'WhatsApp Express' || order.channel === 'WHATSAPP') && (
                                     <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded text-[10px] font-bold uppercase tracking-wider">
                                       WhatsApp Order
                                     </span>
@@ -692,21 +1124,24 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
 
                               <div className="flex items-center gap-3 justify-between md:justify-end">
                                 <div className="text-right">
-                                  <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Total Paid</span>
+                                  <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Order Total</span>
                                   <span className="text-base font-extrabold text-emerald-700">₹{order.amount || 0}</span>
                                 </div>
                                 <button
                                   onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
                                   className="px-3 py-1.5 bg-white border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 hover:bg-stone-50 transition-colors flex items-center gap-1 shadow-2xs"
                                 >
-                                  {isExpanded ? 'Hide Details' : 'View Details'}
+                                  {isExpanded ? 'Hide Tracking' : 'Track & Details'}
                                   <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                                 </button>
                               </div>
                             </div>
 
-                            {/* Items Preview */}
+                            {/* Items Preview & Live Tracking */}
                             <div className="p-5 space-y-3">
+                              {/* Always show live tracking timeline when expanded, or compact status bar when collapsed */}
+                              {isExpanded && <OrderTrackingTimeline order={order} />}
+
                               <div className="space-y-2">
                                 {(order.items || []).slice(0, isExpanded ? 50 : 2).map((item: any, idx: number) => (
                                   <div key={idx} className="flex items-center justify-between gap-3 text-xs p-2 rounded-xl hover:bg-stone-50 transition-colors">
@@ -773,17 +1208,17 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
 
                               {/* Expanded Full Details */}
                               {isExpanded && (
-                                <div className="mt-4 pt-4 border-t border-stone-100 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                <div className="mt-4 pt-4 border-t border-stone-100 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                                   {/* Shipping Details */}
                                   <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 space-y-1">
                                     <h4 className="font-bold text-stone-900 flex items-center gap-1.5 mb-1 text-xs">
                                       <MapPin className="w-3.5 h-3.5 text-emerald-600" />
                                       Delivery Address
                                     </h4>
-                                    <p className="font-semibold text-stone-800">{order.shippingDetails?.name || user.name || 'Customer'}</p>
+                                    <p className="font-semibold text-stone-800">{order.shippingDetails?.name || order.customerName || user.name || 'Customer'}</p>
                                     <p className="text-stone-600">{order.shippingDetails?.address || 'N/A'}</p>
                                     {order.shippingDetails?.pincode && <p className="text-stone-600">Pincode: {order.shippingDetails.pincode}</p>}
-                                    <p className="text-stone-600">Phone: {order.shippingDetails?.phone || 'N/A'}</p>
+                                    <p className="text-stone-600">Phone: {order.shippingDetails?.phone || order.customerPhone || 'N/A'}</p>
                                   </div>
 
                                   {/* Payment & Status */}
@@ -793,10 +1228,36 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                                       Payment Details
                                     </h4>
                                     <p className="text-stone-600">Method: <span className="font-semibold text-stone-800">{order.paymentMethod || 'Online'}</span></p>
-                                    <p className="text-stone-600">Payment Status: <span className="font-semibold text-stone-800 uppercase">{order.paymentStatus || 'Paid'}</span></p>
+                                    <p className="text-stone-600">Payment Status: <span className="font-semibold text-stone-800 uppercase">{String(order.paymentStatus || 'Paid').replace(/_/g, ' ')}</span></p>
                                     {(order.razorpay_payment_id || order.razorpayPaymentId) && (
                                       <p className="text-stone-500 text-[11px] font-mono">Ref ID: {order.razorpay_payment_id || order.razorpayPaymentId}</p>
                                     )}
+                                  </div>
+
+                                  {/* Bill Summary */}
+                                  <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 space-y-1">
+                                    <h4 className="font-bold text-stone-900 flex items-center gap-1.5 mb-1 text-xs">
+                                      <ShoppingBag className="w-3.5 h-3.5 text-emerald-600" />
+                                      Bill Summary
+                                    </h4>
+                                    <div className="flex justify-between text-stone-600">
+                                      <span>Items Subtotal</span>
+                                      <span className="font-semibold text-stone-800">₹{subtotalVal}</span>
+                                    </div>
+                                    {discountVal > 0 && (
+                                      <div className="flex justify-between text-emerald-700">
+                                        <span>Discount {order.couponCode ? `(${order.couponCode})` : ''}</span>
+                                        <span className="font-semibold">-₹{discountVal}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between text-stone-600">
+                                      <span>Delivery Fee</span>
+                                      <span className="font-semibold text-stone-800">{deliveryFeeVal > 0 ? `₹${deliveryFeeVal}` : 'FREE'}</span>
+                                    </div>
+                                    <div className="flex justify-between text-stone-900 font-bold pt-1 border-t border-stone-200">
+                                      <span>Grand Total</span>
+                                      <span className="text-emerald-700">₹{order.amount || 0}</span>
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -820,7 +1281,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
 
                               {/* Footer Action Bar */}
                               <div className="pt-3 border-t border-stone-100 flex flex-wrap items-center justify-between gap-2">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <button
                                     onClick={() => handleReorder(order)}
                                     className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
@@ -837,25 +1298,38 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                                   </button>
                                 </div>
 
-                                <a
-                                  href={`https://wa.me/919876543210?text=${encodeURIComponent(`Hi JIYOO Support, I need help with my Order #${order.orderId || order.id}`)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="px-3 py-1.5 text-stone-600 hover:text-emerald-700 text-xs font-semibold flex items-center gap-1 transition-colors"
-                                >
-                                  <MessageSquare className="w-3.5 h-3.5 text-green-600" />
-                                  Need Help?
-                                </a>
-                                
-                                {['pending', 'confirmed'].includes(order.status || order.orderStatus || 'pending') && (
-                                  <button
-                                    onClick={() => cancelOrder(order.id)}
-                                    className="px-3 py-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors"
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <a
+                                    href={`https://wa.me/${cleanSupportWhatsapp}?text=${encodeURIComponent(`Hi JIYOO Support, I need help with my Order #${order.orderId || order.id}`)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-800 border border-green-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
                                   >
-                                    Cancel Order
-                                  </button>
-                                )}
-  
+                                    <MessageSquare className="w-3.5 h-3.5 text-green-600" />
+                                    WhatsApp Help
+                                  </a>
+                                  <a
+                                    href={OFFICIAL_INSTAGRAM_URL}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1.5 bg-pink-50 hover:bg-pink-100 text-pink-800 border border-pink-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                                    title="Instagram Customer Support"
+                                  >
+                                    <InstagramIcon size={13} className="text-pink-600" />
+                                    Instagram Support
+                                  </a>
+
+                                  {['pending', 'confirmed', 'received', 'awaiting_whatsapp_confirmation', 'whatsapp_pending'].includes(
+                                    String(order.status || order.orderStatus || 'pending').toLowerCase()
+                                  ) && (
+                                    <button
+                                      onClick={() => cancelOrder(order.id)}
+                                      className="px-3 py-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors"
+                                    >
+                                      Cancel Order
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>

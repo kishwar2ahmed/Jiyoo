@@ -75,18 +75,18 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                 Customer Support
               </h3>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* WhatsApp Support (Primary) */}
                 <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm flex flex-col h-full">
                   <div className="w-10 h-10 rounded-full bg-emerald-50 text-[#25D366] flex items-center justify-center mb-4">
                     <WhatsAppIcon className="w-5 h-5" />
                   </div>
                   <h4 className="text-stone-900 font-bold mb-1">WhatsApp Concierge</h4>
-                  <p className="text-stone-500 text-sm mb-4 flex-grow">
+                  <p className="text-stone-500 text-xs sm:text-sm mb-4 flex-grow">
                     Perfect for quick questions, order tracking, and instant support.
                   </p>
                   <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold text-stone-400 mb-4">
-                    <Clock className="w-3.5 h-3.5" /> Average response: 5 mins
+                    <Clock className="w-3.5 h-3.5" /> Avg response: 5 mins
                   </div>
                   <a
                     href={whatsappHref('support')}
@@ -94,7 +94,34 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                     rel="noopener noreferrer"
                     className="w-full py-3 bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]"
                   >
-                    <WhatsAppIcon className="w-4 h-4" /> Message on WhatsApp
+                    <WhatsAppIcon className="w-4 h-4" /> WhatsApp Chat
+                  </a>
+                </div>
+
+                {/* Instagram Support */}
+                <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm flex flex-col h-full">
+                  <div className="w-10 h-10 rounded-full bg-pink-50 text-[#E1306C] flex items-center justify-center mb-4">
+                    <InstagramIcon className="w-5 h-5" />
+                  </div>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <h4 className="text-stone-900 font-bold">Instagram Support</h4>
+                    <span className="px-2 py-0.5 rounded-md bg-pink-50 text-pink-700 text-[10px] font-bold uppercase tracking-wider">
+                      Official
+                    </span>
+                  </div>
+                  <p className="text-stone-500 text-xs mb-3 flex-grow">
+                    DM us on Instagram for customer support, order queries &amp; fresh arrival updates.
+                  </p>
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold text-stone-400 mb-4 mt-auto">
+                    <Clock className="w-3.5 h-3.5" /> Direct DM Support
+                  </div>
+                  <a
+                    href="https://www.instagram.com/shamsjiyoo2026?exln=aG43cXdnZmgwZDRu"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3 bg-gradient-to-r from-[#833AB4] via-[#E1306C] to-[#F77737] hover:opacity-95 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 active:scale-[0.98] shadow-sm"
+                  >
+                    <InstagramIcon className="w-4 h-4" /> Message on Instagram
                   </a>
                 </div>
 
@@ -109,20 +136,20 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                       Primary
                     </span>
                   </div>
-                  <p className="text-stone-900 font-mono text-xs font-semibold mb-0.5">
+                  <p className="text-stone-900 font-mono text-xs font-semibold mb-0.5 truncate">
                     shamsjiyoo@gmail.com
                   </p>
-                  <p className="text-stone-400 font-mono text-[11px] mb-3">
+                  <p className="text-stone-400 font-mono text-[11px] mb-3 truncate">
                     Backup: jiyooshams@gmail.com
                   </p>
                   <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold text-stone-400 mb-4 mt-auto">
-                    <Clock className="w-3.5 h-3.5" /> Average response: 24 hrs
+                    <Clock className="w-3.5 h-3.5" /> Avg response: 24 hrs
                   </div>
                   <a
                     href="mailto:shamsjiyoo@gmail.com?cc=jiyooshams@gmail.com"
                     className="w-full py-3 bg-[#1C1917] hover:bg-black text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 active:scale-[0.98] shadow-sm"
                   >
-                    <EmailEnvelopeIcon className="w-4 h-4" /> Email Us (Primary)
+                    <EmailEnvelopeIcon className="w-4 h-4" /> Email Us
                   </a>
                 </div>
               </div>
@@ -170,10 +197,11 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                 <h4 className="text-sm font-bold text-stone-900 mb-3">Official Socials</h4>
                 <div className="flex items-center gap-3">
                   <a
-                    href="https://www.instagram.com/shamsjiyoo2026?utm_source=qr&igsh=MWh3YWlzOWV1N3Aweg=="
+                    href="https://www.instagram.com/shamsjiyoo2026?exln=aG43cXdnZmgwZDRu"
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label="Instagram"
+                    aria-label="Instagram Customer Support"
+                    title="Instagram Customer Support"
                     className="w-10 h-10 rounded-full bg-white border border-stone-200 flex items-center justify-center text-[#E1306C] hover:border-[#1C1917] hover:shadow-md transition-all"
                   >
                     <InstagramIcon className="w-4 h-4" />

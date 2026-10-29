@@ -17,13 +17,42 @@ export function useWhatsAppOrder() {
     orderType = 'retail',
     selectedArea,
     pincode,
+    customerAddress,
+    customerCity,
+    customerState,
   }: any) => {
     if (!product) return null;
+
+    const cleanName = String(user?.name || user?.displayName || '').trim();
+    const cleanPhone = String((user as any)?.phone || '').trim();
+    const cleanAddress = String(customerAddress || '').trim();
+    const cleanArea = String(selectedArea || '').trim();
+    const cleanCity = String(customerCity || 'Bangalore').trim();
+    const cleanState = String(customerState || 'Karnataka').trim();
+    const cleanPincode = String(pincode || '').trim();
+
+    // Never redirect to WhatsApp without mandatory customer & delivery details
+    if (
+      cleanName.length < 2 ||
+      cleanPhone.length < 7 ||
+      cleanAddress.length < 5 ||
+      cleanArea.length < 2 ||
+      cleanCity.length < 2 ||
+      !/^[1-9]\d{5}$/.test(cleanPincode)
+    ) {
+      document.dispatchEvent(new CustomEvent('open-whatsapp-checkout'));
+      showToast(
+        'Please complete your delivery details (Full Name, Mobile Number, Address, Locality, City & PIN Code) to order via WhatsApp.',
+        'info'
+      );
+      return null;
+    }
 
     const safeQty = Math.max(1, Math.min(100, Number(quantity) || 1));
     let orderId: string | null = null;
     let verificationCode: string | undefined;
     let authoritativeTotal = (Number(currentPrice) || 0) * safeQty;
+    let priceVerified = false;
 
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -56,10 +85,13 @@ export function useWhatsAppOrder() {
             },
           ],
           shippingDetails: {
-            name: user?.name || user?.displayName || '',
-            phone: (user as any)?.phone || '',
-            address: selectedArea || '',
-            pincode: pincode || '',
+            name: cleanName,
+            phone: cleanPhone,
+            address: cleanAddress,
+            area: cleanArea,
+            city: cleanCity,
+            state: cleanState,
+            pincode: cleanPincode,
           },
           orderType,
           isSingleProductQuickOrder: true,
@@ -68,50 +100,54 @@ export function useWhatsAppOrder() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Could not validate WhatsApp order');
+        const errMessage = data.error || 'Could not validate WhatsApp order';
+        showToast(errMessage, 'error');
+        return null;
       }
 
       orderId = data.orderId || null;
       verificationCode = data.verificationCode || undefined;
-      if (typeof data.subtotal === 'number' && data.subtotal > 0) {
+      priceVerified = data.priceVerified !== false;
+      if (typeof data.grandTotal === 'number' && data.grandTotal > 0) {
+        authoritativeTotal = data.grandTotal;
+      } else if (typeof data.subtotal === 'number' && data.subtotal > 0) {
         authoritativeTotal = data.subtotal;
       }
-    } catch (e: any) {
-      // If a validation rule rejected the request (e.g. out-of-stock or unserviceable pincode), surface it clearly
-      if (e?.message && (e.message.includes('stock') || e.message.includes('PIN code') || e.message.includes('unavailable'))) {
-        showToast(e.message, 'error');
-        return null;
-      }
-      // Fallback reference when server/database is unreachable so WhatsApp ordering still works securely using catalog pricing
+    } catch {
+      // Network/backend unreachable: clearly mark verification as pending
+      priceVerified = false;
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       const rand = Array.from(crypto.getRandomValues(new Uint8Array(4)))
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('')
         .toUpperCase();
       orderId = `JY-${dateStr}-${rand}`;
-      verificationCode = `LOC-${rand.slice(0, 6)}`;
+      verificationCode = `PENDING-${rand.slice(0, 6)}`;
     }
 
     const url = createSingleProductWhatsAppUrl({
       orderId: orderId || undefined,
       verificationCode,
       orderType,
-      customerName: user?.name || user?.displayName,
-      customerPhone: (user as any)?.phone,
-      selectedArea,
-      customerPincode: pincode,
+      customerName: cleanName,
+      customerPhone: cleanPhone,
+      customerAddress: cleanAddress,
+      customerCity: cleanCity,
+      customerState: cleanState,
+      selectedArea: cleanArea,
+      customerPincode: cleanPincode,
       whatsappNumber: settings?.whatsappNumber,
       productName: product.name,
       quantity: safeQty,
       selectedWeight: currentUnit,
       selectedCut: selectedCut || undefined,
       totalPrice: authoritativeTotal,
+      priceVerified,
     });
 
-    window.open(url, '_blank');
-
-    return { url, orderId, verificationCode };
+    return { url, orderId, verificationCode, priceVerified };
   };
 
   return { handleWhatsAppOrder };
 }
+

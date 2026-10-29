@@ -174,9 +174,19 @@ export function CartModal({
   const [paymentMethod, setPaymentMethod] = useState<
     "razorpay" | "upi_qr" | "cod"
   >("razorpay");
+  const [isWhatsAppCheckoutMode, setIsWhatsAppCheckoutMode] = useState(false);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [whatsappPhone, setWhatsappPhone] = useState("");
+  const [houseNo, setHouseNo] = useState("");
+  const [street, setStreet] = useState("");
+  const [area, setArea] = useState("");
+  const [city, setCity] = useState("Bangalore");
+  const [state, setState] = useState("Karnataka");
+  const [landmark, setLandmark] = useState("");
+  const [addressType, setAddressType] = useState<"Home" | "Work" | "Other">("Home");
+  const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [address, setAddress] = useState("");
   const [pincode, setPincode] = useState("");
   const [orderType, setOrderType] = useState<"retail" | "wholesale">("retail");
@@ -184,23 +194,61 @@ export function CartModal({
   const [activeRetailAreas, setActiveRetailAreas] = useState<RetailAreaItem[]>(
     DEFAULT_RETAIL_AREAS,
   );
+  const [priceVerifiedState, setPriceVerifiedState] = useState<boolean>(true);
   const [formErrors, setFormErrors] = useState<{
     name?: string;
     phone?: string;
+    whatsappPhone?: string;
+    houseNo?: string;
+    street?: string;
+    area?: string;
+    city?: string;
+    state?: string;
     address?: string;
     pincode?: string;
   }>({});
 
   useEffect(() => {
     if (user) {
-      setName(user.name || user.displayName || "");
+      setName((prev) => prev || user.name || user.displayName || "");
+      if (user.phone) setPhone((prev) => prev || user.phone);
     }
   }, [user]);
+
+  // Listen for direct "Order via WhatsApp" trigger from ProductDetailModal
+  useEffect(() => {
+    const handleOpenWhatsAppCheckout = () => {
+      setIsWhatsAppCheckoutMode(true);
+      setStep("checkout");
+    };
+    document.addEventListener("open-whatsapp-checkout", handleOpenWhatsAppCheckout);
+    return () => {
+      document.removeEventListener("open-whatsapp-checkout", handleOpenWhatsAppCheckout);
+    };
+  }, []);
+
+  // Keep composite address synced with structured fields
+  useEffect(() => {
+    const parts = [
+      houseNo.trim(),
+      street.trim(),
+      area.trim(),
+      landmark.trim() ? `Near ${landmark.trim()}` : "",
+      city.trim(),
+      state.trim(),
+    ].filter(Boolean);
+    if (parts.length > 0) {
+      setAddress(parts.join(", "));
+    }
+  }, [houseNo, street, area, landmark, city, state]);
 
   // Reset state when opened/closed & sync active retail areas from server
   useEffect(() => {
     if (!isOpen) {
-      setTimeout(() => setStep("cart"), 300);
+      setTimeout(() => {
+        setStep("cart");
+        setIsWhatsAppCheckoutMode(false);
+      }, 300);
     } else {
       syncCartPrices();
       fetch("/api/delivery/active-areas")
@@ -216,6 +264,19 @@ export function CartModal({
     }
   }, [isOpen]);
 
+  const populateStructuredFromRawAddress = (rawAddr: string, rawPin?: string) => {
+    setAddress(rawAddr);
+    if (rawPin) setPincode(rawPin);
+    const segments = rawAddr
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!houseNo.trim() && segments[0]) setHouseNo(segments[0]);
+    if (!street.trim() && segments[1]) setStreet(segments[1]);
+    if (!area.trim() && segments[2]) setArea(segments[2]);
+    else if (!area.trim() && segments[1]) setArea(segments[1]);
+  };
+
   const handleCurrentLocation = () => {
     if (navigator.geolocation) {
       setIsProcessing(true);
@@ -230,23 +291,37 @@ export function CartModal({
             const data = await res.json();
             if (data && data.address) {
               const addrParts = [];
-              if (data.address.road) addrParts.push(data.address.road);
-              if (data.address.suburb) addrParts.push(data.address.suburb);
+              if (data.address.house_number) {
+                setHouseNo((prev) => prev || data.address.house_number);
+                addrParts.push(data.address.house_number);
+              }
+              if (data.address.road) {
+                setStreet((prev) => prev || data.address.road);
+                addrParts.push(data.address.road);
+              }
+              if (data.address.suburb || data.address.neighbourhood) {
+                const detectedArea = data.address.suburb || data.address.neighbourhood;
+                setArea((prev) => prev || detectedArea);
+                addrParts.push(detectedArea);
+              }
               if (
                 data.address.city ||
                 data.address.town ||
                 data.address.village
-              )
-                addrParts.push(
+              ) {
+                const detectedCity =
                   data.address.city ||
-                    data.address.town ||
-                    data.address.village,
-                );
-              if (data.address.state) addrParts.push(data.address.state);
-              setAddress(addrParts.join(", "));
-              if (data.address.postcode) {
-                setPincode(data.address.postcode);
+                  data.address.town ||
+                  data.address.village;
+                setCity(detectedCity);
+                addrParts.push(detectedCity);
               }
+              if (data.address.state) {
+                setState(data.address.state);
+                addrParts.push(data.address.state);
+              }
+              const joined = addrParts.join(", ");
+              populateStructuredFromRawAddress(joined, data.address.postcode);
             } else {
               setFormErrors((prev) => ({
                 ...prev,
@@ -297,8 +372,7 @@ export function CartModal({
       try {
         setIsProcessing(true);
         if (user.address) {
-          setAddress(user.address);
-          if (user.pincode) setPincode(user.pincode);
+          populateStructuredFromRawAddress(user.address, user.pincode);
           if (user.phone) setPhone(user.phone);
           if (user.name) setName(user.name);
           setFormErrors((prev) => ({ ...prev, address: undefined }));
@@ -314,8 +388,7 @@ export function CartModal({
           setSavedAddressesList(addrs);
 
           const addr = addrs[0];
-          if (addr.address) setAddress(addr.address);
-          if (addr.pincode) setPincode(addr.pincode);
+          if (addr.address) populateStructuredFromRawAddress(addr.address, addr.pincode);
           if (addr.phone) setPhone(addr.phone);
           if (addr.name) setName(addr.name);
           setFormErrors((prev) => ({ ...prev, address: undefined }));
@@ -329,7 +402,7 @@ export function CartModal({
       } catch (e) {
         console.error(e);
         if (user.address) {
-          setAddress(user.address);
+          populateStructuredFromRawAddress(user.address, user.pincode);
         } else {
           setFormErrors((prev) => ({
             ...prev,
@@ -403,14 +476,46 @@ export function CartModal({
     }
 
     const errors: any = {};
-    if (!name.trim()) errors.name = "Name is required";
-    const normalizedPhone = phone.trim().replace(/[\s().-]/g, "");
-    if (!normalizedPhone || !/^\+?[1-9]\d{6,14}$/.test(normalizedPhone))
-      errors.phone = "Valid international phone number required";
-    if (!address.trim()) errors.address = "Full Address is required";
-    const postalCode = pincode.trim();
-    if (!postalCode || postalCode.length < 2 || postalCode.length > 12)
-      errors.pincode = "Valid postal / ZIP code is required";
+    if (!name.trim() || name.trim().length < 2) {
+      errors.name = "Full Name is required";
+    }
+    const normalizedPhone = phone.trim().replace(/[\s().-]/g, "").replace(/^0+/, "");
+    if (!normalizedPhone || !/^\+?[1-9]\d{6,14}$/.test(normalizedPhone) || !/^(\+?91)?[6-9]\d{9}$/.test(normalizedPhone)) {
+      errors.phone = "Valid 10-digit Indian mobile number required (Valid international phone number required)";
+    }
+    if (whatsappPhone.trim()) {
+      const normalizedWa = whatsappPhone.trim().replace(/[\s().-]/g, "").replace(/^0+/, "");
+      if (!/^\+?[1-9]\d{6,14}$/.test(normalizedWa)) {
+        errors.whatsappPhone = "Enter a valid WhatsApp mobile number";
+      }
+    }
+    if (!houseNo.trim()) {
+      errors.houseNo = "House / Flat No. is required";
+    }
+    if (!street.trim()) {
+      errors.street = "Building / Street / Road is required";
+    }
+    if (!area.trim()) {
+      errors.area = "Area / Locality is required";
+    }
+    if (!city.trim()) {
+      errors.city = "City is required";
+    }
+    if (!state.trim()) {
+      errors.state = "State is required";
+    }
+    const compositeAddress =
+      address.trim() ||
+      [houseNo.trim(), street.trim(), area.trim(), city.trim(), state.trim()]
+        .filter(Boolean)
+        .join(", ");
+    if (!compositeAddress || compositeAddress.length < 5) {
+      errors.address = "Full delivery address is required";
+    }
+    const postalCode = normalizeIndianPincode(pincode);
+    if (!postalCode || !/^[1-9]\d{5}$/.test(postalCode)) {
+      errors.pincode = "Valid 6-digit Indian PIN code is required";
+    }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -498,8 +603,9 @@ export function CartModal({
 
   
   const requireCheckoutAuth = () => {
+    setIsWhatsAppCheckoutMode(false);
     if (user?.id) return true;
-    showToast("Please log in to continue with checkout.", "error");
+    showToast("Please log in to continue with Online / COD checkout.", "error");
     onRequestAuth?.();
     return false;
   };
@@ -509,10 +615,52 @@ export function CartModal({
     if (!requireCheckoutAuth()) return;
     if (!validateForm()) return;
 
+    const cleanPin = normalizeIndianPincode(pincode);
+    if (orderType === "retail") {
+      const enabledPins = new Set(
+        activeRetailAreas.filter((a) => a.enabled).map((a) => a.pincode),
+      );
+      if (enabledPins.size > 0 && !enabledPins.has(cleanPin)) {
+        showToast(
+          `Retail delivery is currently active only in our 13 Bangalore areas (PINs: ${Array.from(enabledPins).join(", ")}).`,
+          "error",
+        );
+        return;
+      }
+    }
+
     setIsProcessing(true);
     setFormErrors({});
 
-    saveUserAddressLocally(address, pincode, name);
+    const formattedFullAddress =
+      [
+        houseNo.trim(),
+        street.trim(),
+        area.trim(),
+        landmark.trim() ? `Landmark: ${landmark.trim()}` : "",
+        city.trim(),
+        state.trim(),
+      ]
+        .filter(Boolean)
+        .join(", ") || address.trim();
+
+    saveUserAddressLocally(formattedFullAddress, cleanPin, name);
+
+    const shippingPayload = {
+      name: name.trim(),
+      phone: phone.trim(),
+      whatsappPhone: (whatsappPhone.trim() || phone.trim()),
+      houseNo: houseNo.trim(),
+      street: street.trim(),
+      area: area.trim(),
+      city: city.trim(),
+      state: state.trim(),
+      landmark: landmark.trim(),
+      addressType,
+      deliveryInstructions: deliveryInstructions.trim(),
+      address: formattedFullAddress,
+      pincode: cleanPin,
+    };
 
     const orderData = {
       userId: user?.id,
@@ -523,27 +671,27 @@ export function CartModal({
       amount: grandTotal,
       items: items.map((i) => ({
         id: i.id,
-                baseId: i.baseId,
+        baseId: i.baseId,
         name: i.name,
         quantity: i.quantity,
         price: getValidPrice(i),
-            selectedWeight: (i as any).selectedWeight || null,
-            selectedCut: (i as any).selectedCut || null,
-            image: i.image,
+        selectedWeight: (i as any).selectedWeight || null,
+        selectedCut: (i as any).selectedCut || null,
+        image: i.image,
       })),
-      shippingDetails: { name, phone, address, pincode },
+      shippingDetails: shippingPayload,
     };
 
     // Cash on Delivery
     if (paymentMethod === "cod") {
       try {
         const token = await getAuthToken();
-      const headers: any = { "Content-Type": "application/json", "Idempotency-Key": getCheckoutIdempotencyKey() };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch("/api/orders/create", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
+        const headers: any = { "Content-Type": "application/json", "Idempotency-Key": getCheckoutIdempotencyKey() };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await fetch("/api/orders/create", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
             items: items.map((i) => ({
               id: i.id,
               baseId: i.baseId,
@@ -554,7 +702,7 @@ export function CartModal({
               selectedCut: (i as any).selectedCut,
               image: i.image,
             })),
-            shippingDetails: { name, phone, address, pincode },
+            shippingDetails: shippingPayload,
             paymentMethod: "Cash on Delivery",
             userId: user?.id,
             couponCode: appliedCoupon?.code || null,
@@ -617,7 +765,7 @@ export function CartModal({
             })),
             currency: "INR",
             couponCode: appliedCoupon?.code || null,
-            shippingDetails: { name, phone, address, pincode },
+            shippingDetails: shippingPayload,
             orderType,
           }),
         });
@@ -658,7 +806,7 @@ export function CartModal({
                       selectedCut: (i as any).selectedCut || null,
                       image: i.image,
                     })),
-                    shippingDetails: { name, phone, address, pincode },
+                    shippingDetails: shippingPayload,
                     userId: user?.id,
                     couponCode: appliedCoupon?.code || null,
                   }),
@@ -671,7 +819,7 @@ export function CartModal({
                   sendEmailNotification(serverOrderId, { ...orderData, amount: grandTotal });
                   setStep("success");
                   resetCheckoutIdempotencyKey();
-        setTimeout(clearCart, 1500);
+                  setTimeout(clearCart, 1500);
                 } else {
                   showToast("Payment verification failed. If money was deducted, contact us with your payment reference and we'll process a refund.", "error");
                   setStep("checkout");
@@ -721,20 +869,24 @@ export function CartModal({
     }
   };
 
-  
-  
   const triggerWhatsAppOrder = async () => {
-    // If user is currently in cart step, navigate them to checkout first so they fill all required details
+    // Guest WhatsApp checkout does NOT require login!
+    // If user is currently in cart step, navigate them to checkout first so they fill all required delivery details.
     if (step === "cart") {
-      if (!requireCheckoutAuth()) return;
+      setIsWhatsAppCheckoutMode(true);
       setStep("checkout");
-      showToast("Please enter your delivery details (Name, Phone, Address, PIN Code) to complete your WhatsApp order.", "info");
+      showToast(
+        "Please enter your delivery details (Full Name, Mobile Number, Address, Area, City & PIN Code) to complete your WhatsApp order.",
+        "info",
+      );
       return;
     }
 
-    if (!requireCheckoutAuth()) return;
     if (!validateForm()) {
-      showToast("All delivery details (Full Name, Phone Number, Full Address, PIN Code) are mandatory for WhatsApp orders.", "error");
+      showToast(
+        "All mandatory delivery details (Full Name, Mobile Number, House No, Street, Area, City & PIN Code) are required before opening WhatsApp.",
+        "error",
+      );
       return;
     }
 
@@ -754,17 +906,29 @@ export function CartModal({
       );
       if (enabledPins.size > 0 && !enabledPins.has(cleanPin)) {
         showToast(
-          `Retail delivery is currently active only in our 13 Bangalore areas (PINs: ${Array.from(enabledPins).join(", ")}). Switch to Wholesale for All-India shipping.`,
+          `Retail delivery is currently active only in our 13 Bangalore areas (PINs: ${Array.from(enabledPins).join(", ")}).`,
           "error",
         );
         return;
       }
     } else if (!/^[1-9]\d{5}$/.test(cleanPin)) {
-      showToast("Please enter a valid 6-digit Indian PIN code for Wholesale shipping.", "error");
+      showToast("Please enter a valid 6-digit Indian PIN code.", "error");
       return;
     }
 
-    saveUserAddressLocally(address, pincode, name);
+    const formattedFullAddress =
+      [
+        houseNo.trim(),
+        street.trim(),
+        area.trim(),
+        landmark.trim() ? `Landmark: ${landmark.trim()}` : "",
+        city.trim(),
+        state.trim(),
+      ]
+        .filter(Boolean)
+        .join(", ") || address.trim();
+
+    saveUserAddressLocally(formattedFullAddress, cleanPin, name);
 
     setIsProcessing(true);
     let serverOrderId: string | null = null;
@@ -773,6 +937,7 @@ export function CartModal({
     let verifiedDiscount = discountAmount;
     let verifiedDeliveryFee = effectiveDeliveryFee;
     let verifiedGrandTotal = grandTotal;
+    let isServerPriceVerified = false;
 
     try {
       const token = await getAuthToken().catch(() => null);
@@ -799,7 +964,16 @@ export function CartModal({
           shippingDetails: {
             name: name.trim(),
             phone: phone.trim(),
-            address: address.trim(),
+            whatsappPhone: whatsappPhone.trim() || phone.trim(),
+            houseNo: houseNo.trim(),
+            street: street.trim(),
+            area: area.trim(),
+            city: city.trim(),
+            state: state.trim(),
+            landmark: landmark.trim(),
+            addressType,
+            deliveryInstructions: deliveryInstructions.trim(),
+            address: formattedFullAddress,
             pincode: cleanPin,
           },
           couponCode: appliedCoupon?.code || null,
@@ -818,6 +992,8 @@ export function CartModal({
       if (typeof apiData.discountAmount === "number") verifiedDiscount = apiData.discountAmount;
       if (typeof apiData.deliveryFee === "number") verifiedDeliveryFee = apiData.deliveryFee;
       if (typeof apiData.grandTotal === "number") verifiedGrandTotal = apiData.grandTotal;
+      isServerPriceVerified = apiData.priceVerified !== false;
+      setPriceVerifiedState(isServerPriceVerified);
     } catch (e: any) {
       if (
         e?.message &&
@@ -825,13 +1001,14 @@ export function CartModal({
           e.message.includes("stock") ||
           e.message.includes("Minimum") ||
           e.message.includes("unavailable") ||
-          e.message.includes("mandatory"))
+          e.message.includes("mandatory") ||
+          e.message.includes("required"))
       ) {
         showToast(e.message, "error");
         setIsProcessing(false);
         return;
       }
-      // Resilient fallback when server/database is offline so WhatsApp ordering never breaks
+      // Resilient fallback when server/database is unreachable: explicitly mark priceVerified = false
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
       const rand = Array.from(crypto.getRandomValues(new Uint8Array(6)))
         .map((b) => b.toString(16).padStart(2, "0"))
@@ -839,6 +1016,8 @@ export function CartModal({
         .toUpperCase();
       serverOrderId = `JY-${dateStr}-${rand}`;
       verificationCode = `LOC-${rand.slice(0, 6)}`;
+      isServerPriceVerified = false;
+      setPriceVerifiedState(false);
     }
 
     try {
@@ -846,6 +1025,7 @@ export function CartModal({
         orderId: serverOrderId || undefined,
         verificationCode,
         orderType,
+        priceVerified: isServerPriceVerified,
         whatsappNumber: settings.whatsappNumber,
         items: items.map((i) => ({
           name: i.name,
@@ -861,19 +1041,24 @@ export function CartModal({
         totalAmount: verifiedGrandTotal,
         customerName: name.trim(),
         customerPhone: phone.trim(),
-        selectedArea: selectedRetailArea || undefined,
-        customerAddress: address.trim(),
+        customerWhatsApp: whatsappPhone.trim() || phone.trim(),
+        houseNo: houseNo.trim(),
+        street: street.trim(),
+        area: area.trim(),
+        city: city.trim(),
+        state: state.trim(),
+        landmark: landmark.trim() || undefined,
+        addressType,
+        deliveryInstructions: deliveryInstructions.trim() || undefined,
+        selectedArea: selectedRetailArea || area.trim() || undefined,
+        customerAddress: formattedFullAddress,
         customerPincode: cleanPin,
-        paymentMethod:
-          paymentMethod === "cod"
-            ? "Cash on Delivery (WhatsApp)"
-            : "WhatsApp Express",
+        paymentMethod: "WhatsApp Express (Guest / Direct)",
       });
       setGeneratedWhatsAppUrl(url);
       setPendingOrderId(serverOrderId || null);
       setStep("whatsapp_confirm");
       resetCheckoutIdempotencyKey();
-      setTimeout(clearCart, 1500);
     } finally {
       setIsProcessing(false);
     }
@@ -905,22 +1090,6 @@ export function CartModal({
             {/* Header */}
             <div className="flex items-center justify-between p-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pr-[calc(1.5rem+env(safe-area-inset-right))] pl-[calc(1.5rem+env(safe-area-inset-left))] border-b border-gray-100 bg-white z-10">
               <div className="flex items-center gap-4">
-                {step === "checkout" && !user?.id && (
-                  <motion.div
-                    key="login_required"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="p-8 text-center min-h-full flex flex-col items-center justify-center"
-                  >
-                    <PremiumShieldMark className="w-12 h-12 mb-4 shrink-0" variant="emerald" />
-                    <h2 className="text-2xl font-serif text-gray-900">Login required</h2>
-                    <p className="mt-2 text-sm text-gray-500 max-w-sm">Please log in or create an account to continue with your order.</p>
-                    <button type="button" onClick={() => onRequestAuth?.()} className="mt-6 w-full max-w-xs h-12 rounded-full bg-[#1C1917] text-[#FAF9F5] text-xs font-bold uppercase tracking-wider">
-                      Log in / Sign up
-                    </button>
-                  </motion.div>
-                )}
-
                 {step === "checkout" && (
                   <button
                     onClick={() => setStep("cart")}
@@ -929,13 +1098,22 @@ export function CartModal({
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                 )}
-                <h2 className="text-xl font-serif text-gray-900 tracking-wide">
-                  {step === "cart"
-                    ? "Your Bag"
-                    : step === "checkout"
-                      ? "Checkout"
-                      : "Order Confirmed"}
-                </h2>
+                <div>
+                  <h2 className="text-xl font-serif text-gray-900 tracking-wide">
+                    {step === "cart"
+                      ? "Your Bag"
+                      : step === "checkout"
+                        ? isWhatsAppCheckoutMode
+                          ? "WhatsApp Delivery Details"
+                          : "Checkout"
+                        : "Order Reference"}
+                  </h2>
+                  {step === "checkout" && isWhatsAppCheckoutMode && (
+                    <p className="text-[11px] font-medium text-emerald-700">
+                      Guest WhatsApp Checkout — No login required
+                    </p>
+                  )}
+                </div>
               </div>
               <button
                 onClick={onClose}
@@ -1016,7 +1194,6 @@ export function CartModal({
                                         target.dataset.attempt = String(
                                           currentAttempt + 1,
                                         );
-                                        // Ensure we don't assign the same URL it already failed on
                                         if (
                                           target.src.endsWith(
                                             fallbackSequence[currentAttempt],
@@ -1104,95 +1281,8 @@ export function CartModal({
                           ))}
                         </div>
 
-
-
-                        {/* DELIVERY MODE & ACTIVE RETAIL AREAS (13 BANGALORE AREAS / PAN-INDIA WHOLESALE) */}
-                        <div className="mt-6 p-4 bg-white border border-stone-200 rounded-2xl space-y-3 shadow-2xs">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1C1917] flex items-center gap-1.5">
-                              <MapPin className="w-3.5 h-3.5 text-emerald-600" /> Delivery Coverage
-                            </span>
-                            <div className="inline-flex rounded-lg bg-[#FAF9F5] p-0.5 border border-stone-200 text-[10px] font-bold">
-                              <button
-                                type="button"
-                                onClick={() => setOrderType("retail")}
-                                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
-                                  orderType === "retail"
-                                    ? "bg-[#1C1917] text-white"
-                                    : "text-stone-600 hover:text-black"
-                                }`}
-                              >
-                                Retail (13 Areas)
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setOrderType("wholesale")}
-                                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
-                                  orderType === "wholesale"
-                                    ? "bg-emerald-700 text-white"
-                                    : "text-stone-600 hover:text-black"
-                                }`}
-                              >
-                                Wholesale (All India)
-                              </button>
-                            </div>
-                          </div>
-
-                          {orderType === "retail" ? (
-                            <div className="space-y-2">
-                              <p className="text-[11px] text-stone-600 leading-snug">
-                                Select your active Bangalore retail locality (auto-sets PIN code):
-                              </p>
-                              <select
-                                value={selectedRetailArea}
-                                onChange={(e) => {
-                                  const areaVal = e.target.value;
-                                  setSelectedRetailArea(areaVal);
-                                  const match = activeRetailAreas.find(
-                                    (a) => `${a.areaName} (${a.displayPincode})` === areaVal,
-                                  );
-                                  if (match) {
-                                    setPincode(match.pincode);
-                                    if (!address.trim()) {
-                                      setAddress(match.areaName);
-                                    }
-                                  }
-                                }}
-                                className="w-full bg-[#FAF9F5] border border-stone-300 rounded-xl px-3 py-2 text-xs text-[#1C1917] font-medium outline-none focus:border-[#1C1917]"
-                              >
-                                <option value="">
-                                  -- Choose from 13 Active Bangalore Retail Areas --
-                                </option>
-                                {activeRetailAreas
-                                  .filter((a) => a.enabled)
-                                  .map((a) => (
-                                    <option
-                                      key={a.id}
-                                      value={`${a.areaName} (${a.displayPincode})`}
-                                    >
-                                      {a.slNo}. {a.areaName} — {a.displayPincode}
-                                    </option>
-                                  ))}
-                              </select>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <p className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 font-medium">
-                                Pan-India Wholesale Active — Shipping to all 6-digit PIN codes across India.
-                              </p>
-                              <input
-                                type="text"
-                                value={pincode}
-                                onChange={(e) => setPincode(e.target.value.slice(0, 12))}
-                                placeholder="Enter destination 6-digit India PIN code (optional for WhatsApp)"
-                                className="w-full bg-[#FAF9F5] border border-stone-300 rounded-xl px-3 py-2 text-xs text-[#1C1917] font-mono outline-none focus:border-[#1C1917]"
-                              />
-                            </div>
-                          )}
-                        </div>
-
                         {/* PROMO / COUPON CODE */}
-                        <div className="mt-4 p-4 bg-[#FAF9F5] border border-stone-200 rounded-2xl">
+                        <div className="mt-6 p-4 bg-[#FAF9F5] border border-stone-200 rounded-2xl">
                           <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#1C1917] mb-3">
                             Coupon Code
                           </h4>
@@ -1251,10 +1341,10 @@ export function CartModal({
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.3 }}
-                    className="p-6 space-y-8 pb-32"
+                    className="p-6 space-y-6 pb-32"
                   >
                     {/* Delivery Info */}
-                    <section className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+                    <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-5">
                       <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                         <div className="flex items-center gap-2 text-gray-900">
                           <MapPin className="w-5 h-5 text-emerald-600" />
@@ -1275,7 +1365,7 @@ export function CartModal({
                         </button>
                       </div>
 
-                      <div className="flex flex-wrap sm:flex-nowrap gap-2 pt-1">
+                      <div className="flex flex-wrap sm:flex-nowrap gap-2">
                         <button
                           type="button"
                           onClick={handleCurrentLocation}
@@ -1285,7 +1375,7 @@ export function CartModal({
                           <Navigation className="w-3.5 h-3.5 text-emerald-600" />
                           {isProcessing
                             ? "Detecting Location..."
-                            : "Auto-Detect GPS Location"}
+                            : "Auto-Detect GPS"}
                         </button>
                         <button
                           type="button"
@@ -1302,248 +1392,404 @@ export function CartModal({
                       </div>
 
                       <div className="space-y-4">
+                        {/* Active Bangalore Retail Area Quick-Select */}
+                        <div className="p-3.5 bg-emerald-50/50 border border-emerald-200/80 rounded-xl space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="block text-[11px] uppercase tracking-wider text-emerald-950 font-bold">
+                              Select Delivery Locality (13 Active Areas)
+                            </label>
+                            <span className="text-[10px] font-semibold text-emerald-700">
+                              Auto-fills Area &amp; PIN
+                            </span>
+                          </div>
+                          <select
+                            value={selectedRetailArea}
+                            onChange={(e) => {
+                              const areaVal = e.target.value;
+                              setSelectedRetailArea(areaVal);
+                              const match = activeRetailAreas.find(
+                                (a) => `${a.areaName} (${a.displayPincode})` === areaVal,
+                              );
+                              if (match) {
+                                setArea(match.areaName);
+                                setPincode(match.pincode);
+                                setCity("Bangalore");
+                                setState("Karnataka");
+                                setFormErrors((prev) => ({
+                                  ...prev,
+                                  area: undefined,
+                                  pincode: undefined,
+                                }));
+                              }
+                            }}
+                            className="w-full bg-white border border-emerald-200 rounded-xl px-3 py-2.5 text-xs text-gray-900 font-medium outline-none focus:border-emerald-600"
+                          >
+                            <option value="">
+                              -- Choose from 13 Active Bangalore Retail Areas --
+                            </option>
+                            {activeRetailAreas
+                              .filter((a) => a.enabled)
+                              .map((a) => (
+                                <option
+                                  key={a.id}
+                                  value={`${a.areaName} (${a.displayPincode})`}
+                                >
+                                  {a.slNo}. {a.areaName} — {a.displayPincode}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        {/* Full Name */}
                         <div>
-                          <label className="block text-xs uppercase tracking-wider text-gray-500 mb-2 font-medium">
-                            Full Name
+                          <label className="block text-xs uppercase tracking-wider text-gray-600 mb-1.5 font-semibold">
+                            Full Name <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            className={`w-full bg-gray-50 border ${formErrors.name ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-black"} rounded-xl p-3.5 text-gray-900 transition-colors outline-none`}
-                            placeholder="Jane Doe"
+                            className={`w-full bg-gray-50 border ${formErrors.name ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-black"} rounded-xl p-3 text-sm text-gray-900 transition-colors outline-none`}
+                            placeholder="Enter your full name"
                           />
                           {formErrors.name && (
-                            <p className="text-red-500 text-xs mt-1.5">
+                            <p className="text-red-500 text-xs mt-1">
                               {formErrors.name}
                             </p>
                           )}
                         </div>
-                        <div>
-                          <label className="block text-xs uppercase tracking-wider text-gray-500 mb-2 font-medium">
-                            Phone Number
-                          </label>
-                          <input
-                            type="tel"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            className={`w-full bg-gray-50 border ${formErrors.phone ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-black"} rounded-xl p-3.5 text-gray-900 transition-colors outline-none`}
-                            placeholder="+44 20 1234 5678"
-                          />
-                          {formErrors.phone && (
-                            <p className="text-red-500 text-xs mt-1.5">
-                              {formErrors.phone}
-                            </p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-xs uppercase tracking-wider text-gray-500 mb-2 font-medium">
-                            Full Address
-                          </label>
-                          <textarea
-                            value={address}
-                            onChange={(e) => setAddress(e.target.value)}
-                            rows={2}
-                            className={`w-full bg-gray-50 border ${formErrors.address ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-black"} rounded-xl p-3.5 text-gray-900 transition-colors outline-none resize-none`}
-                            placeholder="House No, Street, City, Landmark..."
-                          />
-                          {formErrors.address && (
-                            <p className="text-red-500 text-xs mt-1.5">
-                              {formErrors.address}
-                            </p>
-                          )}
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <label className="block text-xs uppercase tracking-wider text-gray-500 font-medium">
-                              Postal / ZIP code
+
+                        {/* Mobile Number & WhatsApp Number */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-gray-600 mb-1.5 font-semibold">
+                              Mobile Number <span className="text-red-500">*</span>
                             </label>
-                            <span className="text-[10px] font-semibold text-emerald-700">
-                              {orderType === "retail"
-                                ? "Retail: 13 Bangalore Areas"
-                                : "Wholesale: All Over India"}
-                            </span>
+                            <input
+                              type="tel"
+                              value={phone}
+                              onChange={(e) => setPhone(e.target.value)}
+                              className={`w-full bg-gray-50 border ${formErrors.phone ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-black"} rounded-xl p-3 text-sm text-gray-900 transition-colors outline-none`}
+                              placeholder="10-digit mobile number"
+                            />
+                            {formErrors.phone && (
+                              <p className="text-red-500 text-xs mt-1">
+                                {formErrors.phone}
+                              </p>
+                            )}
                           </div>
-                          {orderType === "retail" && (
-                            <select
-                              value={selectedRetailArea}
-                              onChange={(e) => {
-                                const areaVal = e.target.value;
-                                setSelectedRetailArea(areaVal);
-                                const match = activeRetailAreas.find(
-                                  (a) => `${a.areaName} (${a.displayPincode})` === areaVal,
-                                );
-                                if (match) {
-                                  setPincode(match.pincode);
-                                  if (!address.trim()) {
-                                    setAddress(match.areaName);
-                                  }
-                                }
-                              }}
-                              className="w-full mb-2 bg-emerald-50/60 border border-emerald-200 rounded-xl px-3 py-2.5 text-xs text-gray-900 font-medium outline-none focus:border-emerald-600"
-                            >
-                              <option value="">
-                                Quick-select active Bangalore retail area...
-                              </option>
-                              {activeRetailAreas
-                                .filter((a) => a.enabled)
-                                .map((a) => (
-                                  <option
-                                    key={a.id}
-                                    value={`${a.areaName} (${a.displayPincode})`}
-                                  >
-                                    {a.slNo}. {a.areaName} — {a.displayPincode}
-                                  </option>
-                                ))}
-                            </select>
-                          )}
-                          <input
-                            type="text"
-                            value={pincode}
-                            onChange={(e) =>
-                              setPincode(e.target.value.slice(0, 12))
-                            }
-                            className={`w-full bg-gray-50 border ${formErrors.pincode ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-black"} rounded-xl p-3.5 text-gray-900 transition-colors outline-none`}
-                            placeholder={
-                              orderType === "retail"
-                                ? "560084 / 560043 / 560045 / 560032 / 560005"
-                                : "Any 6-digit Indian PIN code"
-                            }
-                          />
-                          {formErrors.pincode && (
-                            <p className="text-red-500 text-xs mt-1.5">
-                              {formErrors.pincode}
-                            </p>
-                          )}
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-gray-600 mb-1.5 font-semibold">
+                              WhatsApp No. <span className="text-gray-400 font-normal">(Optional)</span>
+                            </label>
+                            <input
+                              type="tel"
+                              value={whatsappPhone}
+                              onChange={(e) => setWhatsappPhone(e.target.value)}
+                              className={`w-full bg-gray-50 border ${formErrors.whatsappPhone ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-black"} rounded-xl p-3 text-sm text-gray-900 transition-colors outline-none`}
+                              placeholder={phone || "Same as mobile number"}
+                            />
+                            {formErrors.whatsappPhone && (
+                              <p className="text-red-500 text-xs mt-1">
+                                {formErrors.whatsappPhone}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* House / Flat No & Building / Street */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-gray-600 mb-1.5 font-semibold">
+                              House / Flat No. <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={houseNo}
+                              onChange={(e) => setHouseNo(e.target.value)}
+                              className={`w-full bg-gray-50 border ${formErrors.houseNo ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-black"} rounded-xl p-3 text-sm text-gray-900 transition-colors outline-none`}
+                              placeholder="Flat / House / Door No."
+                            />
+                            {formErrors.houseNo && (
+                              <p className="text-red-500 text-xs mt-1">
+                                {formErrors.houseNo}
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-gray-600 mb-1.5 font-semibold">
+                              Building &amp; Street <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={street}
+                              onChange={(e) => setStreet(e.target.value)}
+                              className={`w-full bg-gray-50 border ${formErrors.street ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-black"} rounded-xl p-3 text-sm text-gray-900 transition-colors outline-none`}
+                              placeholder="Apartment, Street / Main Rd"
+                            />
+                            {formErrors.street && (
+                              <p className="text-red-500 text-xs mt-1">
+                                {formErrors.street}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Area / Locality & Landmark */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-gray-600 mb-1.5 font-semibold">
+                              Area / Locality <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={area}
+                              onChange={(e) => setArea(e.target.value)}
+                              className={`w-full bg-gray-50 border ${formErrors.area ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-black"} rounded-xl p-3 text-sm text-gray-900 transition-colors outline-none`}
+                              placeholder="e.g. Frazer Town, Banaswadi"
+                            />
+                            {formErrors.area && (
+                              <p className="text-red-500 text-xs mt-1">
+                                {formErrors.area}
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-gray-600 mb-1.5 font-semibold">
+                              Landmark <span className="text-gray-400 font-normal">(Optional)</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={landmark}
+                              onChange={(e) => setLandmark(e.target.value)}
+                              className="w-full bg-gray-50 border border-gray-200 focus:border-black rounded-xl p-3 text-sm text-gray-900 transition-colors outline-none"
+                              placeholder="Nearby Mosque, Park, School..."
+                            />
+                          </div>
+                        </div>
+
+                        {/* City, State, PIN Code */}
+                        <div className="grid grid-cols-3 gap-2.5">
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-gray-600 mb-1.5 font-semibold">
+                              City <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={city}
+                              onChange={(e) => setCity(e.target.value)}
+                              className={`w-full bg-gray-50 border ${formErrors.city ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-black"} rounded-xl p-3 text-xs text-gray-900 transition-colors outline-none`}
+                              placeholder="Bangalore"
+                            />
+                            {formErrors.city && (
+                              <p className="text-red-500 text-[11px] mt-1">
+                                {formErrors.city}
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-gray-600 mb-1.5 font-semibold">
+                              State <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={state}
+                              onChange={(e) => setState(e.target.value)}
+                              className={`w-full bg-gray-50 border ${formErrors.state ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-black"} rounded-xl p-3 text-xs text-gray-900 transition-colors outline-none`}
+                              placeholder="Karnataka"
+                            />
+                            {formErrors.state && (
+                              <p className="text-red-500 text-[11px] mt-1">
+                                {formErrors.state}
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-gray-600 mb-1.5 font-semibold">
+                              PIN Code <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={pincode}
+                              onChange={(e) =>
+                                setPincode(e.target.value.slice(0, 12))
+                              }
+                              className={`w-full bg-gray-50 border ${formErrors.pincode ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-black"} rounded-xl p-3 text-xs font-mono text-gray-900 transition-colors outline-none`}
+                              placeholder="560005"
+                            />
+                            {formErrors.pincode && (
+                              <p className="text-red-500 text-[11px] mt-1">
+                                {formErrors.pincode}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Address Type & Delivery Instructions */}
+                        <div className="space-y-3 pt-1">
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-gray-600 mb-1.5 font-semibold">
+                              Address Type
+                            </label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {(["Home", "Work", "Other"] as const).map((type) => (
+                                <button
+                                  key={type}
+                                  type="button"
+                                  onClick={() => setAddressType(type)}
+                                  className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                                    addressType === type
+                                      ? "bg-[#1C1917] text-white border-[#1C1917]"
+                                      : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                                  }`}
+                                >
+                                  {type}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-gray-600 mb-1.5 font-semibold">
+                              Delivery Instructions <span className="text-gray-400 font-normal">(Optional)</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={deliveryInstructions}
+                              onChange={(e) => setDeliveryInstructions(e.target.value)}
+                              className="w-full bg-gray-50 border border-gray-200 focus:border-black rounded-xl p-3 text-xs text-gray-900 transition-colors outline-none"
+                              placeholder="e.g. Ring doorbell, leave with security, call on arrival"
+                            />
+                          </div>
                         </div>
                       </div>
                     </section>
 
-                    {/* Payment Method */}
-                    <section className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-5">
-                      <div className="flex items-center justify-between border-b border-gray-100 pb-3.5">
-                        <div className="flex items-center gap-2 text-gray-900">
-                          <CreditCard className="w-5 h-5 text-emerald-600" />
-                          <h3 className="font-serif text-lg font-semibold">
-                            Select Checkout Mode
-                          </h3>
+                    {/* Payment Method (Shown when not in WhatsApp-only mode, or user can switch) */}
+                    {!isWhatsAppCheckoutMode && (
+                      <section className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-5">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-3.5">
+                          <div className="flex items-center gap-2 text-gray-900">
+                            <CreditCard className="w-5 h-5 text-emerald-600" />
+                            <h3 className="font-serif text-lg font-semibold">
+                              Select Checkout Mode
+                            </h3>
+                          </div>
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full flex items-center gap-1.5">
+                            <PremiumShieldMark className="w-3.5 h-3.5 shrink-0" variant="emerald" />
+                            Verified Merchant
+                          </span>
                         </div>
-                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full flex items-center gap-1.5">
-                          <PremiumShieldMark className="w-3.5 h-3.5 shrink-0" variant="emerald" />
-                          Verified Merchant
-                        </span>
-                      </div>
 
-                      {/* Distinction Banner: WhatsApp vs UPI */}
-                      <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50 rounded-xl border border-gray-200/80 text-xs">
-                        <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-2xs space-y-1">
-                          <span className="text-[10px] uppercase font-bold text-emerald-700 flex items-center gap-1">
-                            <MessageCircle className="w-3 h-3 text-emerald-600 fill-emerald-100" />{" "}
-                            WhatsApp
-                          </span>
-                          <p className="text-[11px] font-semibold text-gray-900 leading-tight">
-                            Direct Chat Order
-                          </p>
-                          <p className="text-[10px] text-gray-500 leading-tight">
-                            No advance payment needed
-                          </p>
-                        </div>
-                        <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-2xs space-y-1.5">
-                          <span className="text-[10px] uppercase font-bold text-blue-700 flex items-center gap-1">
-                            <Zap className="w-3 h-3 text-blue-600 fill-blue-100" />{" "}
-                            Instant UPI
-                          </span>
-                          <p className="text-[11px] font-semibold text-gray-900 leading-tight">
-                            Fast UPI QR &amp; Apps
-                          </p>
-                          <div className="flex items-center gap-2.5 pt-0.5">
-                            <GooglePayIcon className="h-3.5 w-auto" />
-                            <PhonePeIcon className="h-3.5 w-auto" />
-                            <PaytmIcon className="h-3 w-auto" />
-                            <UpiOfficialIcon className="h-3.5 w-auto" />
+                        {/* Distinction Banner: WhatsApp vs UPI */}
+                        <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50 rounded-xl border border-gray-200/80 text-xs">
+                          <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-2xs space-y-1">
+                            <span className="text-[10px] uppercase font-bold text-emerald-700 flex items-center gap-1">
+                              <MessageCircle className="w-3 h-3 text-emerald-600 fill-emerald-100" />{" "}
+                              WhatsApp
+                            </span>
+                            <p className="text-[11px] font-semibold text-gray-900 leading-tight">
+                              Direct Chat Order
+                            </p>
+                            <p className="text-[10px] text-gray-500 leading-tight">
+                              No advance payment needed
+                            </p>
+                          </div>
+                          <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-2xs space-y-1.5">
+                            <span className="text-[10px] uppercase font-bold text-blue-700 flex items-center gap-1">
+                              <Zap className="w-3 h-3 text-blue-600 fill-blue-100" />{" "}
+                              Instant UPI
+                            </span>
+                            <p className="text-[11px] font-semibold text-gray-900 leading-tight">
+                              Fast UPI QR &amp; Apps
+                            </p>
+                            <div className="flex items-center gap-2.5 pt-0.5">
+                              <GooglePayIcon className="h-3.5 w-auto" />
+                              <PhonePeIcon className="h-3.5 w-auto" />
+                              <PaytmIcon className="h-3 w-auto" />
+                              <UpiOfficialIcon className="h-3.5 w-auto" />
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="space-y-3">
-                        
-
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod("razorpay")}
-                          className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer ${
-                            paymentMethod === "razorpay"
-                              ? "border-black bg-gray-50"
-                              : "border-gray-200 bg-white hover:border-gray-300"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                                paymentMethod === "razorpay"
-                                  ? "border-black"
-                                  : "border-gray-300"
-                              }`}
-                            >
-                              {paymentMethod === "razorpay" && (
-                                <div className="w-2.5 h-2.5 bg-black rounded-full" />
-                              )}
-                            </div>
-                            <div className="text-left">
-                              <span className="font-medium text-gray-900 block text-sm">
-                                Online Payment (Cards, NetBanking, UPI)
-                              </span>
-                              <span className="text-xs text-gray-500 block mb-1.5">
-                                Pay securely via Cards, NetBanking, UPI or Wallets
-                              </span>
-                              <div className="flex flex-wrap items-center gap-3 pt-0.5">
-                                <GooglePayIcon className="h-3.5 w-auto" />
-                                <PhonePeIcon className="h-3.5 w-auto" />
-                                <PaytmIcon className="h-3 w-auto" />
-                                <UpiOfficialIcon className="h-3.5 w-auto" />
-                                <VisaIcon className="h-3 w-auto" />
-                                <MastercardIcon className="h-3.5 w-auto" />
-                                <RuPayIcon className="h-3 w-auto" />
+                        <div className="space-y-3">
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMethod("razorpay")}
+                            className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                              paymentMethod === "razorpay"
+                                ? "border-black bg-gray-50"
+                                : "border-gray-200 bg-white hover:border-gray-300"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                  paymentMethod === "razorpay"
+                                    ? "border-black"
+                                    : "border-gray-300"
+                                }`}
+                              >
+                                {paymentMethod === "razorpay" && (
+                                  <div className="w-2.5 h-2.5 bg-black rounded-full" />
+                                )}
+                              </div>
+                              <div className="text-left">
+                                <span className="font-medium text-gray-900 block text-sm">
+                                  Online Payment (Cards, NetBanking, UPI)
+                                </span>
+                                <span className="text-xs text-gray-500 block mb-1.5">
+                                  Pay securely via Cards, NetBanking, UPI or Wallets
+                                </span>
+                                <div className="flex flex-wrap items-center gap-3 pt-0.5">
+                                  <GooglePayIcon className="h-3.5 w-auto" />
+                                  <PhonePeIcon className="h-3.5 w-auto" />
+                                  <PaytmIcon className="h-3 w-auto" />
+                                  <UpiOfficialIcon className="h-3.5 w-auto" />
+                                  <VisaIcon className="h-3 w-auto" />
+                                  <MastercardIcon className="h-3.5 w-auto" />
+                                  <RuPayIcon className="h-3 w-auto" />
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          <PremiumShieldMark className="w-5 h-5 shrink-0" variant="emerald" />
-                        </button>
+                            <PremiumShieldMark className="w-5 h-5 shrink-0" variant="emerald" />
+                          </button>
 
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod("cod")}
-                          className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer ${
-                            paymentMethod === "cod"
-                              ? "border-black bg-gray-50"
-                              : "border-gray-200 bg-white hover:border-gray-300"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                                paymentMethod === "cod"
-                                  ? "border-black"
-                                  : "border-gray-300"
-                              }`}
-                            >
-                              {paymentMethod === "cod" && (
-                                <div className="w-2.5 h-2.5 bg-black rounded-full" />
-                              )}
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMethod("cod")}
+                            className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                              paymentMethod === "cod"
+                                ? "border-black bg-gray-50"
+                                : "border-gray-200 bg-white hover:border-gray-300"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                  paymentMethod === "cod"
+                                    ? "border-black"
+                                    : "border-gray-300"
+                                }`}
+                              >
+                                {paymentMethod === "cod" && (
+                                  <div className="w-2.5 h-2.5 bg-black rounded-full" />
+                                )}
+                              </div>
+                              <div className="text-left">
+                                <span className="font-medium text-gray-900 block text-sm">
+                                  Cash on Delivery (COD)
+                                </span>
+                                <span className="text-xs text-gray-500 block">
+                                  Pay cash or UPI upon delivery
+                                </span>
+                              </div>
                             </div>
-                            <div className="text-left">
-                              <span className="font-medium text-gray-900 block text-sm">
-                                Cash on Delivery (COD)
-                              </span>
-                              <span className="text-xs text-gray-500 block">
-                                Pay cash or UPI upon delivery
-                              </span>
-                            </div>
-                          </div>
-                          <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                        </button>
-                      </div>
-                    </section>
+                            <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                          </button>
+                        </div>
+                      </section>
+                    )}
                   </motion.div>
                 )}
 
@@ -1585,18 +1831,52 @@ export function CartModal({
                   </motion.div>
                 )}
 
-                {/* SUCCESS STEP */}
-                
-                
+                {/* WHATSAPP HANDOFF STEP */}
                 {step === "whatsapp_confirm" && (
                   <motion.div key="whatsapp_confirm" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="p-8 flex flex-col items-center justify-center text-center min-h-full space-y-5">
                     <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center text-green-600 shadow-sm border border-green-100"><MessageCircle className="w-12 h-12" strokeWidth={2.5} /></div>
                     <h2 className="text-3xl font-serif text-gray-900">Order Reference Created</h2>
-                    <p className="text-gray-500 leading-relaxed max-w-sm text-sm">Continue in WhatsApp to send the order details to JIYOO. Your order reference is already saved; you do not need to confirm that you sent the message.</p>
+                    <p className="text-gray-500 leading-relaxed max-w-sm text-sm">
+                      Continue in WhatsApp to send your prefilled order message to JIYOO. Your order status will remain <span className="font-semibold text-gray-700">Awaiting WhatsApp Confirmation</span> until our team receives your message.
+                    </p>
+                    {!priceVerifiedState && (
+                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 max-w-xs">
+                        Live server price verification is pending; JIYOO will confirm final price &amp; availability on WhatsApp.
+                      </p>
+                    )}
                     {pendingOrderId && <p className="font-mono text-xs font-bold text-stone-700">Order #{pendingOrderId}</p>}
                     <div className="w-full max-w-xs space-y-3 pt-2">
-                      {generatedWhatsAppUrl && <a href={generatedWhatsAppUrl} target="_blank" rel="noopener noreferrer" className="w-full py-3.5 bg-emerald-600 text-white text-xs font-semibold tracking-wider uppercase hover:bg-emerald-700 transition-colors rounded-xl flex items-center justify-center gap-2 shadow-sm"><MessageCircle className="w-4 h-4" /> Open WhatsApp</a>}
-                      <button type="button" onClick={() => { setStep("cart"); onClose(); }} className="w-full py-3.5 bg-gray-100 text-gray-700 text-xs font-semibold tracking-wider uppercase hover:bg-gray-200 transition-colors rounded-xl">Close</button>
+                      {generatedWhatsAppUrl && (
+                        <a
+                          href={generatedWhatsAppUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full py-3.5 bg-emerald-600 text-white text-xs font-semibold tracking-wider uppercase hover:bg-emerald-700 transition-colors rounded-xl flex items-center justify-center gap-2 shadow-sm"
+                        >
+                          <MessageCircle className="w-4 h-4" /> Open WhatsApp
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStep("cart");
+                          onClose();
+                        }}
+                        className="w-full py-3.5 bg-gray-100 text-gray-700 text-xs font-semibold tracking-wider uppercase hover:bg-gray-200 transition-colors rounded-xl"
+                      >
+                        Keep Bag &amp; Close
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearCart();
+                          setStep("cart");
+                          onClose();
+                        }}
+                        className="w-full py-2.5 text-gray-400 hover:text-gray-700 text-[11px] font-medium uppercase tracking-wider transition-colors"
+                      >
+                        Clear Bag &amp; Close
+                      </button>
                     </div>
                   </motion.div>
                 )}
@@ -1651,38 +1931,92 @@ export function CartModal({
             </div>
 
             {/* Sticky Footer */}
-            {step !== "success" && step !== "upi_qr" && items.length > 0 && (
+            {step !== "success" && step !== "whatsapp_confirm" && step !== "upi_qr" && items.length > 0 && (
               <div className="bg-white border-t border-gray-100 p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
                 <div className="space-y-3 mb-5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] uppercase tracking-wider font-bold text-gray-500">Order total</span>
-                    <button type="button" onClick={() => setShowPriceBreakdown(v => !v)} className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800">{showPriceBreakdown ? 'Hide breakdown' : 'View breakdown'}</button>
+                    <span className="text-[11px] uppercase tracking-wider font-bold text-gray-500">
+                      Order Summary ({cartCount} {cartCount === 1 ? "item" : "items"})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowPriceBreakdown((v) => !v)}
+                      className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 cursor-pointer flex items-center gap-1"
+                    >
+                      {showPriceBreakdown ? "Show less" : "Show more"}
+                    </button>
                   </div>
-                  {showPriceBreakdown && <div className="space-y-3">
-                  <div className="flex justify-between text-gray-500 text-sm">
-                    <span>Subtotal</span>
-                    <span>₹{cartTotal}</span>
-                  </div>
-                  {isPromoApplied && (
-                    <div className="flex justify-between text-emerald-600 text-sm font-medium">
-                      <span>Coupon Discount{appliedCoupon?.code ? ` (${appliedCoupon.code})` : ""}</span>
-                      <span>-₹{discountAmount}</span>
+                  {showPriceBreakdown && (
+                    <div className="space-y-3 pt-1">
+                      {/* Selected Items Details List */}
+                      <div className="max-h-40 overflow-y-auto pr-1 space-y-2 border border-gray-100 rounded-xl p-2.5 bg-gray-50/70">
+                        {items.map((item) => {
+                          const unitPrice = getValidPrice(item);
+                          const lineTotal = unitPrice * item.quantity;
+                          return (
+                            <div
+                              key={item.id}
+                              className="flex items-center justify-between gap-2.5 text-xs bg-white p-2 rounded-lg border border-gray-100"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                {item.image && (
+                                  <img
+                                    src={getOptimizedImageUrl(item.image, 80, 75)}
+                                    alt={item.name}
+                                    className="w-8 h-8 rounded-md object-contain bg-white border border-gray-100 shrink-0"
+                                  />
+                                )}
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-gray-900 truncate">
+                                    {item.name}
+                                  </p>
+                                  <p className="text-[11px] text-gray-500">
+                                    Qty: {item.quantity} × ₹{unitPrice}
+                                    {(item as any).selectedWeight
+                                      ? ` · ${(item as any).selectedWeight}`
+                                      : ""}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="font-bold text-gray-900 shrink-0">
+                                ₹{lineTotal}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Price Breakdown */}
+                      <div className="space-y-2 pt-1">
+                        <div className="flex justify-between text-gray-500 text-sm">
+                          <span>Subtotal</span>
+                          <span>₹{cartTotal}</span>
+                        </div>
+                        {isPromoApplied && (
+                          <div className="flex justify-between text-emerald-600 text-sm font-medium">
+                            <span>
+                              Coupon Discount
+                              {appliedCoupon?.code ? ` (${appliedCoupon.code})` : ""}
+                            </span>
+                            <span>-₹{discountAmount}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center text-gray-500 text-sm">
+                          <span className="inline-flex items-center gap-1.5">
+                            <RealisticDeliveryScooter className="w-5 h-3.5 shrink-0" />
+                            <span>Delivery Fee</span>
+                          </span>
+                          {effectiveDeliveryFee === 0 ? (
+                            <span className="text-emerald-600 font-medium">Free</span>
+                          ) : (
+                            <span className="font-semibold text-gray-900">
+                              ₹{effectiveDeliveryFee}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
-                  <div className="flex justify-between items-center text-gray-500 text-sm">
-                    <span className="inline-flex items-center gap-1.5">
-                      <RealisticDeliveryScooter className="w-5 h-3.5 shrink-0" />
-                      <span>Delivery Fee</span>
-                    </span>
-                    {effectiveDeliveryFee === 0 ? (
-                      <span className="text-emerald-600 font-medium">Free</span>
-                    ) : (
-                      <span className="font-semibold text-gray-900">
-                        ₹{effectiveDeliveryFee}
-                      </span>
-                    )}
-                  </div>
-                  </div>}
                   <div className="pt-3 border-t border-gray-100 flex justify-between text-gray-900 font-medium text-lg">
                     <span>Total</span>
                     <span className="font-bold text-gray-900">
@@ -1713,6 +2047,31 @@ export function CartModal({
                         <MessageCircle className="w-4 h-4" />
                         Order via WhatsApp
                       </span>
+                    </button>
+                  </div>
+                ) : isWhatsAppCheckoutMode ? (
+                  <div className="space-y-2.5">
+                    <button
+                      type="button"
+                      onClick={triggerWhatsAppOrder}
+                      disabled={isProcessing}
+                      className="group relative flex w-full h-[56px] text-[11px] font-bold uppercase tracking-[0.15em] text-white bg-emerald-600 transition-all duration-500 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(5,150,105,0.35)] hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50"
+                    >
+                      <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
+                        <MessageCircle className="w-4 h-4" />
+                        {isProcessing ? "Validating Order..." : `Proceed to WhatsApp (₹${grandTotal})`}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (requireCheckoutAuth()) {
+                          setIsWhatsAppCheckoutMode(false);
+                        }
+                      }}
+                      className="w-full py-2 text-[11px] font-semibold text-stone-500 hover:text-[#1C1917] transition-colors cursor-pointer"
+                    >
+                      Prefer Online Payment or COD? Sign in here
                     </button>
                   </div>
                 ) : (
@@ -1777,10 +2136,12 @@ export function CartModal({
         initialTab={mapModalInitialTab}
         onClose={() => setIsMapModalOpen(false)}
         onSelectLocation={({ address: newAddr, pincode: newPin }) => {
-          setAddress(newAddr);
-          if (newPin) setPincode(newPin);
+          populateStructuredFromRawAddress(newAddr, newPin);
           setFormErrors((prev) => ({
             ...prev,
+            houseNo: undefined,
+            street: undefined,
+            area: undefined,
             address: undefined,
             pincode: undefined,
           }));

@@ -129,18 +129,29 @@ syncAdminClaims().catch((err) => console.warn('[Admin Bootstrap] Sync failed:', 
 async function syncCatalogToFirestore() {
   try {
     const db = getFirestore();
-    const snap = await db.collection('products').limit(1).get();
-    if (snap.empty) {
-      console.log('[Catalog Sync] Bootstrapping bundled products into Firestore...');
-      const batch = db.batch();
-      for (const p of BUNDLED_PRODUCTS) {
-        const docRef = db.collection('products').doc(String(p.id));
-        const numPrice = Number(p.numericPrice) || parseFloat(String(p.price).replace(/[^0-9.]/g, '')) || 0;
+    const snap = await db.collection('products').get();
+    const existingById = new Map<string, any>();
+    snap.docs.forEach((d) => existingById.set(d.id, d.data()));
+
+    const batch = db.batch();
+    let updatedCount = 0;
+
+    for (const p of BUNDLED_PRODUCTS) {
+      const id = String(p.id);
+      const existing = existingById.get(id);
+      const docRef = db.collection('products').doc(id);
+      const numPrice = Number(p.numericPrice) || parseFloat(String(p.price).replace(/[^0-9.]/g, '')) || 0;
+
+      if (!existing) {
         batch.set(docRef, {
-          id: String(p.id),
+          ...p,
+          id,
           name: p.name,
           category: p.category || 'General',
           categoryId: (p as any).categoryId || (p.category ? String(p.category).toLowerCase().replace(/\s+/g, '-') : 'general'),
+          subcategoryId: (p as any).subcategoryId || null,
+          subSubcategoryId: (p as any).subSubcategoryId || null,
+          unit: (p as any).unit || '1 kg',
           price: p.price,
           numericPrice: numPrice,
           wholesalePrice: (p as any).wholesalePrice || numPrice,
@@ -155,9 +166,22 @@ async function syncCatalogToFirestore() {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }, { merge: true });
+        updatedCount++;
+      } else if (!existing.subcategoryId && (p as any).subcategoryId) {
+        // Backfill missing subcategory hierarchy fields without overwriting admin edits
+        batch.set(docRef, {
+          subcategoryId: (p as any).subcategoryId,
+          subSubcategoryId: existing.subSubcategoryId ?? (p as any).subSubcategoryId ?? null,
+          categoryId: existing.categoryId || (p as any).categoryId,
+          unit: existing.unit || (p as any).unit || '1 kg',
+        }, { merge: true });
+        updatedCount++;
       }
+    }
+
+    if (updatedCount > 0) {
       await batch.commit();
-      console.log(`[Catalog Sync] Successfully seeded ${BUNDLED_PRODUCTS.length} products to Firestore.`);
+      console.log(`[Catalog Sync] Synchronized ${updatedCount} product records in Firestore.`);
     }
   } catch (err) {
     console.warn('[Catalog Sync] Firestore product sync skipped:', (err as any)?.message || err);
@@ -625,26 +649,28 @@ async function releaseExpiredInventoryReservations(db: FirebaseFirestore.Firesto
 
 async function cleanupExpiredWhatsAppOrders(db: FirebaseFirestore.Firestore) {
   const nowIso = new Date().toISOString();
-  let cursor: FirebaseFirestore.QueryDocumentSnapshot | undefined;
-  while (true) {
-    let q: FirebaseFirestore.Query = db.collection('orders')
-      .where('orderStatus', '==', 'whatsapp_pending')
-      .where('whatsappExpiresAt', '<=', nowIso)
-      .orderBy('whatsappExpiresAt', 'asc');
-    if (cursor) q = q.startAfter(cursor);
-    const snap = await q.limit(100).get();
-    if (snap.empty) break;
-    for (const docSnap of snap.docs) {
-      try {
-        const ref = docSnap.ref;
-        const result = await cancelOrderAtomically(db, ref, 'WhatsApp order expired without confirmation.');
-        if (result.reservationId) await releaseInventoryReservation(db, result.reservationId, 'whatsapp_expired');
-      } catch (err) {
-        console.error('[WhatsApp] Failed to expire order', docSnap.id, err);
+  for (const statusVal of ['whatsapp_pending', 'AWAITING_WHATSAPP_CONFIRMATION']) {
+    let cursor: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+    while (true) {
+      let q: FirebaseFirestore.Query = db.collection('orders')
+        .where('orderStatus', '==', statusVal)
+        .where('whatsappExpiresAt', '<=', nowIso)
+        .orderBy('whatsappExpiresAt', 'asc');
+      if (cursor) q = q.startAfter(cursor);
+      const snap = await q.limit(100).get();
+      if (snap.empty) break;
+      for (const docSnap of snap.docs) {
+        try {
+          const ref = docSnap.ref;
+          const result = await cancelOrderAtomically(db, ref, 'WhatsApp order expired without confirmation.');
+          if (result.reservationId) await releaseInventoryReservation(db, result.reservationId, 'whatsapp_expired');
+        } catch (err) {
+          console.error('[WhatsApp] Failed to expire order', docSnap.id, err);
+        }
       }
+      cursor = snap.docs[snap.docs.length - 1];
+      if (snap.docs.length < 100) break;
     }
-    cursor = snap.docs[snap.docs.length - 1];
-    if (snap.docs.length < 100) break;
   }
 }
 
@@ -716,7 +742,7 @@ async function cancelOrderAtomically(
     if (!orderSnap.exists) throw new Error('ORDER_NOT_FOUND');
     const data = orderSnap.data() as any;
     const current = String(data?.status || data?.orderStatus || 'pending');
-    const cancellable = ['pending', 'confirmed', 'processing', 'packed', 'whatsapp_pending', 'paid_upi_pending_verify'];
+    const cancellable = ['pending', 'confirmed', 'processing', 'packed', 'whatsapp_pending', 'AWAITING_WHATSAPP_CONFIRMATION', 'RECEIVED', 'paid_upi_pending_verify'];
     if (!cancellable.includes(current)) throw new Error('ORDER_NOT_CANCELLABLE');
 
     const paymentStatus = String(data?.paymentStatus || 'unpaid').toLowerCase();
@@ -771,10 +797,14 @@ async function calculateOrderTotals(items: any[], orderType: 'retail' | 'wholesa
         if (bundled) {
           const numPrice = Number(bundled.numericPrice) || parseFloat(String(bundled.price).replace(/[^0-9.]/g, '')) || 0;
           const initialProduct = {
+            ...bundled,
             id: String(bundled.id),
             name: bundled.name,
             category: bundled.category || 'General',
             categoryId: (bundled as any).categoryId || (bundled.category ? String(bundled.category).toLowerCase().replace(/\s+/g, '-') : 'general'),
+            subcategoryId: (bundled as any).subcategoryId || null,
+            subSubcategoryId: (bundled as any).subSubcategoryId || null,
+            unit: (bundled as any).unit || '1 kg',
             price: bundled.price,
             numericPrice: numPrice,
             wholesalePrice: (bundled as any).wholesalePrice || numPrice,
@@ -2064,8 +2094,54 @@ app.use(compression() as unknown as express.RequestHandler);
   });
 
   // -------------------------------------------------------------------------
+  // PUBLIC CATALOG RECOVERY ENDPOINT (RESILIENT AGAINST CLIENT FIRESTORE ERRORS)
+  // -------------------------------------------------------------------------
+  app.get('/api/catalog/products', async (_req, res) => {
+    try {
+      const mergedMap = new Map<string, any>();
+      for (const p of BUNDLED_PRODUCTS) {
+        mergedMap.set(String(p.id), { ...p, id: String(p.id) });
+      }
+      try {
+        const snap = await getFirestore().collection('products').get();
+        snap.docs.forEach((docSnap) => {
+          const data = docSnap.data() as any;
+          const id = String(docSnap.id);
+          if (data?.isDeleted === true) {
+            mergedMap.delete(id);
+            return;
+          }
+          const base = mergedMap.get(id) || {};
+          mergedMap.set(id, {
+            ...base,
+            ...data,
+            id,
+            categoryId: data.categoryId || base.categoryId || 'general',
+            subcategoryId: data.subcategoryId || base.subcategoryId,
+            subSubcategoryId: data.subSubcategoryId || base.subSubcategoryId,
+            unit: data.unit || base.unit || '1 kg',
+            image: data.image || base.image || '',
+            weights: Array.isArray(data.weights) && data.weights.length > 0 ? data.weights : base.weights,
+          });
+        });
+      } catch (dbErr) {
+        console.warn('[/api/catalog/products] Firestore read failed, serving bundled catalog:', (dbErr as any)?.message || dbErr);
+      }
+      return res.json({
+        success: true,
+        products: Array.from(mergedMap.values()),
+        syncedAt: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: 'Failed to load catalog.' });
+    }
+  });
+
+  // -------------------------------------------------------------------------
   // SECURE WHATSAPP ORDER PREPARATION (ALL REQUIRED DETAILS MANDATORY)
   // -------------------------------------------------------------------------
+  const whatsappIdempotencyCache = new Map<string, { expiresAt: number; response: any }>();
+
   const whatsappPrepareSchema = z.object({
     items: z.array(z.object({
       id: z.union([z.string(), z.number()]),
@@ -2076,13 +2152,21 @@ app.use(compression() as unknown as express.RequestHandler);
       selectedCut: z.string().max(60).nullable().optional(),
     })).min(1).max(100),
     orderType: z.enum(['retail', 'wholesale']).optional().default('retail'),
+    couponCode: z.string().max(50).nullable().optional(),
     shippingDetails: z.object({
-      name: z.string().min(2, 'Customer full name is mandatory for WhatsApp orders.').max(100),
-      phone: z.string().min(7, 'Valid contact phone number is mandatory for WhatsApp orders.').max(30),
-      address: z.string().min(5, 'Complete delivery street address is mandatory for WhatsApp orders.').max(500),
-      pincode: z.string().min(6, 'Valid 6-digit postal PIN code is mandatory for WhatsApp orders.').max(12),
-      city: z.string().max(80).optional().default('Bangalore'),
-      area: z.string().max(120).optional().default(''),
+      name: z.string().trim().min(2, 'Customer full name is mandatory for WhatsApp orders.').max(100),
+      phone: z.string().trim().min(7, 'Valid contact phone number is mandatory for WhatsApp orders.').max(30),
+      whatsappPhone: z.string().trim().max(30).optional(),
+      houseNo: z.string().trim().max(120).optional().default(''),
+      street: z.string().trim().max(200).optional().default(''),
+      area: z.string().trim().max(120).optional().default(''),
+      city: z.string().trim().max(80).optional().default('Bangalore'),
+      state: z.string().trim().max(80).optional().default('Karnataka'),
+      landmark: z.string().trim().max(200).optional().default(''),
+      addressType: z.enum(['Home', 'Work', 'Other']).optional().default('Home'),
+      deliveryInstructions: z.string().trim().max(300).optional().default(''),
+      address: z.string().trim().min(5, 'Complete delivery street address is mandatory for WhatsApp orders.').max(500),
+      pincode: z.string().trim().min(6, 'Valid 6-digit postal PIN code is mandatory for WhatsApp orders.').max(12),
       firstName: z.string().max(80).optional(),
       lastName: z.string().max(80).optional(),
     }),
@@ -2090,6 +2174,17 @@ app.use(compression() as unknown as express.RequestHandler);
 
   app.post('/api/whatsapp/prepare-order', orderLimiter, optionalAuth, async (req, res) => {
     try {
+      const idempotencyKey = typeof req.headers['idempotency-key'] === 'string'
+        ? req.headers['idempotency-key'].trim().slice(0, 128)
+        : '';
+
+      if (idempotencyKey) {
+        const cached = whatsappIdempotencyCache.get(idempotencyKey);
+        if (cached && cached.expiresAt > Date.now()) {
+          return res.json(cached.response);
+        }
+      }
+
       const parsed = whatsappPrepareSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({
@@ -2098,10 +2193,10 @@ app.use(compression() as unknown as express.RequestHandler);
         });
       }
 
-      const { items, orderType, shippingDetails } = parsed.data;
+      const { items, orderType, couponCode, shippingDetails } = parsed.data;
 
       const rawPhone = String(shippingDetails.phone || '').trim();
-      const normalizedPhone = rawPhone.replace(/[\s().-]/g, '');
+      const normalizedPhone = rawPhone.replace(/[\s().-]/g, '').replace(/^0+/, '');
       if (!/^\+?[1-9]\d{6,14}$/.test(normalizedPhone)) {
         return res.status(400).json({
           success: false,
@@ -2118,6 +2213,7 @@ app.use(compression() as unknown as express.RequestHandler);
       }
 
       let deliveryFee = 40;
+      let freeDeliveryThreshold = 0;
       if (orderType === 'wholesale') {
         const zone = await findWholesaleZoneForPincode(cleanPin);
         deliveryFee = zone ? zone.shippingFee : DEFAULT_PAN_INDIA_WHOLESALE_ZONE.shippingFee;
@@ -2126,7 +2222,7 @@ app.use(compression() as unknown as express.RequestHandler);
         if (!pinRecord || pinRecord.enabled !== true) {
           return res.status(400).json({
             success: false,
-            error: 'Retail delivery via WhatsApp is currently active in our 13 Bangalore service areas (PINs: 560084, 560043, 560045, 560032, 560005). For Pan-India delivery, switch to Wholesale.',
+            error: 'Retail delivery via WhatsApp is currently active in our 13 Bangalore service areas (PINs: 560084, 560043, 560045, 560032, 560005).',
           });
         }
         if (typeof pinRecord.deliveryFee === 'number') {
@@ -2135,6 +2231,9 @@ app.use(compression() as unknown as express.RequestHandler);
         try {
           const settings = await getStoreDeliverySettings();
           if (typeof settings.deliveryFee === 'number') deliveryFee = settings.deliveryFee;
+          if (typeof (settings as any).freeDeliveryThreshold === 'number') {
+            freeDeliveryThreshold = (settings as any).freeDeliveryThreshold;
+          }
         } catch {
           // Use default deliveryFee when Firestore settings are offline
         }
@@ -2142,13 +2241,15 @@ app.use(compression() as unknown as express.RequestHandler);
 
       // Compute authoritative item prices: try Firestore first, fallback to bundled catalog if DB is offline
       let subtotal = 0;
+      let priceVerified = true;
       const validatedItems: any[] = [];
       try {
         const calc = await calculateOrderTotals(items, orderType);
         subtotal = calc.subtotal;
         validatedItems.push(...calc.validatedItems);
+        priceVerified = true;
       } catch {
-        // Fallback to server's bundled catalog so WhatsApp ordering works even without a database
+        // Fallback to server's bundled catalog so WhatsApp ordering works even when Firestore is unreachable
         for (const reqItem of items) {
           const rawId = String(reqItem.baseId ?? reqItem.id ?? '');
           const baseId = rawId.includes('-') ? rawId.split('-')[0] : rawId;
@@ -2188,9 +2289,36 @@ app.use(compression() as unknown as express.RequestHandler);
             image: bundled.image || null,
           });
         }
+        priceVerified = true;
       }
 
-      const grandTotal = subtotal + deliveryFee;
+      if (freeDeliveryThreshold > 0 && subtotal >= freeDeliveryThreshold) {
+        deliveryFee = 0;
+      }
+
+      let discountAmount = 0;
+      if (couponCode && couponCode.trim()) {
+        try {
+          const cSnap = await getFirestore().collection('coupons').doc(couponCode.trim().toUpperCase()).get();
+          if (cSnap.exists) {
+            const cData = cSnap.data() as any;
+            if (cData && cData.isActive !== false && (!cData.minOrder || subtotal >= Number(cData.minOrder))) {
+              if (cData.type === 'percentage') {
+                discountAmount = Math.round((subtotal * Number(cData.value || 0)) / 100);
+                if (cData.maxDiscount && discountAmount > Number(cData.maxDiscount)) {
+                  discountAmount = Number(cData.maxDiscount);
+                }
+              } else {
+                discountAmount = Math.min(subtotal, Number(cData.value || 0));
+              }
+            }
+          }
+        } catch {
+          // Ignore coupon lookup failure if DB is offline
+        }
+      }
+
+      const grandTotal = Math.max(0, subtotal - discountAmount) + deliveryFee;
       const orderId = generateOrderId();
       const hmacSecret = env.RAZORPAY_KEY_SECRET || env.CRON_SECRET || 'jiyoo-whatsapp-hmac-v1';
       const signatureDigest = crypto
@@ -2201,7 +2329,11 @@ app.use(compression() as unknown as express.RequestHandler);
         .toUpperCase();
       const verificationCode = `WA-${signatureDigest}`;
 
-      // Persist authentic order record to Firestore
+      const resolvedArea = shippingDetails.area || '';
+      const resolvedCity = shippingDetails.city || 'Bangalore';
+      const resolvedState = shippingDetails.state || 'Karnataka';
+
+      // Persist authentic order record to Firestore with status AWAITING_WHATSAPP_CONFIRMATION
       const authUser = (req as any).authUser;
       try {
         await getFirestore().collection('orders').doc(orderId).set({
@@ -2209,26 +2341,36 @@ app.use(compression() as unknown as express.RequestHandler);
           orderId,
           items: validatedItems,
           subtotal,
-          discountAmount: 0,
+          discountAmount,
+          couponCode: couponCode ? couponCode.trim().toUpperCase() : null,
           deliveryFee,
           amount: grandTotal,
           grandTotal,
-          status: 'whatsapp_pending',
-          orderStatus: 'whatsapp_pending',
+          status: 'AWAITING_WHATSAPP_CONFIRMATION',
+          orderStatus: 'AWAITING_WHATSAPP_CONFIRMATION',
           paymentStatus: 'unpaid',
           paymentMethod: 'WhatsApp Express',
           verificationCode,
+          priceVerified,
           orderType,
+          isGuestWhatsApp: !authUser?.uid,
           userId: authUser?.uid || null,
           shippingDetails: {
             name: shippingDetails.name,
             firstName: shippingDetails.firstName || shippingDetails.name,
             lastName: shippingDetails.lastName || '',
             phone: normalizedPhone,
+            whatsappPhone: shippingDetails.whatsappPhone || normalizedPhone,
+            houseNo: shippingDetails.houseNo || '',
+            street: shippingDetails.street || '',
+            area: resolvedArea,
+            city: resolvedCity,
+            state: resolvedState,
+            landmark: shippingDetails.landmark || '',
+            addressType: shippingDetails.addressType || 'Home',
+            deliveryInstructions: shippingDetails.deliveryInstructions || '',
             address: shippingDetails.address,
-            city: shippingDetails.city || 'Bangalore',
             pincode: cleanPin,
-            area: shippingDetails.area || '',
           },
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -2238,16 +2380,28 @@ app.use(compression() as unknown as express.RequestHandler);
         console.warn('[WhatsApp] Running in stateless verified mode (database write skipped):', (persistErr as any)?.message || persistErr);
       }
 
-      return res.json({
+      const responsePayload = {
         success: true,
         orderId,
         verificationCode,
+        priceVerified,
         subtotal,
+        discountAmount,
         deliveryFee,
         grandTotal,
         orderType,
+        orderStatus: 'AWAITING_WHATSAPP_CONFIRMATION',
         validatedItems,
-      });
+      };
+
+      if (idempotencyKey) {
+        whatsappIdempotencyCache.set(idempotencyKey, {
+          expiresAt: Date.now() + 15 * 60 * 1000,
+          response: responsePayload,
+        });
+      }
+
+      return res.json(responsePayload);
     } catch (err: any) {
       console.error('WhatsApp order prepare error:', err);
       return res.status(500).json({ success: false, error: 'Failed to process WhatsApp order.' });
@@ -2425,7 +2579,7 @@ app.use(compression() as unknown as express.RequestHandler);
   // even while new orders are being created.
   const ADMIN_ORDER_PAGE_SIZE = 50;
   const ADMIN_ORDER_QUEUES: Array<{ key: string; statuses: string[] }> = [
-    { key: 'ordered', statuses: ['pending', 'whatsapp_pending', 'paid_upi_pending_verify'] },
+    { key: 'ordered', statuses: ['pending', 'whatsapp_pending', 'AWAITING_WHATSAPP_CONFIRMATION', 'RECEIVED', 'paid_upi_pending_verify'] },
     { key: 'confirmed', statuses: ['confirmed'] },
     { key: 'processing', statuses: ['processing'] },
     { key: 'packed', statuses: ['packed'] },
@@ -2563,7 +2717,9 @@ app.use(compression() as unknown as express.RequestHandler);
       const nextStatus = String(req.body?.status || '').trim();
       const reason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : null;
       const allowed: Record<string, string[]> = {
-        whatsapp_pending: ['pending', 'cancelled'],
+        AWAITING_WHATSAPP_CONFIRMATION: ['RECEIVED', 'pending', 'confirmed', 'cancelled'],
+        RECEIVED: ['confirmed', 'processing', 'cancelled'],
+        whatsapp_pending: ['RECEIVED', 'pending', 'confirmed', 'cancelled'],
         pending: ['confirmed', 'cancelled'],
         confirmed: ['processing', 'cancelled'],
         processing: ['packed', 'cancelled'],
@@ -3329,69 +3485,134 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
     }
   });
 
-  // Customer order history: filtering and pagination happen in Firestore, not after a 50-row client fetch.
+  // Customer order history: filtering and pagination happen in Firestore, with resilient fallback when composite indexes are absent.
   app.get('/api/orders/history', trackOrderLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
     try {
       const uid = (req as any).authUser?.uid;
       const pageSize = Math.max(1, Math.min(50, Number(req.query.pageSize) || 50));
       const status = String(req.query.status || 'all');
-      const qtext = String(req.query.q || '').trim();
+      const qtext = String(req.query.q || '').trim().replace(/^#/, '');
       const groups: Record<string, string[]> = {
-        processing: ['pending','confirmed','processing','packed','shipped','dispatched','out_for_delivery'],
-        delivered: ['delivered','completed'],
-        cancelled: ['cancelled'],
+        processing: [
+          'pending',
+          'confirmed',
+          'processing',
+          'packed',
+          'shipped',
+          'dispatched',
+          'out_for_delivery',
+          'AWAITING_WHATSAPP_CONFIRMATION',
+          'whatsapp_pending',
+          'RECEIVED',
+          'paid_upi_pending_verify',
+        ],
+        delivered: ['delivered', 'completed'],
+        cancelled: ['cancelled', 'refunded', 'failed'],
       };
       const db = getFirestore();
+
+      const getOrderTimeMs = (val: any): number => {
+        if (!val) return 0;
+        if (typeof val === 'string') return Date.parse(val) || 0;
+        if (typeof val?.toDate === 'function') return val.toDate().getTime();
+        if (typeof val?.seconds === 'number') return val.seconds * 1000;
+        return new Date(val).getTime() || 0;
+      };
+
+      const matchesSearch = (order: any, queryStr: string): boolean => {
+        if (!queryStr) return true;
+        const needle = queryStr.toLowerCase();
+        const idStr = String(order.orderId || order.id || '').toLowerCase();
+        if (idStr.includes(needle)) return true;
+        const statusStr = String(order.orderStatus || order.status || '').toLowerCase();
+        if (statusStr.includes(needle)) return true;
+        const phoneStr = String(order.shippingDetails?.phone || '').replace(/\D/g, '');
+        const needleDigits = queryStr.replace(/\D/g, '');
+        if (needleDigits.length >= 4 && phoneStr.includes(needleDigits)) return true;
+        if (Array.isArray(order.items)) {
+          if (order.items.some((it: any) => String(it?.name || '').toLowerCase().includes(needle))) {
+            return true;
+          }
+        }
+        return false;
+      };
 
       if (qtext) {
         const byId = await db.collection('orders').doc(qtext).get();
         if (byId.exists && String(byId.data()?.userId || '') === uid) {
-          return res.json({ success:true, orders:[{ id:byId.id, ...byId.data() }], hasMore:false, nextCursor:null, pageSize });
+          return res.json({ success: true, orders: [{ id: byId.id, ...byId.data() }], hasMore: false, nextCursor: null, pageSize });
         }
       }
 
-      let q: FirebaseFirestore.Query = db.collection('orders').where('userId','==',uid);
-      const statuses = groups[status];
-      if (statuses?.length) q = q.where('orderStatus','in',statuses);
-      if (qtext) {
-        const normalized = qtext.toLowerCase();
-        const phoneDigits = qtext.replace(/\D/g,'');
-        const emailSnap = normalized.includes('@') ? await db.collection('orders').where('userId','==',uid).where('shippingDetails.email','==',normalized).orderBy('createdAt','desc').limit(pageSize + 1).get() : null;
-        if (emailSnap) {
-          const docs = emailSnap.docs.slice(0,pageSize);
-          return res.json({ success:true, orders:docs.map(d=>({id:d.id,...d.data()})), hasMore:emailSnap.docs.length>pageSize, nextCursor:null, pageSize });
+      // Primary query path using indexed Firestore query, with automatic fallback to single-field userId query
+      // if composite index is not provisioned or when free-text item search is active.
+      try {
+        if (qtext) {
+          throw new Error('USE_IN_MEMORY_FILTER_FOR_TEXT_SEARCH');
         }
-        if (phoneDigits.length >= 7) {
-          const phoneQueries = [
-            db.collection('orders').where('userId','==',uid).where('shippingDetails.phoneNormalized','==',phoneDigits).orderBy('createdAt','desc'),
-            db.collection('orders').where('userId','==',uid).where('shippingDetails.phone','==',qtext).orderBy('createdAt','desc'),
-          ];
-          const merged = new Map<string, FirebaseFirestore.DocumentSnapshot>();
-          for (const pq of phoneQueries) { try { const ps = await pq.limit(pageSize + 1).get(); ps.docs.forEach(d => merged.set(d.id,d)); } catch { /* ignore */ } }
-          const docs = [...merged.values()].sort((a,b) => String(b.data()?.createdAt || '').localeCompare(String(a.data()?.createdAt || ''))).slice(0,pageSize);
-          return res.json({ success:true, orders:docs.map(d=>({id:d.id,...d.data()})), hasMore:merged.size>pageSize, nextCursor:null, pageSize });
+        let q: FirebaseFirestore.Query = db.collection('orders').where('userId', '==', uid);
+        const statuses = groups[status];
+        if (statuses?.length) q = q.where('orderStatus', 'in', statuses.slice(0, 10));
+        q = q.orderBy('createdAt', 'desc').orderBy('__name__', 'desc');
+        const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : '';
+        if (cursor) {
+          try {
+            const decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+            if (decoded?.createdAt && decoded?.id) q = q.startAfter(decoded.createdAt, decoded.id);
+          } catch {
+            // Ignore malformed pagination cursor
+          }
         }
+        const snap = await q.limit(pageSize + 1).get();
+        const docs = snap.docs.slice(0, pageSize);
+        const last = docs[docs.length - 1];
+        const createdAt = last?.data()?.createdAt;
+        const cursorValue = last
+          ? {
+              createdAt:
+                typeof createdAt === 'string'
+                  ? createdAt
+                  : createdAt?.toDate
+                  ? createdAt.toDate().toISOString()
+                  : String(createdAt || ''),
+              id: last.id,
+            }
+          : null;
+        const nextCursor = snap.docs.length > pageSize && cursorValue ? Buffer.from(JSON.stringify(cursorValue), 'utf8').toString('base64url') : null;
+        return res.json({
+          success: true,
+          orders: docs.map((d) => ({ id: d.id, ...d.data() })),
+          hasMore: Boolean(nextCursor),
+          nextCursor,
+          pageSize,
+        });
+      } catch {
+        // Fallback: single-field equality query on userId requires no composite index
+        const snap = await db.collection('orders').where('userId', '==', uid).limit(200).get();
+        const allowedStatuses = groups[status] ? new Set(groups[status].map((s) => s.toLowerCase())) : null;
+        const allOrders = snap.docs
+          .map((d) => ({ id: d.id, ...(d.data() as any) }))
+          .filter((o) => {
+            if (allowedStatuses) {
+              const st = String(o.orderStatus || o.status || 'pending').toLowerCase();
+              if (!allowedStatuses.has(st)) return false;
+            }
+            return matchesSearch(o, qtext);
+          })
+          .sort((a, b) => getOrderTimeMs(b.createdAt) - getOrderTimeMs(a.createdAt));
+
+        const sliced = allOrders.slice(0, pageSize);
+        return res.json({
+          success: true,
+          orders: sliced,
+          hasMore: allOrders.length > pageSize,
+          nextCursor: null,
+          pageSize,
+        });
       }
-      q = q.orderBy('createdAt','desc').orderBy('__name__','desc');
-      const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : '';
-      if (cursor) {
-        try {
-          const decoded = JSON.parse(Buffer.from(cursor,'base64url').toString('utf8'));
-          if (decoded?.createdAt && decoded?.id) q = q.startAfter(decoded.createdAt, decoded.id);
-        } catch {
-          // Ignore malformed pagination cursor
-        }
-      }
-      const snap = await q.limit(pageSize + 1).get();
-      const docs = snap.docs.slice(0,pageSize);
-      const last = docs[docs.length - 1];
-      const createdAt = last?.data()?.createdAt;
-      const cursorValue = last ? { createdAt: typeof createdAt === 'string' ? createdAt : (createdAt?.toDate ? createdAt.toDate().toISOString() : String(createdAt || '')), id:last.id } : null;
-      const nextCursor = snap.docs.length > pageSize && cursorValue ? Buffer.from(JSON.stringify(cursorValue),'utf8').toString('base64url') : null;
-      return res.json({ success:true, orders:docs.map(d=>({id:d.id,...d.data()})), hasMore:Boolean(nextCursor), nextCursor, pageSize });
     } catch (err) {
       console.error('[Orders] history query failed:', err);
-      return res.status(500).json({ success:false, error:'Failed to load order history' });
+      return res.status(500).json({ success: false, error: 'Failed to load order history' });
     }
   });
 

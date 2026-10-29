@@ -161,20 +161,46 @@ export function ProductDetailModal({
   };
 
   const handleWhatsAppOrder = async () => {
-    const result = await _handleWhatsAppOrder({
-      product,
-      user,
-      settings,
+    const optimizedModalImage = getOptimizedImageUrl(
+      activeImage || product.image,
+      800,
+      85,
+    );
+    const imgEl = modalImgRef.current;
+    const activeRenderedImage =
+      imgEl?.currentSrc || imgEl?.src || optimizedModalImage;
+
+    let itemName = product.name;
+    if (selectedCut) itemName += ` - ${selectedCut}`;
+    if (selectedCleaning) itemName += ` (${selectedCleaning})`;
+
+    addToCart(
+      {
+        id: `${product.id}-${currentUnit}-${selectedCut || ""}-${selectedCleaning || ""}`,
+        baseId: product.id,
+        selectedWeight: currentUnit,
+        selectedCut: selectedCut || undefined,
+        selectedCleaning: selectedCleaning || undefined,
+        name: itemName,
+        price: `₹${currentPrice}`,
+        numericPrice:
+          typeof currentPrice === "number"
+            ? currentPrice
+            : parseFloat(String(currentPrice).replace(/[^0-9.]/g, "")),
+        image: activeRenderedImage,
+        badge: currentUnit,
+      },
       quantity,
-      currentPrice,
-      currentUnit,
-      selectedCut,
-    });
-    if (result) {
-      setWhatsappUrl(result.url || null);
-      setPendingOrderId(result.orderId || null);
-      setShowWhatsappSuccess(true);
-    }
+    );
+
+    onClose();
+    showToast(
+      "Please enter your delivery details (Name, Phone, Address, Area, City & PIN Code) to complete your WhatsApp order.",
+      "info",
+    );
+    setTimeout(() => {
+      document.dispatchEvent(new CustomEvent("open-whatsapp-checkout"));
+    }, 50);
   };
 
   return (

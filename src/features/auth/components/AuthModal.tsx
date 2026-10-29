@@ -33,7 +33,6 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   signInWithPopup,
-  signInWithRedirect,
   sendPasswordResetEmail,
   setPersistence,
   browserLocalPersistence,
@@ -251,21 +250,19 @@ export function AuthModal({
       setStep("success");
       setTimeout(() => {
         onClose();
-      }, 1500);
+      }, 1200);
     } catch (err: any) {
       if (
-        err?.code === "auth/popup-blocked" ||
         err?.code === "auth/popup-closed-by-user" ||
-        err?.code === "auth/operation-not-supported-in-this-environment"
+        err?.code === "auth/cancelled-popup-request"
       ) {
-        try {
-          await signInWithRedirect(auth, googleProvider);
-          return;
-        } catch (redirectErr: any) {
-          setError(redirectErr.message || "Failed to sign in with Google.");
-        }
+        // User closed the popup intentionally — do not redirect or display an error
+        return;
+      }
+      if (err?.code === "auth/popup-blocked") {
+        setError("Sign-in popup was blocked by your browser. Please allow popups for this site and try again.");
       } else {
-        setError(err.message || "Failed to sign in with Google.");
+        setError(err?.message || "Failed to sign in with Google.");
       }
     } finally {
       setIsLoading(false);

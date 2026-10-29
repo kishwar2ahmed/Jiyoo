@@ -28,9 +28,14 @@ import { AboutModal } from "./features/core/components/AboutModal";
 import { ContactModal } from "./features/core/components/ContactModal";
 import { AdminPanel } from "./features/admin/components/AdminPanel";
 import { WholesalePage } from "./features/wholesale/components/WholesalePage";
+import {
+  consumeProgrammaticDismissal,
+  isOverlayActive,
+  isProgrammaticOverlayDismissal,
+} from "./features/core/hooks/useModalBackButton";
 
 function AppContent() {
-  const { user, isAuthLoading, addedItemToast, setAddedItemToast } = useCart();
+  const { user, addedItemToast, setAddedItemToast } = useCart();
   const confirm = useConfirm();
   useFCM();
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -60,29 +65,27 @@ function AppContent() {
 
   useEffect(() => {
     try {
-      // Clear old product caches
-      Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith('jiyoo_cached_products') && key !== 'jiyoo_cached_products_v21') {
-          localStorage.removeItem(key);
-        }
-      });
+      // Remove only obsolete legacy keys; never delete the active public product catalog cache
       localStorage.removeItem('jiyoo_settings_v6');
     } catch (e) {
-      console.error('Failed to clear cache:', e);
+      console.error('Failed to clean legacy cache key:', e);
     }
     const handleOpenAbout = () => setIsAboutOpen(true);
     const handleOpenContact = () => setIsContactOpen(true);
     const handleOpenWholesale = () => openWholesalePage();
     const handleOpenRetail = () => openRetailPage();
+    const handleOpenWhatsAppCheckout = () => setIsCartOpen(true);
     document.addEventListener('open-about', handleOpenAbout);
     document.addEventListener('open-contact', handleOpenContact);
     document.addEventListener('open-wholesale', handleOpenWholesale);
     document.addEventListener('open-retail', handleOpenRetail);
+    document.addEventListener('open-whatsapp-checkout', handleOpenWhatsAppCheckout);
     return () => {
       document.removeEventListener('open-about', handleOpenAbout);
       document.removeEventListener('open-contact', handleOpenContact);
       document.removeEventListener('open-wholesale', handleOpenWholesale);
       document.removeEventListener('open-retail', handleOpenRetail);
+      document.removeEventListener('open-whatsapp-checkout', handleOpenWhatsAppCheckout);
     };
   }, []);
 
@@ -114,15 +117,14 @@ function AppContent() {
     }
   }, [addedItemToast, setAddedItemToast]);
 
-  // Confirm before actually leaving the app. Storefront.tsx pushes a history
-  // entry for each category visited (so back steps through categories one at
-  // a time) and useModalBackButton does the same for open overlays. This
-  // pushes one more guard entry so that once the back button pops past all
-  // of those, the resulting popstate lands here -- where we can ask first,
-  // instead of the browser leaving the page immediately with no entry left
-  // for us to intercept.
+  // Confirm before actually leaving the app in standalone browser sessions.
+  // Never prompt when closing an internal modal/overlay (such as AuthModal after
+  // sign-in) or when running inside an embedded preview iframe.
   useEffect(() => {
-    window.history.pushState({ jiyooGuard: true }, "", window.location.href);
+    const isIframe = typeof window !== 'undefined' && window.self !== window.top;
+    if (!isIframe) {
+      window.history.pushState({ jiyooGuard: true }, "", window.location.href);
+    }
 
     const handlePopState = async (e: PopStateEvent) => {
       const poppedState = e.state as { jiyooCategory?: string; jiyooOverlay?: boolean; jiyooGuard?: boolean; jiyooPage?: string } | null;
@@ -134,37 +136,36 @@ function AppContent() {
         setActivePage('wholesale');
         return;
       }
-      if (poppedState?.jiyooCategory || poppedState?.jiyooOverlay) return; // another listener handles this step
+      if (
+        isIframe ||
+        poppedState?.jiyooCategory ||
+        poppedState?.jiyooOverlay ||
+        isOverlayActive() ||
+        isProgrammaticOverlayDismissal() ||
+        consumeProgrammaticDismissal()
+      ) {
+        return;
+      }
+
+      if (isAuthOpen || isCartOpen || isAccountOpen || isAdminOpen || isAboutOpen || isContactOpen) {
+        return;
+      }
 
       const shouldLeave = await confirm({
         title: "Leave the app?",
         message: "Are you sure you want to exit?",
       });
       if (shouldLeave) {
-        // Let the back navigation actually proceed past our guard entry.
         window.history.back();
       } else {
-        // Re-arm the guard so the next back press is caught again.
         window.history.pushState({ jiyooGuard: true }, "", window.location.href);
       }
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [confirm]);
+  }, [confirm, isAuthOpen, isCartOpen, isAccountOpen, isAdminOpen, isAboutOpen, isContactOpen]);
 
-
-  const [hasPromptedLogin, setHasPromptedLogin] = useState(false);
-
-  useEffect(() => {
-    // Do not interrupt the storefront with an authentication modal merely because
-    // a deployment is missing its Firebase client configuration. Checkout remains
-    // auth-gated, and the auth modal can still be opened explicitly when configured.
-    if (isFirebaseConfigured && !showSplash && !isAuthLoading && !user && !hasPromptedLogin) {
-      setIsAuthOpen(true);
-      setHasPromptedLogin(true);
-    }
-  }, [showSplash, isAuthLoading, user, hasPromptedLogin]);
 
   if (showSplash) {
     return (

@@ -35,7 +35,11 @@ const STATUS_FILTERS = [
 type StatusFilter = typeof STATUS_FILTERS[number]['key'];
 
 const statusLabel = (status: string) => ({
-  pending: 'Ordered', whatsapp_pending: 'Ordered', paid_upi_pending_verify: 'Ordered',
+  AWAITING_WHATSAPP_CONFIRMATION: 'Awaiting WhatsApp',
+  awaiting_whatsapp_confirmation: 'Awaiting WhatsApp',
+  RECEIVED: 'Received',
+  received: 'Received',
+  pending: 'Ordered', whatsapp_pending: 'Awaiting WhatsApp', paid_upi_pending_verify: 'Ordered',
   confirmed: 'Confirmed', processing: 'Processing', packed: 'Packed',
   dispatched: 'Dispatched / Shipped', shipped: 'Dispatched / Shipped',
   out_for_delivery: 'Out for Delivery', delivered: 'Delivered', completed: 'Delivered',
@@ -167,7 +171,7 @@ export function OrdersTab() {
   const getOrderStatusColor = (status?: string) => {
     const s = (status || '').toLowerCase();
     if (['delivered', 'completed'].includes(s)) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-    if (['confirmed', 'processing', 'packed', 'dispatched', 'shipped', 'out_for_delivery'].includes(s)) return 'bg-blue-100 text-blue-800 border-blue-200';
+    if (['confirmed', 'processing', 'packed', 'dispatched', 'shipped', 'out_for_delivery', 'received'].includes(s)) return 'bg-blue-100 text-blue-800 border-blue-200';
     if (s === 'cancelled') return 'bg-rose-100 text-rose-800 border-rose-200';
     return 'bg-amber-100 text-amber-800 border-amber-200';
   };
@@ -219,8 +223,8 @@ export function OrdersTab() {
                 </tr></thead>
                 <tbody className="divide-y divide-brand-gray-100">
                   {filteredOrders.length === 0 ? <tr><td colSpan={7} className="px-4 py-10 text-center text-brand-gray-500">No orders found.</td></tr> : filteredOrders.map(o => {
-                    const rawOrderStatus = String(o.orderStatus || o.status || 'pending').toLowerCase();
-                    const currentOrderStatus = rawOrderStatus === 'whatsapp_pending' || rawOrderStatus === 'paid_upi_pending_verify' ? 'pending' : rawOrderStatus === 'shipped' ? 'dispatched' : rawOrderStatus === 'completed' ? 'delivered' : rawOrderStatus;
+                    const rawOrderStatus = String(o.orderStatus || o.status || 'pending');
+                    const currentOrderStatus = rawOrderStatus === 'paid_upi_pending_verify' ? 'pending' : rawOrderStatus === 'shipped' ? 'dispatched' : rawOrderStatus === 'completed' ? 'delivered' : rawOrderStatus;
                     const legacyStatus = (o.status || '').toLowerCase();
                     const currentPaymentStatus = o.paymentStatus || (['paid', 'completed'].includes(legacyStatus) ? 'paid' : 'unpaid');
                     return <tr key={o.id} className="hover:bg-brand-gray-50/80 transition-colors">
@@ -230,7 +234,7 @@ export function OrdersTab() {
                       <td className="px-4 py-3 font-semibold">₹{o.grandTotal || o.amount}</td>
                       <td className="px-4 py-3"><select value={currentPaymentStatus} onChange={e => updatePaymentStatus(o.id, e.target.value)} className={`text-xs font-semibold rounded-lg px-2 py-1 border outline-none cursor-pointer ${getPaymentStatusColor(currentPaymentStatus)}`}><option value="unpaid">🔴 Unpaid</option><option value="payment_pending">⏳ Payment Pending</option><option value="paid">🟢 Paid</option><option value="refunded">🟣 Refunded</option><option value="failed">❌ Failed</option></select></td>
                       <td className="px-4 py-3"><select value={currentOrderStatus} onChange={e => updateOrderStatus(o.id, e.target.value)} className={`text-xs font-semibold rounded-lg px-2 py-1 border outline-none cursor-pointer ${getOrderStatusColor(currentOrderStatus)}`}>
-                        {['pending','confirmed','processing','packed','dispatched','out_for_delivery','delivered','cancelled'].map(s => <option key={s} value={s}>{s === 'pending' ? '🟡 Ordered' : s === 'processing' ? '⚙️ Processing' : s === 'packed' ? '📦 Packed' : s === 'dispatched' ? '🚚 Dispatched / Shipped' : s === 'out_for_delivery' ? '🛵 Out for Delivery' : s === 'delivered' ? '✅ Delivered' : s === 'confirmed' ? '🔵 Confirmed' : '🔴 Cancelled'}</option>)}
+                        {['AWAITING_WHATSAPP_CONFIRMATION','whatsapp_pending','RECEIVED','pending','confirmed','processing','packed','dispatched','out_for_delivery','delivered','cancelled'].map(s => <option key={s} value={s}>{s === 'AWAITING_WHATSAPP_CONFIRMATION' || s === 'whatsapp_pending' ? '💬 Awaiting WhatsApp' : s === 'RECEIVED' ? '📥 Received' : s === 'pending' ? '🟡 Ordered' : s === 'processing' ? '⚙️ Processing' : s === 'packed' ? '📦 Packed' : s === 'dispatched' ? '🚚 Dispatched / Shipped' : s === 'out_for_delivery' ? '🛵 Out for Delivery' : s === 'delivered' ? '✅ Delivered' : s === 'confirmed' ? '🔵 Confirmed' : '🔴 Cancelled'}</option>)}
                       </select></td>
                       <td className="px-4 py-3"><button onClick={() => setSelectedOrder(o)} className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg"><Eye className="w-3.5 h-3.5" /> Details</button></td>
                     </tr>;
@@ -248,7 +252,32 @@ export function OrdersTab() {
 
       {selectedOrder && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"><div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl relative">
         <div className="flex items-center justify-between border-b pb-4"><div><h3 className="text-lg font-bold">Order Summary</h3><p className="text-xs text-brand-gray-500 font-mono">ID: {selectedOrder.orderId || selectedOrder.id}</p></div><button onClick={() => { setSelectedOrder(null); setShowAdvancedDetails(false); }} className="p-2 text-brand-gray-400 hover:text-brand-black rounded-full hover:bg-brand-gray-100"><X className="w-5 h-5" /></button></div>
-        <div className="grid sm:grid-cols-2 gap-4 text-sm bg-brand-gray-50 p-4 rounded-xl border"><div><span className="text-xs text-brand-gray-500 block uppercase font-bold">Delivery Address</span><p className="font-semibold">{selectedOrder.shippingDetails?.name}</p><p>{selectedOrder.shippingDetails?.phone}</p><p>{selectedOrder.shippingDetails?.address}</p>{selectedOrder.shippingDetails?.pincode && <p className="font-mono">Pincode: {selectedOrder.shippingDetails.pincode}</p>}</div><div><span className="text-xs text-brand-gray-500 block uppercase font-bold">Payment & Status</span><p>Method: <strong>{selectedOrder.paymentMethod || 'COD'}</strong></p><p>Order Status: <strong>{statusLabel(selectedOrder.orderStatus || selectedOrder.status || 'pending')}</strong></p><p>Payment Status: <strong>{selectedOrder.paymentStatus || 'unpaid'}</strong></p></div></div>
+        <div className="grid sm:grid-cols-2 gap-4 text-sm bg-brand-gray-50 p-4 rounded-xl border">
+          <div className="space-y-1">
+            <span className="text-xs text-brand-gray-500 block uppercase font-bold">Delivery Address {(selectedOrder.shippingDetails as any)?.addressType ? `(${(selectedOrder.shippingDetails as any).addressType})` : ''}</span>
+            <p className="font-semibold">{selectedOrder.shippingDetails?.name}</p>
+            <p className="text-xs text-brand-gray-600">Phone: {selectedOrder.shippingDetails?.phone}</p>
+            {(selectedOrder.shippingDetails as any)?.whatsappPhone && (selectedOrder.shippingDetails as any)?.whatsappPhone !== selectedOrder.shippingDetails?.phone && (
+              <p className="text-xs text-emerald-700 font-medium">WhatsApp: {(selectedOrder.shippingDetails as any).whatsappPhone}</p>
+            )}
+            {(selectedOrder.shippingDetails as any)?.houseNo && <p className="text-xs">House/Flat: {(selectedOrder.shippingDetails as any).houseNo}</p>}
+            {(selectedOrder.shippingDetails as any)?.street && <p className="text-xs">Street: {(selectedOrder.shippingDetails as any).street}</p>}
+            {(selectedOrder.shippingDetails as any)?.area && <p className="text-xs font-medium">Area: {(selectedOrder.shippingDetails as any).area}</p>}
+            {(selectedOrder.shippingDetails as any)?.landmark && <p className="text-xs text-brand-gray-600">Landmark: {(selectedOrder.shippingDetails as any).landmark}</p>}
+            <p className="text-xs">{selectedOrder.shippingDetails?.address}</p>
+            {selectedOrder.shippingDetails?.pincode && <p className="font-mono text-xs font-semibold">PIN: {selectedOrder.shippingDetails.pincode}</p>}
+            {(selectedOrder.shippingDetails as any)?.deliveryInstructions && (
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">Note: {(selectedOrder.shippingDetails as any).deliveryInstructions}</p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <span className="text-xs text-brand-gray-500 block uppercase font-bold">Payment &amp; Status</span>
+            <p>Method: <strong>{selectedOrder.paymentMethod || 'COD'}</strong></p>
+            <p>Order Status: <strong>{statusLabel(selectedOrder.orderStatus || selectedOrder.status || 'pending')}</strong></p>
+            <p>Payment Status: <strong>{selectedOrder.paymentStatus || 'unpaid'}</strong></p>
+            {(selectedOrder as any).verificationCode && <p className="font-mono text-xs text-emerald-800">Verification: {(selectedOrder as any).verificationCode}</p>}
+          </div>
+        </div>
         <div><h4 className="text-sm font-bold mb-3">Order Items ({selectedOrder.items.length})</h4><div className="divide-y border rounded-xl overflow-hidden">{selectedOrder.items.map((item, idx) => <div key={idx} className="p-3 flex items-center justify-between bg-white text-sm"><div className="flex items-center gap-3">{item.image && <img src={item.image} alt={item.name} className="w-10 h-10 object-contain bg-white rounded-lg border shrink-0" />}<div><p className="font-semibold">{item.name}</p>{(item.selectedWeight || item.selectedCut) && <p className="text-xs text-brand-gray-500">{item.selectedWeight && `Weight: ${item.selectedWeight} `}{item.selectedCut && `Cut: ${item.selectedCut}`}</p>}</div></div><span className="font-bold">×{item.quantity} · ₹{item.price}</span></div>)}</div></div>
         <button type="button" onClick={() => setShowAdvancedDetails(v => !v)} className="w-full flex items-center justify-between rounded-xl border border-brand-gray-200 px-4 py-3 text-sm font-semibold text-brand-gray-700 hover:bg-brand-gray-50"><span>Advanced details</span><span className="text-xs text-brand-gray-400">{showAdvancedDetails ? 'Hide' : 'Show'}</span></button>
         {showAdvancedDetails && <div className="rounded-xl border border-brand-gray-200 bg-brand-gray-50 p-4 text-xs space-y-2"><p><strong>Payment reference:</strong> {selectedOrder.razorpay_payment_id || selectedOrder.razorpayPaymentId || 'Not available'}</p><p><strong>Gateway order:</strong> {selectedOrder.razorpay_order_id || selectedOrder.razorpayOrderId || 'Not available'}</p><p><strong>Inventory reservation:</strong> {selectedOrder.reservationId || selectedOrder.inventoryReservationId || 'Not available'}</p><p><strong>Refund status:</strong> {selectedOrder.refundStatus || 'Not requested'}</p>{Array.isArray(selectedOrder.statusHistory) && selectedOrder.statusHistory.length > 0 && <div><strong>Status history</strong><div className="mt-2 space-y-1">{selectedOrder.statusHistory.map((entry: any, idx: number) => <div key={idx} className="flex justify-between gap-3"><span>{statusLabel(entry.status || entry.toStatus || 'unknown')}</span><span className="text-brand-gray-400">{entry.changedAt?.seconds ? format(new Date(entry.changedAt.seconds * 1000), 'MMM d, HH:mm') : ''}</span></div>)}</div></div>}</div>}

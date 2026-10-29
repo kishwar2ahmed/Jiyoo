@@ -100,19 +100,35 @@ export function ProductsTab() {
       console.warn("Categories subscription error:", err);
     });
 
-    // Real-time products snapshot
+    // Real-time products snapshot with safe baseline field merging
     const unsubProds = onSnapshot(query(collection(db, 'products'), limit(500)), (snap) => {
       if (snap.empty) {
-        setProducts(PRODUCTS);
+        setProducts(prev => (prev.length > 0 ? prev : PRODUCTS));
       } else {
         const prodMap = new Map<string, Product>();
         PRODUCTS.forEach(p => prodMap.set(String(p.id), p));
         snap.forEach(d => {
           const data = d.data();
-          if (data.isDeleted) {
+          if (!data || typeof data !== 'object') return;
+          if (data.isDeleted === true) {
             prodMap.delete(d.id);
           } else {
-            prodMap.set(d.id, { id: d.id, ...data, image: resolveProductImage(data.image) || '' } as Product);
+            const base = prodMap.get(d.id);
+            const merged = {
+              ...(base || {}),
+              ...data,
+              id: d.id,
+              name: data.name || base?.name || '',
+              categoryId: data.categoryId || base?.categoryId || 'fruits',
+              subcategoryId: data.subcategoryId ?? base?.subcategoryId,
+              subSubcategoryId: data.subSubcategoryId ?? base?.subSubcategoryId,
+              price: data.price ?? base?.price ?? 0,
+              unit: data.unit || base?.unit || '1 kg',
+              image: resolveProductImage(data.image || base?.image) || '',
+            } as Product;
+            if (merged.name) {
+              prodMap.set(d.id, merged);
+            }
           }
         });
         setProducts(Array.from(prodMap.values()));
@@ -120,7 +136,8 @@ export function ProductsTab() {
       setLoading(false);
     }, (err) => {
       console.warn("Products subscription error:", err);
-      setProducts(PRODUCTS);
+      // Preserve last known valid product state on subscription error
+      setProducts(prev => (prev.length > 0 ? prev : PRODUCTS));
       setLoading(false);
     });
 
@@ -132,13 +149,16 @@ export function ProductsTab() {
   }, []);
 
   const handleSeedCatalog = async () => {
-    if (!(await confirm({ title: "Sync catalog?", message: "Sync all products from source to update images and data?", danger: false, confirmLabel: "Sync" }))) return;
+    if (!(await confirm({ title: "Sync catalog?", message: "Safely merge baseline catalog products and images into Firestore without deleting existing records?", danger: false, confirmLabel: "Sync" }))) return;
     setLoading(true);
     try {
       let batch = writeBatch(db);
       let count = 0;
       for (const p of PRODUCTS) {
-        batch.set(doc(db, 'products', String(p.id)), p);
+        const cleanProd = Object.fromEntries(
+          Object.entries({ ...p, id: String(p.id), isDeleted: false, updatedAt: new Date().toISOString() }).filter(([_, v]) => v !== undefined)
+        );
+        batch.set(doc(db, 'products', String(p.id)), cleanProd, { merge: true });
         count++;
         if (count % 400 === 0) {
           await batch.commit();
@@ -148,52 +168,64 @@ export function ProductsTab() {
       if (count % 400 !== 0) {
         await batch.commit();
       }
-      showToast("Sample catalog seeded successfully!", "success");
-    } catch (err) {
+      showToast("Catalog synchronized safely with Firestore!", "success");
+    } catch (err: any) {
       console.error("Error seeding catalog:", err);
-      showToast("Failed to seed catalog.", "error");
+      showToast(err?.message || "Failed to synchronize catalog.", "error");
+    } finally {
       setLoading(false);
     }
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingProduct?.name || editingProduct?.price === undefined || !editingProduct?.categoryId) {
-      showToast("Please fill in Name, Category, and Price.", "error");
+    const trimmedName = String(editingProduct?.name || '').trim();
+    const parsedPrice = Number(String(editingProduct?.price ?? '').replace(/[^0-9.]/g, ''));
+    if (!trimmedName || !editingProduct?.categoryId || !Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      showToast("Please provide a valid Product Name, Category, and Price greater than 0.", "error");
       return;
     }
     
-    const id = editingProduct.id || Math.random().toString(36).substring(2, 9);
+    const id = String(editingProduct.id || `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     const selectedCategoryObj = categoriesList.find(c => c.id === editingProduct.categoryId);
+    const defaultSubcategoryId = editingProduct.subcategoryId ?? selectedCategoryObj?.items?.[0]?.id;
     
     const rawPayload = { 
       ...editingProduct, 
-      id: String(id), 
+      id,
+      name: trimmedName,
+      price: editingProduct.price,
+      numericPrice: parsedPrice,
       category: selectedCategoryObj?.label || editingProduct.category || editingProduct.categoryId,
-      isDeleted: false 
+      subcategoryId: defaultSubcategoryId,
+      unit: editingProduct.unit || '1 kg',
+      isDeleted: false,
+      updatedAt: new Date().toISOString(),
     } as Product;
     
     // Remove undefined values to prevent Firestore crashes
     const payload = Object.fromEntries(Object.entries(rawPayload).filter(([_, v]) => v !== undefined)) as Product;
     
-    setIsModalOpen(false);
-    setEditingProduct(null);
-    
     try {
-      await setDoc(doc(db, 'products', String(id)), payload);
-    } catch (err) {
+      await setDoc(doc(db, 'products', id), payload, { merge: true });
+      setIsModalOpen(false);
+      setEditingProduct(null);
+      showToast(`"${trimmedName}" saved to catalog.`, "success");
+    } catch (err: any) {
       console.warn("Could not sync product to Firestore:", err);
-      showToast('Error updating product.', 'error');
+      showToast(err?.message || 'Error saving product to database. Your changes are still in the form.', 'error');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (await confirm({ title: "Delete product?", message: "Are you sure you want to delete this product?" })) {
+    if (!id || !id.trim()) return;
+    if (await confirm({ title: "Delete product?", message: "Are you sure you want to delete this product from the storefront?" })) {
       try {
-        await setDoc(doc(db, 'products', String(id)), { isDeleted: true }, { merge: true });
-      } catch (err) {
+        await setDoc(doc(db, 'products', String(id)), { isDeleted: true, updatedAt: new Date().toISOString() }, { merge: true });
+        showToast("Product removed from storefront.", "success");
+      } catch (err: any) {
         console.warn("Error deleting product from Firestore:", err);
-        showToast('Error deleting product.', 'error');
+        showToast(err?.message || 'Error deleting product.', 'error');
       }
     }
   };
@@ -203,12 +235,15 @@ export function ProductsTab() {
     const previousProducts = products;
     setProducts(prev => prev.map(item => item.id === p.id ? { ...item, stockStatus: nextStatus } : item));
     try {
-      await setDoc(doc(db, 'products', String(p.id)), { stockStatus: nextStatus }, { merge: true });
+      const fullPayload = Object.fromEntries(
+        Object.entries({ ...p, id: String(p.id), stockStatus: nextStatus, isDeleted: false, updatedAt: new Date().toISOString() }).filter(([_, v]) => v !== undefined)
+      );
+      await setDoc(doc(db, 'products', String(p.id)), fullPayload, { merge: true });
       showToast(nextStatus === 'out_of_stock' ? `"${p.name}" marked out of stock.` : `"${p.name}" marked in stock.`, 'success');
-    } catch (err) {
+    } catch (err: any) {
       console.warn("Error toggling stock status:", err);
       setProducts(previousProducts);
-      showToast('Failed to update stock status.', 'error');
+      showToast(err?.message || 'Failed to update stock status.', 'error');
     }
   };
 
