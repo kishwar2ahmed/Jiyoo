@@ -35,7 +35,7 @@ import {
 } from "./features/core/hooks/useModalBackButton";
 
 function AppContent() {
-  const { user, addedItemToast, setAddedItemToast } = useCart();
+  const { user, addedItemToast, setAddedItemToast, searchQuery, setSearchQuery } = useCart();
   const confirm = useConfirm();
   useFCM();
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -117,9 +117,12 @@ function AppContent() {
     }
   }, [addedItemToast, setAddedItemToast]);
 
-  // Confirm before actually leaving the app in standalone browser sessions.
-  // Never prompt when closing an internal modal/overlay (such as AuthModal after
-  // sign-in) or when running inside an embedded preview iframe.
+  // Hierarchical 4-Tier Back Button Navigation Stack:
+  // Tier 1: Closes any active modal or overlay (Auth, Cart, Account, Admin, About, Contact, Product Detail)
+  // Tier 2: If on Wholesale page, navigates back to Retail catalog
+  // Tier 3: If an active search query is entered, clears search and restores catalog
+  // Tier 4: If category history exists, steps back to previous/root category
+  // Tier 5: Only when fully at root catalog does the "Leave the app?" confirmation trigger
   useEffect(() => {
     const isIframe = typeof window !== 'undefined' && window.self !== window.top;
     if (!isIframe) {
@@ -128,29 +131,74 @@ function AppContent() {
 
     const handlePopState = async (e: PopStateEvent) => {
       const poppedState = e.state as { jiyooCategory?: string; jiyooOverlay?: boolean; jiyooGuard?: boolean; jiyooPage?: string } | null;
-      if (poppedState?.jiyooPage === 'retail') {
-        setActivePage('retail');
+
+      // Tier 1: Modals & Drawer Overlays
+      if (isAuthOpen) {
+        setIsAuthOpen(false);
+        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
-      if (poppedState?.jiyooPage === 'wholesale') {
-        setActivePage('wholesale');
+      if (isCartOpen) {
+        setIsCartOpen(false);
+        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
+      if (isAccountOpen) {
+        setIsAccountOpen(false);
+        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
+        return;
+      }
+      if (isAdminOpen) {
+        setIsAdminOpen(false);
+        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
+        return;
+      }
+      if (isAboutOpen) {
+        setIsAboutOpen(false);
+        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
+        return;
+      }
+      if (isContactOpen) {
+        setIsContactOpen(false);
+        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
+        return;
+      }
+
       if (
-        isIframe ||
-        poppedState?.jiyooCategory ||
-        poppedState?.jiyooOverlay ||
         isOverlayActive() ||
         isProgrammaticOverlayDismissal() ||
         consumeProgrammaticDismissal()
       ) {
+        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
 
-      if (isAuthOpen || isCartOpen || isAccountOpen || isAdminOpen || isAboutOpen || isContactOpen) {
+      // Tier 2: Page Navigation (Wholesale -> Retail)
+      if (activePage === 'wholesale' || poppedState?.jiyooPage === 'retail') {
+        openRetailPage();
+        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
 
+      // Tier 3: Search Query Filter (Clear search query first before exiting)
+      if (searchQuery.trim() !== '') {
+        setSearchQuery('');
+        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
+        return;
+      }
+
+      // Tier 4: Category Navigation Stack
+      if (window.sessionStorage.getItem('jiyoo_can_step_back_cat') === 'true') {
+        window.dispatchEvent(new CustomEvent('step-back-category'));
+        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
+        return;
+      }
+
+      if (isIframe) {
+        return;
+      }
+
+      // Tier 5: Only prompt when truly at the base root state
       const shouldLeave = await confirm({
         title: "Leave the app?",
         message: "Are you sure you want to exit?",
@@ -164,7 +212,7 @@ function AppContent() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [confirm, isAuthOpen, isCartOpen, isAccountOpen, isAdminOpen, isAboutOpen, isContactOpen]);
+  }, [confirm, isAuthOpen, isCartOpen, isAccountOpen, isAdminOpen, isAboutOpen, isContactOpen, activePage, searchQuery, setSearchQuery]);
 
 
   if (showSplash) {
@@ -215,7 +263,7 @@ function AppContent() {
       </Suspense>
 
       <div className="relative z-10 bg-paper-texture shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-        <main className="flex-grow pt-[calc(4rem+env(safe-area-inset-top))] sm:pt-[calc(5rem+env(safe-area-inset-top))] pb-0">
+        <main className="flex-grow pt-[calc(7.25rem+env(safe-area-inset-top))] sm:pt-[calc(7.75rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))] pb-0">
           {activePage === 'wholesale' ? (
             <WholesalePage onBackToRetail={openRetailPage} />
           ) : (

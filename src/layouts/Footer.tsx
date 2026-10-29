@@ -131,45 +131,45 @@ export function Footer() {
 
           <div className="relative z-10 max-w-3xl mx-auto">
             {/* Kicker */}
-            <div className="mb-4 sm:mb-5">
-              <span className="text-[11px] uppercase tracking-[0.24em] text-[#C5A880] font-medium font-sans-clean">
-                Bengaluru's Fresh Catch Destination
+            <div className="mb-3 sm:mb-5">
+              <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.2em] sm:tracking-[0.24em] text-[#C5A880] font-medium font-sans-clean">
+                Fresh Daily Delivery in Bengaluru
               </span>
             </div>
 
             {/* Headline */}
-            <h2 className="font-serif-luxury text-3xl sm:text-5xl lg:text-[52px] font-normal text-white leading-[1.12] tracking-tight text-balance">
-              Ready to taste the{" "}
+            <h2 className="font-serif-luxury text-2xl sm:text-4xl lg:text-[50px] font-normal text-white leading-[1.15] tracking-tight text-balance">
+              Want fresh food{" "}
               <span className="italic bg-gradient-to-r from-[#F5E6C8] via-[#D4AF37] to-[#F5E6C8] bg-clip-text text-transparent">
-                freshest catch?
+                delivered home today?
               </span>
             </h2>
 
             {/* Subtitle */}
-            <p className="mt-4 sm:mt-5 text-sm sm:text-base lg:text-lg text-stone-300/80 font-sans-clean font-light leading-relaxed max-w-2xl mx-auto text-balance">
-              Hand-selected from coastal docks at dawn, cleaned with purified water,
-              and delivered in temperature-locked cold boxes across Bengaluru.
+            <p className="mt-3.5 sm:mt-5 text-xs sm:text-base lg:text-lg text-stone-300/90 font-sans-clean font-light leading-relaxed max-w-2xl mx-auto text-balance">
+              We bring fresh fruits, daily vegetables, chicken, mutton, and fish
+              straight to your home—cleaned with pure RO water and packed cold and fresh.
             </p>
 
             {/* Actions */}
-            <div className="mt-8 sm:mt-10 flex flex-wrap items-center justify-center gap-4 sm:gap-5">
+            <div className="mt-6 sm:mt-9 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
               <a
                 href="https://wa.me/919739391891?text=Hi%20Jiyoo,%20I%20would%20like%20to%20place%20an%20order"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full bg-white text-stone-950 font-sans-clean font-medium text-sm sm:text-base hover:bg-stone-100 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 shadow-[0_12px_30px_rgba(255,255,255,0.18)] cursor-pointer"
+                className="group inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-white text-stone-950 font-sans-clean font-medium text-sm sm:text-base hover:bg-stone-100 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 shadow-[0_12px_30px_rgba(255,255,255,0.18)] cursor-pointer"
               >
-                <WhatsAppIcon className="w-5 h-5" />
+                <WhatsAppIcon className="w-5 h-5 shrink-0" />
                 <span>Order on WhatsApp</span>
               </a>
 
               <button
                 type="button"
                 onClick={scrollToProducts}
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-white/[0.08] hover:bg-white/[0.14] text-white font-sans-clean font-medium text-sm sm:text-base border border-white/15 hover:border-white/30 backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white/[0.08] hover:bg-white/[0.14] text-white font-sans-clean font-medium text-sm sm:text-base border border-white/15 hover:border-white/30 backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 cursor-pointer"
               >
-                <span>Explore Today's Catch</span>
-                <ArrowUpRight className="w-4 h-4 text-stone-300" />
+                <span>Shop Fresh Items</span>
+                <ArrowUpRight className="w-4 h-4 text-stone-300 shrink-0" />
               </button>
             </div>
           </div>
@@ -180,10 +180,10 @@ export function Footer() {
         {/* ========================================================================= */}
         <motion.div
           style={{ y: cardY }}
-          className="relative z-10 rounded-[2rem] sm:rounded-[2.5rem] bg-white text-stone-900 border border-stone-200/80 shadow-[0_24px_64px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.02)] p-7 sm:p-12 lg:p-14"
+          className="relative z-10 rounded-[1.75rem] sm:rounded-[2.5rem] bg-white text-stone-900 border border-stone-200/80 shadow-[0_24px_64px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.02)] p-5 sm:p-10 lg:p-14"
         >
           {/* Top Grid: Brand & Directory Columns */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 pb-10 sm:pb-12 border-b border-stone-100">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 pb-8 sm:pb-12 border-b border-stone-100">
             {/* Left Brand Identity & Trust Ledger (Span 5) */}
             <div className="lg:col-span-5 flex flex-col justify-between">
               <div>
@@ -192,79 +192,80 @@ export function Footer() {
                   <img
                     src="/jiyoo.logo.jpeg"
                     alt={`${storeName} Logo`}
-                    className="h-11 w-11 rounded-xl object-contain border border-stone-200 shadow-sm"
+                    className="h-11 w-11 rounded-xl object-contain border border-stone-200 shadow-sm shrink-0"
                   />
-                  <div>
-                    <span className="font-serif-luxury text-2xl sm:text-3xl font-medium tracking-wider text-stone-950 block leading-none">
+                  <div className="min-w-0">
+                    <span className="font-serif-luxury text-xl sm:text-2xl lg:text-3xl font-medium tracking-wider text-stone-950 block leading-tight break-words">
                       {storeName}
                     </span>
-                    <span className="font-sans-clean text-[10px] uppercase tracking-[0.22em] text-[#B08D57] block mt-1 font-semibold">
-                      Direct Farm &amp; Marine Harvest
+                    <span className="font-sans-clean text-[10px] uppercase tracking-[0.18em] sm:tracking-[0.22em] text-[#B08D57] block mt-1 font-semibold">
+                      Fresh Fruits, Veggies &amp; Meat
                     </span>
                   </div>
                 </div>
 
                 {/* Brand Philosophy */}
                 <p className="text-stone-600 font-sans-clean font-light leading-relaxed text-sm max-w-md">
-                  Fresh fish, chicken, and mutton cleaned daily with pure RO water and
-                  delivered cold and fresh to your home across Bengaluru.
+                  We deliver fresh fruits, daily vegetables, tender chicken, mutton,
+                  and fish—cleaned daily with pure RO water and delivered cold and
+                  fresh to your home across Bengaluru.
                 </p>
 
                 {/* Minimalist Authentic Direct Communication Channels */}
-                <div className="mt-6 flex flex-wrap items-center gap-3">
+                <div className="mt-5 sm:mt-6 grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2.5 sm:gap-3">
                   <a
                     href="https://wa.me/919739391891"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-sans-clean font-medium text-stone-800 transition-colors cursor-pointer group"
+                    className="inline-flex items-center justify-center sm:justify-start gap-2 px-3.5 py-2.5 sm:py-2 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-sans-clean font-medium text-stone-800 transition-colors cursor-pointer group"
                     title="Chat on WhatsApp"
                   >
-                    <WhatsAppIcon className="w-4 h-4" />
+                    <WhatsAppIcon className="w-4 h-4 shrink-0" />
                     <span>WhatsApp</span>
                   </a>
 
                   <a
                     href="tel:+919739391891"
-                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-sans-clean font-medium text-stone-800 transition-colors cursor-pointer group"
+                    className="inline-flex items-center justify-center sm:justify-start gap-2 px-3.5 py-2.5 sm:py-2 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-sans-clean font-medium text-stone-800 transition-colors cursor-pointer group"
                     title="Direct Phone Line"
                   >
-                    <PhoneCallIcon className="w-4 h-4" />
-                    <span>Call Hotline</span>
+                    <PhoneCallIcon className="w-4 h-4 shrink-0" />
+                    <span>Call Us</span>
                   </a>
 
                   <a
                     href="https://www.instagram.com/shamsjiyoo2026?exln=aG43cXdnZmgwZDRu"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-sans-clean font-medium text-stone-800 transition-colors cursor-pointer group"
+                    className="inline-flex items-center justify-center sm:justify-start gap-2 px-3.5 py-2.5 sm:py-2 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-sans-clean font-medium text-stone-800 transition-colors cursor-pointer group"
                     title="Instagram Customer Support"
                   >
-                    <InstagramIcon className="w-4 h-4" />
+                    <InstagramIcon className="w-4 h-4 shrink-0" />
                     <span>Instagram</span>
                   </a>
 
                   <a
                     href="mailto:shamsjiyoo@gmail.com?cc=jiyooshams@gmail.com"
-                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-sans-clean font-medium text-stone-800 transition-colors cursor-pointer group"
+                    className="inline-flex items-center justify-center sm:justify-start gap-2 px-3.5 py-2.5 sm:py-2 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-sans-clean font-medium text-stone-800 transition-colors cursor-pointer group"
                     title="Email Support (Primary: shamsjiyoo@gmail.com)"
                   >
-                    <EmailEnvelopeIcon className="w-4 h-4" />
+                    <EmailEnvelopeIcon className="w-4 h-4 shrink-0" />
                     <span>Email</span>
                   </a>
                 </div>
 
                 {/* Government Trust Certification Ledger */}
-                <div className="mt-8 pt-6 border-t border-stone-100 max-w-md">
+                <div className="mt-6 sm:mt-8 pt-6 border-t border-stone-100 max-w-md">
                   <div className="flex items-center gap-2 mb-3">
-                    <ShieldCheck className="w-4 h-4 text-[#B08D57]" />
-                    <span className="font-sans-clean text-[10px] uppercase tracking-[0.2em] text-[#B08D57] font-semibold">
+                    <ShieldCheck className="w-4 h-4 text-[#B08D57] shrink-0" />
+                    <span className="font-sans-clean text-[10px] uppercase tracking-[0.18em] text-[#B08D57] font-semibold">
                       Government Certified &amp; Licensed
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 py-3 px-4 rounded-xl bg-stone-50 border border-stone-200/60">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 py-3.5 px-4 rounded-xl bg-stone-50 border border-stone-200/60">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <FssaiLogo className="h-4 w-auto" variant="onLight" />
+                        <FssaiLogo className="h-4 w-auto shrink-0" variant="original" />
                         <span className="font-sans-clean text-[11px] text-stone-500 font-light">
                           Food License
                         </span>
@@ -273,11 +274,11 @@ export function Footer() {
                         21226112000732
                       </span>
                     </div>
-                    <div className="border-l border-stone-200/80 pl-4">
+                    <div className="pt-2.5 border-t border-stone-200/80 sm:pt-0 sm:border-t-0 sm:border-l sm:pl-4">
                       <span className="block font-sans-clean text-[11px] text-stone-500 font-light mb-1">
                         MSME Udyam
                       </span>
-                      <span className="block font-sans-clean text-xs font-semibold text-stone-900 tabular-nums tracking-wide">
+                      <span className="block font-sans-clean text-xs font-semibold text-stone-900 tabular-nums tracking-wide break-all sm:break-normal">
                         UDYAM-KR-19-0005999
                       </span>
                     </div>
@@ -287,7 +288,7 @@ export function Footer() {
 
               {/* Install PWA Prompt Button */}
               {!alreadyInstalled && (
-                <div className="mt-6">
+                <div className="mt-5 sm:mt-6">
                   <button
                     type="button"
                     onClick={handleGetApp}
@@ -297,18 +298,18 @@ export function Footer() {
                     <span className="underline underline-offset-4 decoration-stone-300 group-hover:decoration-stone-950">
                       Install {storeName} App on Your Phone
                     </span>
-                    <ArrowUpRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                    <ArrowUpRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 shrink-0" />
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Right Directory Columns (Span 7, 3 Columns like Reference Image) */}
-            <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-8 sm:gap-6">
-              {/* Column 1: Fresh Catch */}
+            {/* Right Directory Columns (Span 7, Responsive 2-col on mobile + full-width 3rd card, 3-col on tablet/desktop) */}
+            <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-6">
+              {/* Column 1: Shop Categories */}
               <div>
-                <h4 className="font-sans-clean text-xs font-semibold uppercase tracking-[0.18em] text-stone-950 mb-4 sm:mb-5">
-                  Fresh Catch
+                <h4 className="font-sans-clean text-xs font-semibold uppercase tracking-[0.16em] text-stone-950 mb-3.5 sm:mb-5">
+                  What We Deliver
                 </h4>
                 <ul className="space-y-2.5 text-xs sm:text-sm font-sans-clean text-stone-600">
                   <li>
@@ -317,7 +318,7 @@ export function Footer() {
                       onClick={scrollToProducts}
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
-                      Coastal Sea Fish &amp; Prawns
+                      Fresh &amp; Imported Fruits
                     </button>
                   </li>
                   <li>
@@ -326,7 +327,7 @@ export function Footer() {
                       onClick={scrollToProducts}
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
-                      Freshwater River Fish
+                      Daily Farm Vegetables
                     </button>
                   </li>
                   <li>
@@ -335,7 +336,7 @@ export function Footer() {
                       onClick={scrollToProducts}
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
-                      Farm-Fresh Tender Chicken
+                      Fresh Chicken &amp; Mutton
                     </button>
                   </li>
                   <li>
@@ -344,55 +345,55 @@ export function Footer() {
                       onClick={scrollToProducts}
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
-                      Artisanal Mutton &amp; Cuts
+                      Fish, Prawns &amp; Seafood
                     </button>
                   </li>
                   <li>
                     <button
                       type="button"
                       onClick={() => document.dispatchEvent(new CustomEvent("open-wholesale"))}
-                      className="inline-flex items-center gap-1.5 text-[#8F6B38] font-medium hover:text-stone-950 transition-colors cursor-pointer text-left"
+                      className="inline-flex items-center gap-1 text-[#8F6B38] font-medium hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
                       <span>Wholesale &amp; Bulk Supply</span>
-                      <ArrowUpRight className="w-3 h-3" />
+                      <ArrowUpRight className="w-3 h-3 shrink-0" />
                     </button>
                   </li>
                 </ul>
               </div>
 
-              {/* Column 2: Our Standards */}
+              {/* Column 2: Our Promise */}
               <div>
-                <h4 className="font-sans-clean text-xs font-semibold uppercase tracking-[0.18em] text-stone-950 mb-4 sm:mb-5">
-                  Our Standards
+                <h4 className="font-sans-clean text-xs font-semibold uppercase tracking-[0.16em] text-stone-950 mb-3.5 sm:mb-5">
+                  Our Promise
                 </h4>
                 <ul className="space-y-2.5 text-xs sm:text-sm font-sans-clean text-stone-600">
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#B08D57] shrink-0" />
-                    <span>Coastal Morning Dock Catch</span>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#B08D57] shrink-0 mt-1.5" />
+                    <span>Fresh Stock Every Morning</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#B08D57] shrink-0" />
-                    <span>RO-Purified Ice Washed</span>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#B08D57] shrink-0 mt-1.5" />
+                    <span>Cleaned With Pure RO Water</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#B08D57] shrink-0" />
-                    <span>Custom Culinary Hand-Cuts</span>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#B08D57] shrink-0 mt-1.5" />
+                    <span>Cut Just How You Like</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#B08D57] shrink-0" />
-                    <span>Temperature-Locked Packs</span>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#B08D57] shrink-0 mt-1.5" />
+                    <span>Hygienic Cold Packing</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#B08D57] shrink-0" />
-                    <span>100% Guaranteed Freshness</span>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#B08D57] shrink-0 mt-1.5" />
+                    <span>100% Freshness Guaranteed</span>
                   </li>
                 </ul>
               </div>
 
-              {/* Column 3: Trust & Company */}
-              <div>
-                <h4 className="font-sans-clean text-xs font-semibold uppercase tracking-[0.18em] text-stone-950 mb-4 sm:mb-5">
-                  Company &amp; Trust
+              {/* Column 3: Company & Support (Full width on mobile so it doesn't sit half-empty, 1 col on sm+) */}
+              <div className="col-span-2 sm:col-span-1 pt-4 sm:pt-0 border-t border-stone-100 sm:border-t-0">
+                <h4 className="font-sans-clean text-xs font-semibold uppercase tracking-[0.16em] text-stone-950 mb-3.5 sm:mb-5">
+                  Help &amp; Info
                 </h4>
                 <ul className="space-y-2.5 text-xs sm:text-sm font-sans-clean text-stone-600">
                   <li>
@@ -413,16 +414,16 @@ export function Footer() {
                       Customer Support
                     </button>
                   </li>
-                  <li className="pt-2">
+                  <li className="pt-1.5">
                     <div className="p-3 rounded-xl bg-stone-50 border border-stone-200/60 space-y-1">
                       <div className="flex items-center gap-1.5 text-xs font-medium text-stone-900">
-                        <Clock className="w-3.5 h-3.5 text-[#B08D57]" />
-                        <span>Daily Delivery</span>
+                        <Clock className="w-3.5 h-3.5 text-[#B08D57] shrink-0" />
+                        <span>Daily Delivery Hours</span>
                       </div>
                       <p className="text-[11px] text-stone-500 leading-snug">
                         7:00 AM – 10:00 PM
                         <br />
-                        Every Single Day
+                        Open Every Day
                       </p>
                     </div>
                   </li>
@@ -440,13 +441,13 @@ export function Footer() {
           </div>
 
           {/* Bottom Colophon Row */}
-          <div className="pt-8">
+          <div className="pt-6 sm:pt-8">
             {/* Official Payment Trust Strip */}
-            <div className="flex flex-wrap items-center justify-between gap-4 pb-6 mb-6 border-b border-stone-100">
-              <span className="text-[11px] font-sans-clean uppercase tracking-[0.18em] text-stone-500 font-medium">
-                Verified Payment Acceptance
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pb-6 mb-6 border-b border-stone-100 text-center sm:text-left">
+              <span className="text-[10px] sm:text-[11px] font-sans-clean uppercase tracking-[0.18em] text-stone-500 font-medium">
+                Safe &amp; Verified Payments
               </span>
-              <div className="flex flex-wrap items-center gap-4 sm:gap-5 opacity-80 hover:opacity-100 transition-opacity">
+              <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-5 opacity-85 hover:opacity-100 transition-opacity">
                 <GooglePayIcon className="h-4 w-auto" />
                 <PhonePeIcon className="h-4 w-auto" />
                 <PaytmIcon className="h-3 w-auto" />
@@ -458,11 +459,11 @@ export function Footer() {
             </div>
 
             {/* Copyright & Legal Links */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-sans-clean text-stone-500 text-center sm:text-left">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 text-xs font-sans-clean text-stone-500 text-center sm:text-left">
               <p>
-                &copy; {new Date().getFullYear()} {storeName} Fresh. All rights reserved.
+                &copy; {new Date().getFullYear()} {storeName}. All rights reserved.
               </p>
-              <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1">
+              <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-5 gap-y-1.5">
                 <button
                   type="button"
                   onClick={() => document.dispatchEvent(new CustomEvent("open-about"))}
@@ -487,7 +488,7 @@ export function Footer() {
                   Refund Policy
                 </button>
                 <span aria-hidden="true" className="text-stone-300">·</span>
-                <span>FSSAI Quality Checked</span>
+                <span>FSSAI Checked</span>
               </div>
             </div>
 

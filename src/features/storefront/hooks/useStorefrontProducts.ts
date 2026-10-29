@@ -201,25 +201,21 @@ export function mergeCatalogRecords(
 }
 
 export function useStorefrontProducts() {
-  const initialCacheRef = useRef<{ products: Product[]; lastSyncedAt: string | null } | null>(null);
-  if (!initialCacheRef.current) {
-    initialCacheRef.current = readPublicCatalogCache();
-  }
-
-  const baselineCatalog = useRef<Product[]>(Array.from(buildAuthoritativeBaseline().values()));
+  const [initialCache] = useState(() => readPublicCatalogCache());
+  const [baselineCatalog] = useState(() => Array.from(buildAuthoritativeBaseline().values()));
 
   const [dbProducts, setDbProducts] = useState<Product[]>(() => {
-    const cached = initialCacheRef.current?.products;
-    return cached && cached.length > 0 ? cached : baselineCatalog.current;
+    const cached = initialCache?.products;
+    return cached && cached.length > 0 ? cached : baselineCatalog;
   });
   const [isProductsLoading, setIsProductsLoading] = useState<boolean>(() => {
-    const cached = initialCacheRef.current?.products;
+    const cached = initialCache?.products;
     return !(cached && cached.length > 0);
   });
   const [catalogStatus, setCatalogStatus] = useState<CatalogSyncStatus>('LOADING');
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(
-    () => initialCacheRef.current?.lastSyncedAt || null
+    () => initialCache?.lastSyncedAt || null
   );
   const [isUsingCachedCatalog, setIsUsingCachedCatalog] = useState<boolean>(false);
   const [retryTrigger, setRetryTrigger] = useState<number>(0);
@@ -236,7 +232,7 @@ export function useStorefrontProducts() {
       const data = await res.json().catch(() => null);
       if (!data || !Array.isArray(data.products)) return false;
 
-      const { products, explicitlyEmpty } = mergeCatalogRecords(data.products, baselineCatalog.current);
+      const { products, explicitlyEmpty } = mergeCatalogRecords(data.products, baselineCatalog);
       if (explicitlyEmpty) {
         setDbProducts([]);
         setCatalogStatus('SUCCESS_EMPTY');
@@ -307,7 +303,7 @@ export function useStorefrontProducts() {
           setCatalogStatus('CONFIGURATION_ERROR');
           setCatalogError('Live database configuration unavailable. Showing verified store catalog.');
           setIsUsingCachedCatalog(true);
-          setDbProducts((prev) => (prev.length > 0 ? prev : baselineCatalog.current));
+          setDbProducts((prev) => (prev.length > 0 ? prev : baselineCatalog));
         }
         setIsProductsLoading(false);
       });
@@ -332,7 +328,7 @@ export function useStorefrontProducts() {
           }
         });
 
-        const { products, explicitlyEmpty } = mergeCatalogRecords(rawDocs, baselineCatalog.current);
+        const { products, explicitlyEmpty } = mergeCatalogRecords(rawDocs, baselineCatalog);
 
         if (explicitlyEmpty) {
           setDbProducts([]);
@@ -378,7 +374,7 @@ export function useStorefrontProducts() {
         setDbProducts((prev) => {
           if (prev.length > 0) return prev;
           const cached = readPublicCatalogCache().products;
-          return cached.length > 0 ? cached : baselineCatalog.current;
+          return cached.length > 0 ? cached : baselineCatalog;
         });
 
         // Bounded exponential backoff with jitter
@@ -410,7 +406,7 @@ export function useStorefrontProducts() {
       ? []
       : dbProducts.length > 0
       ? dbProducts
-      : baselineCatalog.current;
+      : baselineCatalog;
 
   return {
     currentProducts,

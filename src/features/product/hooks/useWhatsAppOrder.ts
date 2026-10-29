@@ -49,10 +49,10 @@ export function useWhatsAppOrder() {
     }
 
     const safeQty = Math.max(1, Math.min(100, Number(quantity) || 1));
-    let orderId: string | null = null;
+    let orderId: string | null;
     let verificationCode: string | undefined;
     let authoritativeTotal = (Number(currentPrice) || 0) * safeQty;
-    let priceVerified = false;
+    let priceVerified: boolean;
 
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };

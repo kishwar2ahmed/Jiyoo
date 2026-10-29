@@ -241,6 +241,57 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
   // Order Search & Filter state
   const [orderFilter, setOrderFilter] = useState<'all' | 'processing' | 'delivered' | 'cancelled'>('all');
   const [orderSearch, setOrderSearch] = useState('');
+
+  const filteredOrders = useMemo(() => {
+    const queryStr = orderSearch.trim().toLowerCase();
+    return orders.filter((o: any) => {
+      const rawStatus = String(o.orderStatus || o.status || 'pending').toLowerCase();
+      if (orderFilter === 'processing') {
+        const isProcessing = [
+          'pending',
+          'received',
+          'awaiting_whatsapp_confirmation',
+          'whatsapp_pending',
+          'paid_upi_pending_verify',
+          'confirmed',
+          'packed',
+          'shipped',
+          'dispatched',
+          'out_for_delivery',
+        ].includes(rawStatus);
+        if (!isProcessing) return false;
+      } else if (orderFilter === 'delivered') {
+        if (!['delivered', 'completed'].includes(rawStatus)) return false;
+      } else if (orderFilter === 'cancelled') {
+        if (!['cancelled', 'refunded', 'failed'].includes(rawStatus)) return false;
+      }
+
+      if (!queryStr) return true;
+      const orderIdText = String(o.orderId || o.id || '').toLowerCase();
+      const statusText = rawStatus.replace(/_/g, ' ');
+      const phoneText = String(o.shippingDetails?.phone || o.customerPhone || '').toLowerCase();
+      const itemMatch = Array.isArray(o.items) && o.items.some((it: any) => String(it?.name || '').toLowerCase().includes(queryStr));
+      return orderIdText.includes(queryStr) || statusText.includes(queryStr) || phoneText.includes(queryStr) || itemMatch;
+    });
+  }, [orders, orderFilter, orderSearch]);
+
+  const orderSummaryMetrics = useMemo(() => {
+    let activeCount = 0;
+    let deliveredCount = 0;
+    orders.forEach((o: any) => {
+      const st = String(o.orderStatus || o.status || 'pending').toLowerCase();
+      if (['delivered', 'completed'].includes(st)) {
+        deliveredCount += 1;
+      } else if (!['cancelled', 'refunded', 'failed'].includes(st)) {
+        activeCount += 1;
+      }
+    });
+    return {
+      total: orders.length,
+      active: activeCount,
+      delivered: deliveredCount,
+    };
+  }, [orders]);
   
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -601,57 +652,6 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
     showToast(`Successfully added ${addedCount} item(s) from this order back to your cart!`, "success");
   };
 
-  const filteredOrders = useMemo(() => {
-    const queryStr = orderSearch.trim().toLowerCase();
-    return orders.filter((o: any) => {
-      const rawStatus = String(o.orderStatus || o.status || 'pending').toLowerCase();
-      if (orderFilter === 'processing') {
-        const isProcessing = [
-          'pending',
-          'received',
-          'awaiting_whatsapp_confirmation',
-          'whatsapp_pending',
-          'paid_upi_pending_verify',
-          'confirmed',
-          'packed',
-          'shipped',
-          'dispatched',
-          'out_for_delivery',
-        ].includes(rawStatus);
-        if (!isProcessing) return false;
-      } else if (orderFilter === 'delivered') {
-        if (!['delivered', 'completed'].includes(rawStatus)) return false;
-      } else if (orderFilter === 'cancelled') {
-        if (!['cancelled', 'refunded', 'failed'].includes(rawStatus)) return false;
-      }
-
-      if (!queryStr) return true;
-      const orderIdText = String(o.orderId || o.id || '').toLowerCase();
-      const statusText = rawStatus.replace(/_/g, ' ');
-      const phoneText = String(o.shippingDetails?.phone || o.customerPhone || '').toLowerCase();
-      const itemMatch = Array.isArray(o.items) && o.items.some((it: any) => String(it?.name || '').toLowerCase().includes(queryStr));
-      return orderIdText.includes(queryStr) || statusText.includes(queryStr) || phoneText.includes(queryStr) || itemMatch;
-    });
-  }, [orders, orderFilter, orderSearch]);
-
-  const orderSummaryMetrics = useMemo(() => {
-    let activeCount = 0;
-    let deliveredCount = 0;
-    orders.forEach((o: any) => {
-      const st = String(o.orderStatus || o.status || 'pending').toLowerCase();
-      if (['delivered', 'completed'].includes(st)) {
-        deliveredCount += 1;
-      } else if (!['cancelled', 'refunded', 'failed'].includes(st)) {
-        activeCount += 1;
-      }
-    });
-    return {
-      total: orders.length,
-      active: activeCount,
-      delivered: deliveredCount,
-    };
-  }, [orders]);
-
   const getStatusBadge = (statusStr: string) => {
     const status = (statusStr || 'pending').toLowerCase();
     
@@ -794,7 +794,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
             className="w-full flex items-center justify-between px-3 py-2.5 text-pink-700 bg-pink-50/70 hover:bg-pink-100/80 border border-pink-200/70 rounded-lg transition-colors font-semibold"
           >
             <span className="flex items-center gap-2.5 text-xs">
-              <InstagramIcon size={15} className="text-pink-600 shrink-0" />
+              <InstagramIcon className="w-4 h-4 text-pink-600 shrink-0" />
               <span>Instagram Support</span>
             </span>
             <ChevronRight className="w-3.5 h-3.5 opacity-60" />
@@ -1315,7 +1315,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                                     className="px-3 py-1.5 bg-pink-50 hover:bg-pink-100 text-pink-800 border border-pink-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
                                     title="Instagram Customer Support"
                                   >
-                                    <InstagramIcon size={13} className="text-pink-600" />
+                                    <InstagramIcon className="w-3.5 h-3.5 text-pink-600 shrink-0" />
                                     Instagram Support
                                   </a>
 

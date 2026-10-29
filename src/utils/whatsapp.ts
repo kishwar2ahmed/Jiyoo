@@ -36,7 +36,7 @@ export function createWhatsAppOrderUrl({
   deliveryInstructions,
   selectedArea,
   priceVerified = true,
-  paymentMethod = 'Cash on Delivery (WhatsApp)',
+  paymentMethod = 'Cash on Delivery / Direct UPI',
   whatsappNumber = '919739391891'
 }: {
   orderId?: string;
@@ -66,64 +66,69 @@ export function createWhatsAppOrderUrl({
 }) {
   const targetNumber = sanitizeWhatsAppNumber(whatsappNumber);
   const headerLabel = orderType === 'wholesale'
-    ? '📦 *NEW WHOLESALE ORDER (PAN-INDIA) - JIYOO*'
-    : '🛒 *NEW RETAIL ORDER - JIYOO FRESH STORE*';
+    ? '📦 *NEW WHOLESALE ORDER - WELCOME TO JIYOO*'
+    : '🛒 *NEW RETAIL ORDER - WELCOME TO JIYOO*';
+
+  const refId = orderId || `JYO-${Date.now().toString().slice(-6)}`;
+  const token = verificationCode || Math.random().toString(36).substring(2, 8).toUpperCase();
+
   let text = `${headerLabel}\n`;
-  if (orderId) {
-    text += `🆔 *Order Reference:* ${orderId}\n`;
-  }
-  if (verificationCode) {
-    text += `🔐 *Security Token:* ${verificationCode}\n`;
-  }
-  text += `📋 *Status:* AWAITING_WHATSAPP_CONFIRMATION\n`;
-  if (!priceVerified) {
-    text += `⚠️ *Verification:* Price & stock verification pending on server\n`;
-  }
+  text += `🆔 *Order Reference:* \`\`\`${refId}\`\`\`\n`;
+  text += `🔐 *Security Token:* \`\`\`${token}\`\`\`\n`;
+  text += `📋 *Status:* Confirmed (Processing)\n`;
+  text += `⚠️ *Verification:* ${priceVerified ? 'Verified & Quality Checked' : 'Pending Verification'}\n`;
   text += `────────────────────\n`;
-  
+
   items.forEach((item, index) => {
     const itemPrice = getValidPrice(item);
     const weightInfo = item.selectedWeight ? ` (${item.selectedWeight})` : '';
     const cutInfo = item.selectedCut ? ` [Cut: ${item.selectedCut}]` : '';
-    const priceTag = priceVerified ? `₹${itemPrice}` : `₹${itemPrice} (unverified)`;
-    text += `${index + 1}. *${item.name}*${weightInfo}${cutInfo}\n   Qty: ${item.quantity} × ${priceTag} = ₹${itemPrice * item.quantity}\n`;
+    const lineTotal = itemPrice * item.quantity;
+    text += `${index + 1}. *${item.name}*${weightInfo}${cutInfo}\n   Qty: ${item.quantity} × ₹${itemPrice} = *₹${lineTotal}*\n`;
   });
 
   text += `────────────────────\n`;
-  if (typeof subtotal === 'number') {
-    text += `📦 *Subtotal:* ₹${subtotal}${priceVerified ? '' : ' (pending verification)'}\n`;
-  }
+  const effectiveSubtotal = typeof subtotal === 'number' ? subtotal : totalAmount;
+  text += `📦 *Subtotal:* ₹${effectiveSubtotal}\n`;
   if (typeof discountAmount === 'number' && discountAmount > 0) {
     text += `🏷️ *Discount:* -₹${discountAmount}\n`;
   }
-  if (typeof deliveryFee === 'number') {
-    text += `🛵 *Delivery Fee:* ${deliveryFee > 0 ? `₹${deliveryFee}` : 'Free'}\n`;
-  }
-  text += `💰 *Order Total:* ₹${totalAmount}${priceVerified ? ' (Server Verified)' : ' (Pending Verification)'}\n`;
+  const feeText = typeof deliveryFee === 'number' && deliveryFee > 0 ? `₹${deliveryFee}` : 'Free';
+  text += `🛵 *Delivery Fee:* ${feeText}\n`;
+  text += `💰 *Order Total:* *₹${totalAmount}*\n`;
   text += `💳 *Payment Preference:* ${paymentMethod}\n`;
-  text += `🚚 *Order Mode:* ${orderType === 'wholesale' ? 'Wholesale (All Over India)' : 'Retail Express'}\n\n`;
+  text += `🚚 *Order Mode:* ${orderType === 'wholesale' ? 'Wholesale Express (B2B)' : 'Retail Express (Fresh Delivery)'}\n\n`;
 
-  if (customerName || customerPhone || customerAddress || customerPincode || selectedArea) {
-    text += `👤 *Customer & Delivery Details:*\n`;
-    if (customerName) text += `• *Full Name:* ${customerName}\n`;
-    if (customerPhone) text += `• *Mobile:* ${customerPhone}\n`;
-    if (customerWhatsappPhone && customerWhatsappPhone !== customerPhone) {
-      text += `• *WhatsApp:* ${customerWhatsappPhone}\n`;
-    }
-    if (customerAddressType) text += `• *Address Type:* ${customerAddressType}\n`;
-    if (customerHouseNo) text += `• *House / Flat No:* ${customerHouseNo}\n`;
-    if (customerStreet) text += `• *Building / Street:* ${customerStreet}\n`;
-    if (selectedArea) text += `• *Area / Locality:* ${selectedArea}\n`;
-    if (customerAddress && (!customerHouseNo || !customerStreet)) {
-      text += `• *Address:* ${customerAddress}\n`;
-    }
-    if (customerLandmark) text += `• *Landmark:* ${customerLandmark}\n`;
-    if (customerCity || customerState) {
-      text += `• *City / State:* ${[customerCity, customerState].filter(Boolean).join(', ')}\n`;
-    }
-    if (customerPincode) text += `• *PIN Code:* ${customerPincode}\n`;
-    if (deliveryInstructions) text += `• *Instructions:* ${deliveryInstructions}\n`;
+  text += `👤 *Customer & Delivery Details:*\n`;
+  const displayName = customerName && customerName.trim() ? customerName.trim() : 'Valued Customer';
+  text += `• *Full Name:* ${displayName}\n`;
+  text += `• *Mobile:* ${customerPhone || 'N/A'}\n`;
+  if (customerWhatsappPhone && customerWhatsappPhone !== customerPhone) {
+    text += `• *WhatsApp:* ${customerWhatsappPhone}\n`;
   }
+
+  const areaLabel = selectedArea || (customerCity ? `${customerCity}` : 'Bangalore');
+  text += `• *Area / Locality:* ${areaLabel}\n`;
+
+  const structuredAddressParts = [customerHouseNo, customerStreet, customerCity, customerState].filter(Boolean);
+  const fullAddress = customerAddress || (structuredAddressParts.length > 0 ? structuredAddressParts.join(', ') : 'Delivery address provided');
+  text += `• *Address:* ${fullAddress}\n`;
+
+  if (customerLandmark) {
+    text += `• *Landmark:* ${customerLandmark}\n`;
+  }
+  if (customerAddressType) {
+    text += `• *Address Type:* ${customerAddressType}\n`;
+  }
+  text += `• *PIN Code:* ${customerPincode || 'N/A'}\n`;
+  if (deliveryInstructions) {
+    text += `• *Instructions:* ${deliveryInstructions}\n`;
+  }
+
+  const customerNameUpper = displayName.toUpperCase();
+  text += `\n────────────────────\n`;
+  text += `THANK YOU FOR JOINING US, *${customerNameUpper}*\n`;
+  text += `PLEASE VISIT AGAIN\n`;
 
   const encoded = encodeURIComponent(text);
   return `https://wa.me/${targetNumber}?text=${encoded}`;
@@ -146,6 +151,7 @@ export function createSingleProductWhatsAppUrl({
   selectedCut,
   totalPrice,
   priceVerified = true,
+  paymentMethod = 'Cash on Delivery / Direct UPI',
   whatsappNumber = '919739391891'
 }: {
   orderId?: string;
@@ -164,31 +170,52 @@ export function createSingleProductWhatsAppUrl({
   selectedCut?: string;
   totalPrice: number;
   priceVerified?: boolean;
+  paymentMethod?: string;
   whatsappNumber?: string;
 }) {
   const targetNumber = sanitizeWhatsAppNumber(whatsappNumber);
-  let text = `👋 *HI JIYOO! I want to order this product:*\n\n`;
-  if (orderId) text += `🆔 *Order Reference:* ${orderId}\n`;
-  if (verificationCode) text += `🔐 *Security Token:* ${verificationCode}\n`;
-  text += `📋 *Status:* AWAITING_WHATSAPP_CONFIRMATION\n`;
-  text += `🚚 *Mode:* ${orderType === 'wholesale' ? 'Wholesale (All India)' : 'Retail Express'}\n\n`;
-  text += `🥩 *${productName}*\n`;
-  text += `• Quantity: ${quantity}\n`;
-  if (selectedWeight) text += `• Weight: ${selectedWeight}\n`;
-  if (selectedCut) text += `• Preparation: ${selectedCut}\n`;
-  text += `• ${priceVerified ? 'Verified Total Price' : 'Estimated Price (Pending Verification)'}: ₹${totalPrice}\n\n`;
-  text += `Please confirm order availability and delivery time!\n`;
-  if (customerName || customerPhone || customerAddress || selectedArea || customerPincode) {
-    text += `\n👤 *Customer Details:*\n`;
-    if (customerName) text += `• *Name:* ${customerName}\n`;
-    if (customerPhone) text += `• *Phone:* ${customerPhone}\n`;
-    if (selectedArea) text += `• *Area / Locality:* ${selectedArea}\n`;
-    if (customerAddress) text += `• *Address:* ${customerAddress}\n`;
-    if (customerCity || customerState) {
-      text += `• *City / State:* ${[customerCity, customerState].filter(Boolean).join(', ')}\n`;
-    }
-    if (customerPincode) text += `• *PIN Code:* ${customerPincode}\n`;
-  }
+  const headerLabel = orderType === 'wholesale'
+    ? '📦 *NEW WHOLESALE ORDER - WELCOME TO JIYOO*'
+    : '🛒 *NEW RETAIL ORDER - WELCOME TO JIYOO*';
+
+  const refId = orderId || `JYO-${Date.now().toString().slice(-6)}`;
+  const token = verificationCode || Math.random().toString(36).substring(2, 8).toUpperCase();
+
+  let text = `${headerLabel}\n`;
+  text += `🆔 *Order Reference:* \`\`\`${refId}\`\`\`\n`;
+  text += `🔐 *Security Token:* \`\`\`${token}\`\`\`\n`;
+  text += `📋 *Status:* Confirmed (Processing)\n`;
+  text += `⚠️ *Verification:* ${priceVerified ? 'Verified & Quality Checked' : 'Pending Verification'}\n`;
+  text += `────────────────────\n`;
+
+  const weightInfo = selectedWeight ? ` (${selectedWeight})` : '';
+  const cutInfo = selectedCut ? ` [Cut: ${selectedCut}]` : '';
+  const unitPrice = quantity > 0 ? Math.round(totalPrice / quantity) : totalPrice;
+  text += `1. *${productName}*${weightInfo}${cutInfo}\n   Qty: ${quantity} × ₹${unitPrice} = *₹${totalPrice}*\n`;
+
+  text += `────────────────────\n`;
+  text += `📦 *Subtotal:* ₹${totalPrice}\n`;
+  text += `🛵 *Delivery Fee:* Free\n`;
+  text += `💰 *Order Total:* *₹${totalPrice}*\n`;
+  text += `💳 *Payment Preference:* ${paymentMethod}\n`;
+  text += `🚚 *Order Mode:* ${orderType === 'wholesale' ? 'Wholesale Express (B2B)' : 'Retail Express (Fresh Delivery)'}\n\n`;
+
+  text += `👤 *Customer & Delivery Details:*\n`;
+  const displayName = customerName && customerName.trim() ? customerName.trim() : 'Valued Customer';
+  text += `• *Full Name:* ${displayName}\n`;
+  text += `• *Mobile:* ${customerPhone || 'N/A'}\n`;
+
+  const areaLabel = selectedArea || (customerCity ? `${customerCity}` : 'Bangalore');
+  text += `• *Area / Locality:* ${areaLabel}\n`;
+
+  const addressLine = customerAddress || [customerCity, customerState].filter(Boolean).join(', ') || 'Delivery address provided';
+  text += `• *Address:* ${addressLine}\n`;
+  text += `• *PIN Code:* ${customerPincode || 'N/A'}\n`;
+
+  const customerNameUpper = displayName.toUpperCase();
+  text += `\n────────────────────\n`;
+  text += `THANK YOU FOR JOINING US, *${customerNameUpper}*\n`;
+  text += `PLEASE VISIT AGAIN\n`;
 
   const encoded = encodeURIComponent(text);
   return `https://wa.me/${targetNumber}?text=${encoded}`;

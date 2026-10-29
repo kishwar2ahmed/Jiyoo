@@ -45,8 +45,10 @@ export function Navbar({
   const [dropdownFocused, setDropdownFocused] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const desktopSearchInputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const modalSearchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchContainerMobileRef = useRef<HTMLDivElement>(null);
 
   const { categoriesList: navCategories } = useStorefrontCategories();
   const { currentProducts } = useStorefrontProducts();
@@ -66,13 +68,13 @@ export function Navbar({
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close inline dropdown when clicking outside
+  // Close inline dropdown when clicking outside either desktop or mobile search
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        searchContainerRef.current &&
-        !searchContainerRef.current.contains(e.target as Node)
-      ) {
+      const target = e.target as Node;
+      const clickedDesktop = searchContainerRef.current?.contains(target);
+      const clickedMobile = searchContainerMobileRef.current?.contains(target);
+      if (!clickedDesktop && !clickedMobile) {
         setDropdownFocused(false);
       }
     };
@@ -230,24 +232,155 @@ export function Navbar({
     }
   };
 
+  const renderSearchDropdownContent = () => (
+    <>
+      {searchQuery.trim() ? (
+        <div className="flex flex-col max-h-[60dvh] sm:max-h-[440px]">
+          <div className="px-4 py-2.5 bg-[#FAF9F5] border-b border-[#E7E3DA] flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#57534E]">
+              {liveSearchResults.length} Matching Product{liveSearchResults.length === 1 ? "" : "s"}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchOpen(true);
+                setDropdownFocused(false);
+              }}
+              className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 cursor-pointer"
+            >
+              Full View ↗
+            </button>
+          </div>
+
+          {liveSearchResults.length === 0 ? (
+            <div className="p-5 text-center space-y-3">
+              <p className="text-sm font-medium text-[#1C1917]">
+                No products found for &ldquo;{searchQuery}&rdquo;
+              </p>
+              <p className="text-xs text-[#78716C]">
+                Try a popular search below:
+              </p>
+              <div className="flex flex-wrap justify-center gap-1.5 pt-1">
+                {TRENDING_SEARCHES.slice(0, 6).map((term) => (
+                  <button
+                    key={term}
+                    type="button"
+                    onClick={() => handleRealTimeSearchChange(term)}
+                    className="px-2.5 py-1 rounded-md bg-[#F4F1EA] hover:bg-[#1C1917] hover:text-white text-xs text-[#1C1917] transition-colors cursor-pointer"
+                  >
+                    {term}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-y-auto divide-y divide-[#F4F1EA]">
+                {liveSearchResults.slice(0, 6).map((product) => {
+                  const displayPrice =
+                    product.weights?.[0]?.price ?? product.price;
+                  const displayUnit =
+                    product.weights?.[0]?.label ?? product.unit;
+                  return (
+                    <div
+                      key={product.id}
+                      onClick={() => handleSelectProductFromSearch(product)}
+                      className="flex items-center gap-3 p-3 hover:bg-[#FAF9F5] transition-colors cursor-pointer group"
+                    >
+                      <img
+                        src={getOptimizedImageUrl(product.image, 120, 80)}
+                        alt={product.name}
+                        className="w-12 h-12 rounded-xl object-cover bg-[#F4F1EA] border border-[#E7E3DA] shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs sm:text-sm font-semibold text-[#1C1917] truncate group-hover:text-emerald-800 transition-colors">
+                          {product.name}
+                        </p>
+                        <p className="text-[11px] text-[#78716C] flex items-center gap-2 mt-0.5">
+                          <span className="font-bold text-[#1C1917]">
+                            ₹{displayPrice}
+                          </span>
+                          {displayUnit && <span>• {displayUnit}</span>}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => handleQuickAddFromSearch(e, product)}
+                        className="px-2.5 py-1.5 rounded-lg bg-[#1C1917] hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" /> Add
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => executeSearchAction()}
+                className="w-full py-2.5 px-4 bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <span>
+                  View All {liveSearchResults.length} Results in Store
+                </span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C] flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-amber-600" /> Popular Searches
+            </span>
+            <button
+              type="button"
+              onClick={() => setDropdownFocused(false)}
+              className="text-[11px] text-[#78716C] hover:text-[#1C1917]"
+            >
+              Close
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {TRENDING_SEARCHES.map((term) => (
+              <button
+                key={term}
+                type="button"
+                onClick={() => {
+                  handleRealTimeSearchChange(term);
+                }}
+                className="px-2.5 py-1.5 rounded-lg bg-[#FAF9F5] hover:bg-[#1C1917] hover:text-white border border-[#E7E3DA] text-xs font-medium text-[#1C1917] transition-colors cursor-pointer"
+              >
+                {term}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <>
       <header
         className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
           scrolled || mobileMenuOpen
-            ? "bg-[#FAF9F5]/95 backdrop-blur-md border-b border-[#E7E3DA] pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 shadow-2xs"
-            : "bg-[#FAF9F5]/85 backdrop-blur-xs pt-[calc(1rem+env(safe-area-inset-top))] pb-4"
+            ? "bg-[#FAF9F5]/95 backdrop-blur-md border-b border-[#E7E3DA] pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2.5 sm:pb-3 shadow-2xs"
+            : "bg-[#FAF9F5]/90 backdrop-blur-sm pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 sm:pb-4"
         }`}
       >
         {scrolled && (
           <motion.div
             aria-hidden="true"
             style={{ scaleX }}
-            className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#1C1917]/75 origin-left pointer-events-none"
+            className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#00D2FF] via-[#0EA5E9] to-[#0284C7] shadow-[0_0_10px_rgba(14,165,233,0.85)] origin-left pointer-events-none"
           />
         )}
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12">
-          <div className="flex items-center justify-between gap-2 sm:gap-4 lg:gap-6">
+        <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-12">
+          {/* ========================================================= */}
+          {/* DESKTOP HEADER (≥ lg): Balanced 3-Zone Architecture      */}
+          {/* ========================================================= */}
+          <div className="hidden lg:flex items-center justify-between gap-4 lg:gap-6">
             {/* Zone 1: Brand Wordmark & Logo */}
             <div
               className="cursor-pointer flex items-center gap-2 sm:gap-3 min-w-0 shrink-0"
@@ -263,15 +396,15 @@ export function Navbar({
               <img
                 src="/jiyoo.logo.jpeg"
                 alt={settings.storeName || "JIYOO"}
-                className="h-8 sm:h-9 md:h-10 w-auto object-contain rounded-xl shrink-0"
+                className="h-9 md:h-10 w-auto object-contain rounded-xl shrink-0"
               />
-              <span className="font-serif-luxury text-base sm:text-xl md:text-2xl font-semibold tracking-wider text-brand-black block leading-tight truncate max-w-[140px] sm:max-w-none">
+              <span className="font-serif-luxury text-xl md:text-2xl font-semibold tracking-wider text-brand-black block leading-tight truncate">
                 {settings.storeName || "JIYOO"}
               </span>
             </div>
 
-            {/* Zone 2: Desktop Navigation */}
-            <nav className="hidden xl:flex items-center gap-4 2xl:gap-5">
+            {/* Zone 2: Desktop Navigation Categories & Wholesale */}
+            <nav className="flex items-center gap-3.5 xl:gap-5">
               {navCategories.map((cat) => (
                 <button
                   key={cat.id}
@@ -319,12 +452,11 @@ export function Navbar({
               </button>
             </nav>
 
-            {/* Zone 3: Real-Time Search Bar + Clickable Search Button + Actions */}
-            <div className="flex items-center gap-1.5 sm:gap-2.5 md:gap-3 flex-1 sm:flex-initial justify-end min-w-0">
-              {/* Interactive Search Bar with Clickable Search Submit Button & Live Dropdown */}
+            {/* Zone 3: Desktop Real-Time Search Bar + Actions */}
+            <div className="flex items-center gap-2.5 md:gap-3 shrink-0">
               <div
                 ref={searchContainerRef}
-                className="relative flex-1 max-w-[190px] sm:max-w-[260px] md:max-w-[300px] lg:w-[290px]"
+                className="relative w-[240px] xl:w-[290px]"
               >
                 <form
                   onSubmit={executeSearchAction}
@@ -389,7 +521,7 @@ export function Navbar({
                   )}
                 </form>
 
-                {/* Live Instant Search Dropdown */}
+                {/* Desktop Search Dropdown */}
                 <AnimatePresence>
                   {dropdownFocused && (
                     <motion.div
@@ -397,156 +529,15 @@ export function Navbar({
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 6, scale: 0.98 }}
                       transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                      className="fixed sm:absolute left-3 right-3 sm:left-auto sm:right-0 top-[calc(3.75rem+env(safe-area-inset-top))] sm:top-full mt-2 sm:w-[400px] md:w-[440px] bg-white rounded-2xl shadow-[0_24px_60px_-12px_rgba(28,25,23,0.28)] border border-[#E7E3DA] overflow-hidden z-50"
+                      className="absolute right-0 top-full mt-2 w-[400px] md:w-[440px] bg-white rounded-2xl shadow-[0_24px_60px_-12px_rgba(28,25,23,0.28)] border border-[#E7E3DA] overflow-hidden z-50"
                     >
-                      {searchQuery.trim() ? (
-                        <div className="flex flex-col max-h-[70dvh] sm:max-h-[440px]">
-                          <div className="px-4 py-2.5 bg-[#FAF9F5] border-b border-[#E7E3DA] flex items-center justify-between">
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#57534E]">
-                              {liveSearchResults.length} Matching Product{liveSearchResults.length === 1 ? "" : "s"}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSearchOpen(true);
-                                setDropdownFocused(false);
-                              }}
-                              className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 cursor-pointer"
-                            >
-                              Full View ↗
-                            </button>
-                          </div>
-
-                          {liveSearchResults.length === 0 ? (
-                            <div className="p-6 text-center space-y-3">
-                              <p className="text-sm font-medium text-[#1C1917]">
-                                No products found for &ldquo;{searchQuery}&rdquo;
-                              </p>
-                              <p className="text-xs text-[#78716C]">
-                                Try a popular search below:
-                              </p>
-                              <div className="flex flex-wrap justify-center gap-1.5 pt-1">
-                                {TRENDING_SEARCHES.slice(0, 6).map((term) => (
-                                  <button
-                                    key={term}
-                                    type="button"
-                                    onClick={() => handleRealTimeSearchChange(term)}
-                                    className="px-2.5 py-1 rounded-md bg-[#F4F1EA] hover:bg-[#1C1917] hover:text-white text-xs text-[#1C1917] transition-colors cursor-pointer"
-                                  >
-                                    {term}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="overflow-y-auto divide-y divide-[#F4F1EA]">
-                                {liveSearchResults.slice(0, 6).map((product) => {
-                                  const displayPrice =
-                                    product.weights?.[0]?.price ?? product.price;
-                                  const displayUnit =
-                                    product.weights?.[0]?.label ?? product.unit;
-                                  return (
-                                    <div
-                                      key={product.id}
-                                      onClick={() => handleSelectProductFromSearch(product)}
-                                      className="flex items-center gap-3 p-3 hover:bg-[#FAF9F5] transition-colors cursor-pointer group"
-                                    >
-                                      <img
-                                        src={getOptimizedImageUrl(product.image, 120, 80)}
-                                        alt={product.name}
-                                        className="w-12 h-12 rounded-xl object-cover bg-[#F4F1EA] border border-[#E7E3DA] shrink-0"
-                                      />
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-xs sm:text-sm font-semibold text-[#1C1917] truncate group-hover:text-emerald-800 transition-colors">
-                                          {product.name}
-                                        </p>
-                                        <p className="text-[11px] text-[#78716C] flex items-center gap-2 mt-0.5">
-                                          <span className="font-bold text-[#1C1917]">
-                                            ₹{displayPrice}
-                                          </span>
-                                          {displayUnit && <span>• {displayUnit}</span>}
-                                        </p>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => handleQuickAddFromSearch(e, product)}
-                                        className="px-2.5 py-1.5 rounded-lg bg-[#1C1917] hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
-                                      >
-                                        <Plus className="w-3 h-3" /> Add
-                                      </button>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => executeSearchAction()}
-                                className="w-full py-3 px-4 bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                              >
-                                <span>
-                                  View All {liveSearchResults.length} Results in Store
-                                </span>
-                                <ArrowRight className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="p-4 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C] flex items-center gap-1.5">
-                              <Sparkles className="w-3 h-3 text-amber-600" /> Popular Searches
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setDropdownFocused(false)}
-                              className="text-[11px] text-[#78716C] hover:text-[#1C1917]"
-                            >
-                              Close
-                            </button>
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {TRENDING_SEARCHES.map((term) => (
-                              <button
-                                key={term}
-                                type="button"
-                                onClick={() => {
-                                  handleRealTimeSearchChange(term);
-                                }}
-                                className="px-2.5 py-1.5 rounded-lg bg-[#FAF9F5] hover:bg-[#1C1917] hover:text-white border border-[#E7E3DA] text-xs font-medium text-[#1C1917] transition-colors cursor-pointer"
-                              >
-                                {term}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      {renderSearchDropdownContent()}
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
 
-              {/* Mobile/Tablet Quick Wholesale Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  if (activePage === "wholesale") {
-                    onRetailClick?.();
-                  } else {
-                    onWholesaleClick?.();
-                  }
-                }}
-                className={`xl:hidden px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                  activePage === "wholesale"
-                    ? "bg-emerald-800 text-white"
-                    : "bg-[#1C1917] text-[#FAF9F5]"
-                }`}
-              >
-                {activePage === "wholesale" ? "Retail" : "Wholesale"}
-              </button>
-
+              {/* User Account Button */}
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
@@ -575,6 +566,7 @@ export function Navbar({
                 )}
               </button>
 
+              {/* Cart Button */}
               <button
                 id="cart-icon-button"
                 onClick={() => {
@@ -601,21 +593,211 @@ export function Navbar({
                   </motion.span>
                 )}
               </button>
+            </div>
+          </div>
 
-              {/* Mobile / Tablet Menu Button */}
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen((prev) => !prev)}
-                className="xl:hidden p-1.5 text-brand-gray-900 hover:text-brand-black transition-colors cursor-pointer shrink-0"
-                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-                aria-expanded={mobileMenuOpen}
+          {/* ========================================================= */}
+          {/* MOBILE HEADER (< lg): Two-Row Layout, Zero Collision      */}
+          {/* Row 1: Menu + Wholesale | Centered Logo | Account + Cart  */}
+          {/* Row 2: Full-Width Search Bar with Live Suggestions Dropdown */}
+          {/* ========================================================= */}
+          <div className="flex flex-col gap-2 lg:hidden">
+            {/* Row 1: Navigation Actions & Uncrowded Brand Logo */}
+            <div className="flex items-center justify-between gap-1.5 w-full">
+              {/* Left Group: Menu Toggle & Compact Wholesale Button */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen((prev) => !prev)}
+                  className="p-2 -ml-1 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors cursor-pointer shrink-0"
+                  aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+                  aria-expanded={mobileMenuOpen}
+                >
+                  {mobileMenuOpen ? (
+                    <X className="w-5 h-5" strokeWidth={2} />
+                  ) : (
+                    <Menu className="w-5 h-5" strokeWidth={2} />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (activePage === "wholesale") {
+                      onRetailClick?.();
+                    } else {
+                      onWholesaleClick?.();
+                    }
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap shrink-0 border ${
+                    activePage === "wholesale"
+                      ? "bg-emerald-800 text-white border-emerald-800"
+                      : "bg-[#1C1917] text-[#FAF9F5] border-[#1C1917] hover:bg-[#292524]"
+                  }`}
+                >
+                  {activePage === "wholesale" ? "Retail" : "Wholesale"}
+                </button>
+              </div>
+
+              {/* Center: Brand Logo & Wordmark (Properly Centered, Never Overlapped) */}
+              <div
+                className="cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2 min-w-0 flex-1 px-1"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (activePage === "wholesale") {
+                    onRetailClick?.();
+                  } else {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }
+                }}
               >
-                {mobileMenuOpen ? (
-                  <X className="w-5 h-5" strokeWidth={1.75} />
+                <img
+                  src="/jiyoo.logo.jpeg"
+                  alt={settings.storeName || "JIYOO"}
+                  className="h-7 sm:h-8 w-auto object-contain rounded-lg shrink-0"
+                />
+                <span className="font-serif-luxury text-base sm:text-lg font-bold tracking-wider text-brand-black block leading-tight truncate">
+                  {settings.storeName || "JIYOO"}
+                </span>
+              </div>
+
+              {/* Right Group: User Account & Cart Buttons */}
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onUserClick();
+                  }}
+                  className="p-1.5 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors flex items-center cursor-pointer shrink-0"
+                  aria-label="Account"
+                >
+                  {user ? (
+                    user.picture ? (
+                      <img
+                        src={user.picture}
+                        alt={user.name || user.displayName || "User"}
+                        className="w-6 h-6 rounded-full border border-stone-300"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-stone-200 border border-stone-300 flex items-center justify-center text-[10px] font-bold text-stone-900">
+                        {(user.name || user.displayName || user.email || "M")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </div>
+                    )
+                  ) : (
+                    <User className="w-5 h-5" strokeWidth={1.75} />
+                  )}
+                </button>
+
+                <button
+                  id="cart-icon-button-mobile"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onCartClick();
+                  }}
+                  className="p-1.5 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors relative cursor-pointer shrink-0"
+                  aria-label="Cart"
+                >
+                  <motion.div
+                    key={cartCount}
+                    animate={cartCount > 0 ? { scale: [1, 1.25, 1] } : {}}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                  >
+                    <ShoppingBag className="w-5 h-5" strokeWidth={1.75} />
+                  </motion.div>
+                  {cartCount > 0 && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-0.5 -right-0.5 bg-brand-black text-brand-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center tabular-nums"
+                    >
+                      {cartCount}
+                    </motion.span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Row 2: Full-Width Search Input with Attached Live Dropdown */}
+            <div
+              ref={searchContainerMobileRef}
+              className="relative w-full"
+            >
+              <form
+                onSubmit={executeSearchAction}
+                role="search"
+                className="relative flex items-center w-full"
+              >
+                <button
+                  type="submit"
+                  aria-label="Search products"
+                  title="Search products"
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-900 transition-colors cursor-pointer z-10"
+                >
+                  <Search className="w-4 h-4" strokeWidth={2} />
+                </button>
+
+                <input
+                  ref={mobileSearchInputRef}
+                  type="search"
+                  value={searchQuery}
+                  onFocus={() => setDropdownFocused(true)}
+                  onChange={(e) => handleRealTimeSearchChange(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Search fruits, vegetables, meats..."
+                  aria-label="Search products by name in real-time"
+                  className="w-full pl-9 pr-16 py-2 text-xs sm:text-[13px] bg-white text-stone-900 placeholder:text-stone-500 rounded-xl border border-stone-300/80 focus:border-stone-900 focus:ring-2 focus:ring-stone-900/10 focus:outline-none transition-all shadow-2xs"
+                />
+
+                {searchQuery ? (
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        mobileSearchInputRef.current?.focus();
+                      }}
+                      aria-label="Clear search query"
+                      className="p-1 text-stone-500 hover:text-stone-900 transition-colors cursor-pointer rounded-md"
+                    >
+                      <X className="w-3.5 h-3.5" strokeWidth={2} />
+                    </button>
+                    <button
+                      type="submit"
+                      aria-label="Go to search results"
+                      className="px-2.5 py-1 bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors cursor-pointer"
+                    >
+                      Go
+                    </button>
+                  </div>
                 ) : (
-                  <Menu className="w-5 h-5" strokeWidth={1.75} />
+                  <button
+                    type="submit"
+                    aria-label="Search catalog"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 text-[10px] font-semibold rounded-md transition-colors cursor-pointer border border-stone-200"
+                  >
+                    Search
+                  </button>
                 )}
-              </button>
+              </form>
+
+              {/* Mobile Live Search Dropdown */}
+              <AnimatePresence>
+                {dropdownFocused && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6, scale: 0.99 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 4, scale: 0.99 }}
+                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute left-0 right-0 top-full mt-1.5 w-full bg-white rounded-2xl shadow-[0_20px_50px_-10px_rgba(28,25,23,0.25)] border border-[#E7E3DA] overflow-hidden z-50"
+                  >
+                    {renderSearchDropdownContent()}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
@@ -628,7 +810,7 @@ export function Navbar({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="xl:hidden border-t border-[#E7E3DA] bg-[#FAF9F5] px-4 sm:px-6 pt-4 pb-5 mt-3 shadow-lg"
+              className="lg:hidden border-t border-[#E7E3DA] bg-[#FAF9F5] px-4 sm:px-6 pt-4 pb-5 mt-3 shadow-lg"
             >
               <div className="flex flex-col gap-1">
                 {navCategories.map((cat) => (

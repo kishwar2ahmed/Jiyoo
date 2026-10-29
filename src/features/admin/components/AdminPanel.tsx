@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CreditCard, X, Lock, LayoutDashboard, Package, ShoppingCart, Users, Tags, Settings, BarChart, Tag, Star, Truck, Megaphone, ShieldAlert, MapPin } from 'lucide-react';
+import { CreditCard, X, Lock, LayoutDashboard, Package, ShoppingCart, Users, Tags, Settings, BarChart, Tag, Star, Truck, Megaphone, ShieldAlert, MapPin, Images } from 'lucide-react';
 import { useCart } from '../../../contexts/CartContext';
 
 import { lazy, Suspense } from 'react';
@@ -13,6 +13,7 @@ import { UsersTab } from './UsersTab';
 import { CategoriesTab } from './CategoriesTab';
 import { SettingsTab } from './SettingsTab';
 
+const BannersTab = lazy(() => import('./BannersTab').then(m => ({ default: m.BannersTab })));
 const AnalyticsTab = lazy(() => import('./AnalyticsTab').then(m => ({ default: m.AnalyticsTab })));
 const PromotionsTab = lazy(() => import('./PromotionsTab').then(m => ({ default: m.PromotionsTab })));
 const ReviewsTab = lazy(() => import('./ReviewsTab').then(m => ({ default: m.ReviewsTab })));
@@ -21,7 +22,7 @@ const DeliveryManagementTab = lazy(() => import('./DeliveryManagementTab').then(
 const MarketingTab = lazy(() => import('./MarketingTab').then(m => ({ default: m.MarketingTab })));
 const AuditLogTab = lazy(() => import('./AuditLogTab').then(m => ({ default: m.AuditLogTab })));
 
-type Tab = 'dashboard' | 'products' | 'orders' | 'payments' | 'users' | 'categories' | 'analytics' | 'promotions' | 'reviews' | 'messages' | 'shipping' | 'delivery' | 'marketing' | 'audit' | 'settings';
+type Tab = 'dashboard' | 'banners' | 'products' | 'orders' | 'payments' | 'users' | 'categories' | 'analytics' | 'promotions' | 'reviews' | 'messages' | 'shipping' | 'delivery' | 'marketing' | 'audit' | 'settings';
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -59,6 +60,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'banners', label: 'Hero Banners', icon: Images },
     { id: 'products', label: 'Products', icon: Package },
     { id: 'orders', label: 'Orders', icon: ShoppingCart },
     { id: 'payments', label: 'Razorpay & Payments', icon: CreditCard },
@@ -156,6 +158,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
             >
               <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div></div>}>
                 {activeTab === 'dashboard' && <DashboardTab />}
+                {activeTab === 'banners' && <BannersTab />}
                 {activeTab === 'products' && <ProductsTab />}
                 {activeTab === 'orders' && <OrdersTab />}
                 {activeTab === 'payments' && <PaymentsTab />}

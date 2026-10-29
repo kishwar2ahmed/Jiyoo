@@ -11,6 +11,7 @@ import { useSettings } from '../../../contexts/SettingsContext';
 import { sanitizeWhatsAppNumber } from '../../../utils/whatsapp';
 import { WhatsAppIcon } from '../../core/components/SocialIcons';
 import { FssaiLogo } from '../../core/components/FssaiLogo';
+import { HeroSlideshow } from './HeroSlideshow';
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -102,13 +103,13 @@ export function Hero({
         </svg>
       </motion.div>
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 pt-7 sm:pt-11 lg:pt-14 pb-9 sm:pb-13 lg:pb-16">
+      <div className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 pt-3 pb-3.5 sm:pt-8 sm:pb-10 lg:pt-14 lg:pb-16">
         <motion.div
           style={{ opacity: heroOpacity }}
-          className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 lg:gap-10 items-center"
         >
           {/* Editorial Typography, Original FSSAI Mark & Conversion Actions */}
-          <div className="lg:col-span-10 xl:col-span-9 flex flex-col justify-between">
+          <div className="lg:col-span-6 xl:col-span-6 flex flex-col justify-between">
             <div>
               {/* Unboxed Editorial Eyebrow with Original Full-Color FSSAI Logo */}
               <motion.div
@@ -116,15 +117,15 @@ export function Hero({
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, ease: EASE_OUT_EXPO }}
-                className="mb-4 sm:mb-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] sm:text-xs text-[#57534E] font-sans-clean"
+                className="mb-2 sm:mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] sm:text-xs text-[#57534E] font-sans-clean"
               >
-                <span className="font-semibold tracking-[0.14em] uppercase text-[#1C1917]">
+                <span className="font-semibold tracking-[0.12em] sm:tracking-[0.14em] uppercase text-[#1C1917]">
                   {settings.storeName || 'JIYOO Premium Products'}
                 </span>
                 <span aria-hidden="true" className="text-[#C7C0B5]">·</span>
-                <span className="inline-flex items-center gap-2 text-[#1C1917] font-medium">
-                  <FssaiLogo className="h-5 sm:h-5.5 w-auto" variant="original" />
-                  <span className="font-mono text-[10.5px] sm:text-[11px] text-[#57534E] tracking-wider tabular-nums">
+                <span className="inline-flex items-center gap-1.5 sm:gap-2 text-[#1C1917] font-medium">
+                  <FssaiLogo className="h-4 sm:h-5.5 w-auto" variant="original" />
+                  <span className="font-mono text-[9.5px] sm:text-[11px] text-[#57534E] tracking-wider tabular-nums">
                     Lic. 21226112000732
                   </span>
                 </span>
@@ -139,7 +140,7 @@ export function Hero({
                   {HEADLINE_LINE_1.map((word, index) => (
                     <span
                       key={word}
-                      className="inline-block overflow-hidden py-1 -my-1 px-0.5 -mx-0.5"
+                      className="inline-block overflow-hidden py-0.5 -my-0.5 sm:py-1 sm:-my-1 px-0.5 -mx-0.5"
                     >
                       <motion.span
                         initial={{
@@ -161,11 +162,11 @@ export function Hero({
                   ))}
                 </span>
 
-                <span className="relative inline-flex flex-wrap gap-x-[0.25em] pt-0.5 pb-2">
+                <span className="relative inline-flex flex-wrap gap-x-[0.25em] pt-0.5 pb-1 sm:pb-2">
                   {HEADLINE_LINE_2.map((word, index) => (
                     <span
                       key={word}
-                      className="inline-block overflow-hidden py-1.5 -my-1.5 px-1 -mx-1"
+                      className="inline-block overflow-hidden py-1 -my-1 sm:py-1.5 sm:-my-1.5 px-0.5 -mx-0.5 sm:px-1 sm:-mx-1"
                     >
                       <motion.span
                         initial={{
@@ -204,18 +205,18 @@ export function Hero({
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.68, delay: 0.38, ease: EASE_OUT_EXPO }}
-                className="mt-4 sm:mt-5 text-sm sm:text-base text-[#44403C] font-sans-clean font-normal leading-[1.68] max-w-[58ch] text-left"
+                className="mt-1.5 sm:mt-4 text-xs sm:text-base text-[#44403C] font-sans-clean font-normal leading-[1.4] sm:leading-[1.68] max-w-[58ch] text-left line-clamp-1 sm:line-clamp-none"
               >
                 Fresh imported fruits, farm-fresh daily vegetables, and clean custom-cut meats made just how you like.
               </motion.p>
 
-              {/* Primary & Secondary Conversion Actions */}
+              {/* Primary & Secondary Conversion Actions (Side-by-side on mobile) */}
               <motion.div
                 style={{ y: ctaY }}
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.68, delay: 0.46, ease: EASE_OUT_EXPO }}
-                className="mt-6 sm:mt-7 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-3.5"
+                className="mt-3 sm:mt-7 flex flex-row items-center gap-2 sm:gap-3.5"
               >
                 <motion.button
                   type="button"
@@ -223,12 +224,12 @@ export function Hero({
                   whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.01 }}
                   whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
                   transition={{ duration: 0.16, ease: EASE_OUT_EXPO }}
-                  className="group relative overflow-hidden inline-flex items-center justify-center gap-3 px-6 py-3.5 text-xs font-semibold tracking-[0.11em] uppercase text-[#FAF9F5] bg-[#1C1917] hover:bg-[#292524] rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C1917]"
+                  className="group relative overflow-hidden inline-flex items-center justify-center gap-1.5 sm:gap-3 px-3.5 py-2 sm:px-6 sm:py-3.5 text-[11px] sm:text-xs font-semibold tracking-[0.06em] sm:tracking-[0.11em] uppercase text-[#FAF9F5] bg-[#1C1917] hover:bg-[#292524] rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C1917]"
                 >
                   <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/12 to-transparent transition-transform duration-500 ease-out group-hover:translate-x-full" />
-                  <span className="relative z-10">Shop Fresh Catalog</span>
+                  <span className="relative z-10">Shop Catalog</span>
                   <ArrowRight
-                    className="relative z-10 w-3.5 h-3.5 transition-transform duration-200 ease-out group-hover:translate-x-1"
+                    className="relative z-10 w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform duration-200 ease-out group-hover:translate-x-1"
                     strokeWidth={1.75}
                   />
                 </motion.button>
@@ -240,13 +241,18 @@ export function Hero({
                   whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.01 }}
                   whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
                   transition={{ duration: 0.16, ease: EASE_OUT_EXPO }}
-                  className="inline-flex items-center justify-center gap-2.5 px-5 py-3.5 text-xs font-semibold tracking-[0.06em] uppercase text-[#1C1917] bg-white hover:bg-[#F4F1EA] border border-[#D6D0C4] rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0"
+                  className="inline-flex items-center justify-center gap-1.5 sm:gap-2.5 px-3 py-2 sm:px-5 sm:py-3.5 text-[11px] sm:text-xs font-semibold tracking-[0.04em] sm:tracking-[0.06em] uppercase text-[#1C1917] bg-white hover:bg-[#F4F1EA] border border-[#D6D0C4] rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0"
                 >
-                  <WhatsAppIcon className="w-5 h-5 shrink-0" />
-                  <span>Order on WhatsApp</span>
+                  <WhatsAppIcon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                  <span>WhatsApp</span>
                 </motion.a>
               </motion.div>
             </div>
+          </div>
+
+          {/* Right Column / Mobile Sequential: Hero Banner Slideshow */}
+          <div className="lg:col-span-6 xl:col-span-6 w-full pt-1 lg:pt-0">
+            <HeroSlideshow />
           </div>
         </motion.div>
       </div>

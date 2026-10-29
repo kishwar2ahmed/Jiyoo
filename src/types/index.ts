@@ -1,3 +1,19 @@
+export interface BannerSlide {
+  id: string;
+  image: string;
+  alt: string;
+  badge: string;
+  title: string;
+  subtitle: string;
+  isActive: boolean;
+  order: number;
+  linkUrl?: string;
+  isFeatured?: boolean;
+  highlightTone?: 'amber' | 'emerald' | 'none';
+  durationMs?: number;
+  hideCaption?: boolean;
+}
+
 export interface WeightOption {
   weight?: string;
   label?: string;

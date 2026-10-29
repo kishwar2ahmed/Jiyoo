@@ -118,14 +118,14 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
               </p>
             </motion.div>
 
-            {/* Animated Progress Bar */}
-            <div className="w-full max-w-[200px] mb-3">
-              <div className="h-1 w-full bg-[#E7E3DA] rounded-full overflow-hidden">
+            {/* Animated Progress Bar (Signature JIYOO Glowing Blue Morpho Butterfly) */}
+            <div className="w-full max-w-[220px] mb-3.5">
+              <div className="h-1.5 w-full bg-[#0EA5E9]/15 rounded-full overflow-hidden shadow-inner">
                 <motion.div
-                  className="h-full bg-[#1C1917] rounded-full"
+                  className="h-full bg-gradient-to-r from-[#00D2FF] via-[#0EA5E9] to-[#0284C7] rounded-full shadow-[0_0_12px_rgba(14,165,233,0.95),0_0_5px_rgba(56,189,248,1)]"
                   initial={{ width: "0%" }}
                   animate={{ width: "100%" }}
-                  transition={{ duration: 3, ease: "easeInOut" }}
+                  transition={{ duration: 1.8, ease: "easeInOut" }}
                 />
               </div>
             </div>

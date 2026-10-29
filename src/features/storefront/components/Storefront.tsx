@@ -91,26 +91,54 @@ export function Storefront() {
     return true;
   }, [categoriesList]);
 
+  const categoryHistoryRef = useRef<string[]>([]);
+
   const handleCategoryChange = useCallback((categoryId: string) => {
     if (categoryId === activeCategoryIdRef.current) return;
     if (!applyCategoryState(categoryId)) return; // frozen or no longer exists -- ignore the request
-    // Record this so the back button steps to the previously viewed
-    // category instead of leaving the app straight away.
+
+    // Record category history for the Back navigation stack
+    if (activeCategoryIdRef.current && activeCategoryIdRef.current !== categoryId) {
+      categoryHistoryRef.current.push(activeCategoryIdRef.current);
+      sessionStorage.setItem('jiyoo_can_step_back_cat', 'true');
+    }
+
+    // Record this so browser history knows of the category change
     window.history.pushState({ jiyooCategory: categoryId }, "", window.location.href);
   }, [applyCategoryState]);
 
-  // Back button support: step back to the previously viewed category.
+  // Back button support: step back to the previously viewed category before exit prompt
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
       const state = e.state as { jiyooCategory?: string } | null;
       if (state?.jiyooCategory && state.jiyooCategory !== activeCategoryIdRef.current) {
         applyCategoryState(state.jiyooCategory);
       }
-      // No jiyooCategory in the popped state -- that's the app's base view.
-      // App.tsx's own popstate listener handles the "leave the app?" prompt.
     };
+
+    const handleStepBackCategory = () => {
+      if (categoryHistoryRef.current.length > 0) {
+        const prev = categoryHistoryRef.current.pop();
+        if (prev) {
+          applyCategoryState(prev);
+        }
+        if (categoryHistoryRef.current.length === 0 || prev === defaultCategories[0].id) {
+          sessionStorage.setItem('jiyoo_can_step_back_cat', 'false');
+        }
+      } else if (activeCategoryIdRef.current !== defaultCategories[0].id) {
+        applyCategoryState(defaultCategories[0].id);
+        sessionStorage.setItem('jiyoo_can_step_back_cat', 'false');
+      } else {
+        sessionStorage.setItem('jiyoo_can_step_back_cat', 'false');
+      }
+    };
+
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener('step-back-category', handleStepBackCategory);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('step-back-category', handleStepBackCategory);
+    };
   }, [applyCategoryState]);
 
   const handleSubcategoryChange = useCallback((subcategoryId: string) => {
@@ -140,29 +168,33 @@ export function Storefront() {
     [categoriesList]
   );
 
-  const displayedProducts = useMemo(() => {
-    const trimmedQuery = searchQuery.trim();
-    if (trimmedQuery) {
-      const searchable = currentProducts.filter(p => !frozenCategoryIds.has(p.categoryId));
-      return searchCatalogProducts(searchable, trimmedQuery);
-    }
+  const trimmedQuery = searchQuery.trim();
+  const firstSubcatId = activeCategory?.items?.[0]?.id ?? null;
+  const isDefaultFirstSubcat =
+    firstSubcatId !== null && activeSubcategoryId === firstSubcatId;
 
-    const isDefaultFirstSubcat =
-      activeCategory?.items && activeCategory.items.length > 0 && activeSubcategoryId === activeCategory.items[0].id;
-
-    return currentProducts.filter(p => {
-      if (p.categoryId !== activeCategoryId) return false;
-      if (activeSubcategoryId) {
-        if (p.subcategoryId) {
-          if (p.subcategoryId !== activeSubcategoryId) return false;
-        } else if (!isDefaultFirstSubcat) {
-          return false;
+  const displayedProducts = trimmedQuery
+    ? searchCatalogProducts(
+        currentProducts.filter((p) => !frozenCategoryIds.has(p.categoryId)),
+        trimmedQuery
+      )
+    : currentProducts.filter((p) => {
+        if (p.categoryId !== activeCategoryId) return false;
+        if (activeSubcategoryId) {
+          if (p.subcategoryId) {
+            if (p.subcategoryId !== activeSubcategoryId) return false;
+          } else if (!isDefaultFirstSubcat) {
+            return false;
+          }
         }
-      }
-      if (activeSubSubcategoryId && p.subSubcategoryId && p.subSubcategoryId !== activeSubSubcategoryId) return false;
-      return true;
-    });
-  }, [activeCategoryId, activeSubcategoryId, activeSubSubcategoryId, searchQuery, currentProducts, frozenCategoryIds, activeCategory]);
+        if (
+          activeSubSubcategoryId &&
+          p.subSubcategoryId &&
+          p.subSubcategoryId !== activeSubSubcategoryId
+        )
+          return false;
+        return true;
+      });
 
   useEffect(() => {
     const handleSelectCategory = (e: CustomEvent<string | { categoryId: string }>) => {
@@ -223,9 +255,9 @@ export function Storefront() {
   }, [categoriesList, currentProducts]);
 
   return (
-    <div id="products" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
+    <div id="products" className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-8 relative">
       {!searchQuery && (
-        <div className="flex flex-col gap-6 sm:gap-8 mb-10 sm:mb-12 relative z-10">
+        <div className="flex flex-col gap-4 sm:gap-8 mb-6 sm:mb-12 relative z-10">
           {/* Main Categories - Editorial Image Cards with Scroll-Triggered Choreography & Uncropped Mobile Labels */}
           <div className="grid grid-cols-5 gap-1.5 sm:gap-6 md:gap-8 w-full pb-4 sm:pb-6 pt-2 items-start">
             {categoriesList.map((category, index) => {

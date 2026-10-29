@@ -931,13 +931,13 @@ export function CartModal({
     saveUserAddressLocally(formattedFullAddress, cleanPin, name);
 
     setIsProcessing(true);
-    let serverOrderId: string | null = null;
+    let serverOrderId: string | null;
     let verificationCode: string | undefined;
     let verifiedSubtotal = cartTotal;
     let verifiedDiscount = discountAmount;
     let verifiedDeliveryFee = effectiveDeliveryFee;
     let verifiedGrandTotal = grandTotal;
-    let isServerPriceVerified = false;
+    let isServerPriceVerified: boolean;
 
     try {
       const token = await getAuthToken().catch(() => null);
@@ -1041,14 +1041,12 @@ export function CartModal({
         totalAmount: verifiedGrandTotal,
         customerName: name.trim(),
         customerPhone: phone.trim(),
-        customerWhatsApp: whatsappPhone.trim() || phone.trim(),
-        houseNo: houseNo.trim(),
-        street: street.trim(),
-        area: area.trim(),
-        city: city.trim(),
-        state: state.trim(),
-        landmark: landmark.trim() || undefined,
-        addressType,
+        customerHouseNo: houseNo.trim(),
+        customerStreet: street.trim(),
+        customerCity: city.trim(),
+        customerState: state.trim(),
+        customerLandmark: landmark.trim() || undefined,
+        customerAddressType: addressType,
         deliveryInstructions: deliveryInstructions.trim() || undefined,
         selectedArea: selectedRetailArea || area.trim() || undefined,
         customerAddress: formattedFullAddress,

@@ -192,13 +192,10 @@ export const ProductCard = React.memo(function ProductCard({
           decoding="async"
           onError={(e) => {
             const target = e.target as HTMLImageElement;
-            if (target.dataset.failed) return;
-
             const rawFallbackSequence = [
               product.image,
-              '', 
+              ...(product.images || []),
               settings?.logoUrl || "/logo.jpg",
-              "/logo.jpg",
             ].filter(Boolean) as string[];
 
             const fallbackSequence = Array.from(new Set(rawFallbackSequence));

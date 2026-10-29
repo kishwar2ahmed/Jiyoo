@@ -19,9 +19,9 @@
 
 .editorial-hero-headline {
   font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
-  font-size: clamp(2.05rem, 5.2vw, 4.25rem);
-  line-height: 1.15;
-  letter-spacing: -0.024em;
+  font-size: clamp(1.25rem, 4.2vw, 4.25rem);
+  line-height: 1.18;
+  letter-spacing: -0.02em;
   font-feature-settings: "kern" 1, "liga" 1, "dlig" 1;
   font-kerning: normal;
   text-wrap: balance;

@@ -540,6 +540,7 @@ async function reserveInventory(
   await db.runTransaction(async (tx) => {
     const productEntries: Array<{ ref: FirebaseFirestore.DocumentReference; stock: number; reserved: number; qty: number }> = [];
     for (const [id, qty] of quantities) {
+      const ref = db.collection('products').doc(id);
       const snap = await tx.get(ref);
       let data = snap.data() as any;
       if (!snap.exists) {
@@ -1126,7 +1127,7 @@ function normalizePincode(raw: unknown): string {
 async function getRetailPincode(pincode: string): Promise<DeliveryPincodeRecord | null> {
   const clean = normalizePincode(pincode);
   if (!/^\d{6}$/.test(clean)) return null;
-  const defaultEntry = DEFAULT_RETAIL_PINCODES.find((p) => p.pincode === clean) || null;
+  const defaultEntry = DEFAULT_RETAIL_PINCODES[clean] || null;
   try {
     const snap = await getFirestore().collection('deliveryPincodes').doc(clean).get();
     if (snap.exists) {
@@ -1794,7 +1795,7 @@ app.use(compression() as unknown as express.RequestHandler);
   app.get('/api/admin/delivery/pincodes', requireAuth, requireAdmin, async (req, res) => {
     try {
       const mergedMap = new Map<string, any>();
-      DEFAULT_RETAIL_PINCODES.forEach((item) => {
+      Object.values(DEFAULT_RETAIL_PINCODES).forEach((item) => {
         mergedMap.set(item.pincode, { ...item });
       });
       try {
@@ -1919,7 +1920,7 @@ app.use(compression() as unknown as express.RequestHandler);
       }
       const ref = getFirestore().collection('deliveryPincodes').doc(pincode);
       const existing = await ref.get();
-      const defaultPin = DEFAULT_RETAIL_PINCODES.find((d) => d.pincode === pincode);
+      const defaultPin = DEFAULT_RETAIL_PINCODES[pincode];
       if (!existing.exists && !defaultPin) {
         return res.status(404).json({ success: false, error: `PIN code ${pincode} does not exist.` });
       }
@@ -1964,7 +1965,7 @@ app.use(compression() as unknown as express.RequestHandler);
       const now = new Date().toISOString();
       const batch = db.batch();
       let added = 0;
-      for (const item of DEFAULT_RETAIL_PINCODES) {
+      for (const item of Object.values(DEFAULT_RETAIL_PINCODES)) {
         added++;
         batch.set(db.collection('deliveryPincodes').doc(item.pincode), {
           pincode: item.pincode,
@@ -1988,7 +1989,7 @@ app.use(compression() as unknown as express.RequestHandler);
   app.get('/api/delivery/active-areas', apiLimiter, async (req, res) => {
     try {
       const mergedMap = new Map<string, any>();
-      DEFAULT_RETAIL_PINCODES.forEach((item) => {
+      Object.values(DEFAULT_RETAIL_PINCODES).forEach((item) => {
         mergedMap.set(item.pincode, { ...item });
       });
       try {
