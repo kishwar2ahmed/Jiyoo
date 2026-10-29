@@ -206,9 +206,8 @@ export function Footer() {
 
                 {/* Brand Philosophy */}
                 <p className="text-stone-600 font-sans-clean font-light leading-relaxed text-sm max-w-md">
-                  Direct coastal seafood, farm-fresh poultry, and artisanal meat cuts
-                  prepared daily with RO-purified water and cold-chain delivered to your
-                  kitchen across Bengaluru.
+                  Fresh fish, chicken, and mutton cleaned daily with pure RO water and
+                  delivered cold and fresh to your home across Bengaluru.
                 </p>
 
                 {/* Minimalist Authentic Direct Communication Channels */}
