@@ -168,33 +168,50 @@ export function Storefront() {
     [categoriesList]
   );
 
+  const [searchScope, setSearchScope] = useState<'all' | 'category'>('all');
+
   const trimmedQuery = searchQuery.trim();
   const firstSubcatId = activeCategory?.items?.[0]?.id ?? null;
   const isDefaultFirstSubcat =
     firstSubcatId !== null && activeSubcategoryId === firstSubcatId;
 
-  const displayedProducts = trimmedQuery
-    ? searchCatalogProducts(
-        currentProducts.filter((p) => !frozenCategoryIds.has(p.categoryId)),
-        trimmedQuery
-      )
-    : currentProducts.filter((p) => {
-        if (p.categoryId !== activeCategoryId) return false;
-        if (activeSubcategoryId) {
-          if (p.subcategoryId) {
-            if (p.subcategoryId !== activeSubcategoryId) return false;
-          } else if (!isDefaultFirstSubcat) {
-            return false;
-          }
-        }
-        if (
-          activeSubSubcategoryId &&
-          p.subSubcategoryId &&
-          p.subSubcategoryId !== activeSubSubcategoryId
-        )
+  const displayedProducts = useMemo(() => {
+    if (trimmedQuery) {
+      const basePool = currentProducts.filter(
+        (p) =>
+          !frozenCategoryIds.has(p.categoryId) &&
+          (searchScope === 'all' || p.categoryId === activeCategoryId)
+      );
+      return searchCatalogProducts(basePool, trimmedQuery);
+    }
+
+    return currentProducts.filter((p) => {
+      if (p.categoryId !== activeCategoryId) return false;
+      if (activeSubcategoryId) {
+        if (p.subcategoryId) {
+          if (p.subcategoryId !== activeSubcategoryId) return false;
+        } else if (!isDefaultFirstSubcat) {
           return false;
-        return true;
-      });
+        }
+      }
+      if (
+        activeSubSubcategoryId &&
+        p.subSubcategoryId &&
+        p.subSubcategoryId !== activeSubSubcategoryId
+      )
+        return false;
+      return true;
+    });
+  }, [
+    trimmedQuery,
+    currentProducts,
+    frozenCategoryIds,
+    searchScope,
+    activeCategoryId,
+    activeSubcategoryId,
+    isDefaultFirstSubcat,
+    activeSubSubcategoryId,
+  ]);
 
   useEffect(() => {
     const handleSelectCategory = (e: CustomEvent<string | { categoryId: string }>) => {
@@ -216,28 +233,28 @@ export function Storefront() {
       window.removeEventListener('select-category' as any, handleSelectCategory);
       window.removeEventListener('select-product' as any, handleSelectProduct);
     };
-  }, [categoriesList, handleProductClick]);
+  }, [categoriesList, handleProductClick, handleCategoryChange]);
 
   const categoryThumbnails = useMemo(() => {
     const map = new Map<string, { type: 'real-composite' | 'products', urls: string[] }>();
     
     const customPremiumImages: Record<string, string[]> = {
       'fruits': [
-        'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1200&q=80&auto=format&fit=crop'
+        'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=360&q=78&auto=format&fit=crop'
       ],
       'vegetables': [
-        'https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?w=1200&q=80&auto=format&fit=crop'
+        'https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?w=360&q=78&auto=format&fit=crop'
       ],
       'meat': [
-        'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=1200&q=80&auto=format&fit=crop'
+        'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=360&q=78&auto=format&fit=crop'
       ],
       // User-provided Smoothies artwork; use the supplied file unchanged.
       'smoothies': [
         '/category-icons/smoothies.jpg'
       ],
-      // User-provided Fast Foods artwork; use the supplied file unchanged.
+      // Optimized WebP version of Fast Foods artwork.
       'fast-foods': [
-        '/category-icons/fast-foods.png'
+        '/category-icons/fast-foods.webp'
       ]
     };
 
@@ -256,147 +273,174 @@ export function Storefront() {
 
   return (
     <div id="products" className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-1.5 sm:pt-8 pb-6 sm:pb-12 relative">
-      {!searchQuery && (
-        <div className="flex flex-col gap-2 sm:gap-8 mb-3.5 sm:mb-12 relative z-10">
-          {/* Main Categories - Editorial Image Cards with Scroll-Triggered Choreography & Uncropped Mobile Labels */}
-          <div className="grid grid-cols-5 gap-1.5 sm:gap-6 md:gap-8 w-full pb-1.5 sm:pb-6 pt-1 sm:pt-2 items-start">
-            {categoriesList.map((category, index) => {
-              const isActive = activeCategoryId === category.id;
-              const thumbData = categoryThumbnails.get(category.id);
-              
-              return (
-                <motion.button
-                  key={category.id}
-                  initial={{ opacity: 0, y: 24, scale: 0.96 }}
-                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                  viewport={{ once: true, amount: 0.25 }}
-                  transition={{ duration: 0.55, delay: index * 0.065, ease: [0.16, 1, 0.3, 1] }}
-                  whileHover={{ y: -4 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => handleCategoryChange(category.id)}
-                  className="group relative flex min-w-0 w-full flex-col items-center outline-none gap-1 sm:gap-3.5 cursor-pointer pb-1.5 sm:pb-2.5"
+      <div className="flex flex-col gap-2 sm:gap-6 mb-3 sm:mb-10 relative z-10">
+        {/* Main Categories - Editorial Image Cards with Scroll-Triggered Choreography & Uncropped Mobile Labels */}
+        <div className="grid grid-cols-5 gap-1.5 sm:gap-6 md:gap-8 w-full pb-1 sm:pb-4 pt-1 sm:pt-2 items-start">
+          {categoriesList.map((category, index) => {
+            const isActive = activeCategoryId === category.id;
+            const thumbData = categoryThumbnails.get(category.id);
+            
+            return (
+              <motion.button
+                key={category.id}
+                initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.35, delay: index * 0.03, ease: [0.16, 1, 0.3, 1] }}
+                whileHover={{ y: -4 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => handleCategoryChange(category.id)}
+                className="group relative flex min-w-0 w-full flex-col items-center outline-none gap-1 sm:gap-3.5 cursor-pointer pb-1.5 sm:pb-2.5"
+              >
+                <div 
+                  className={`relative w-full aspect-square sm:aspect-[4/5] max-w-[54px] sm:max-w-none mx-auto rounded-xl sm:rounded-[20px] overflow-hidden bg-brand-white border border-brand-gray-100 transition-all duration-300 ease-out sm:group-hover:shadow-[0_14px_28px_-8px_rgba(0,0,0,0.14)] ${isActive ? 'shadow-[0_10px_20px_-6px_rgba(0,0,0,0.12)] ring-2 ring-brand-black/25' : 'shadow-[0_4px_12px_-4px_rgba(0,0,0,0.05)]'}`}
                 >
-                  <div 
-                    className={`relative w-full aspect-square sm:aspect-[4/5] max-w-[54px] sm:max-w-none mx-auto rounded-xl sm:rounded-[20px] overflow-hidden bg-brand-white border border-brand-gray-100 transition-all duration-300 ease-out sm:group-hover:shadow-[0_14px_28px_-8px_rgba(0,0,0,0.14)] ${isActive ? 'shadow-[0_10px_20px_-6px_rgba(0,0,0,0.12)] ring-2 ring-brand-black/25' : 'shadow-[0_4px_12px_-4px_rgba(0,0,0,0.05)]'}`}
-                  >
-                    {thumbData?.urls && thumbData.urls.length > 0 ? (
-                      <img 
-                        src={thumbData.urls[0]} 
-                        alt={category.label} 
-                        className={`w-full h-full object-cover transition-transform duration-500 ease-out sm:group-hover:scale-105 ${isActive ? 'scale-105' : 'scale-100'}`}
-                        loading="lazy"
-                      />
-                    ) : null}
-                    {(!thumbData?.urls || thumbData.urls.length === 0) && (
-                      <div className="w-full h-full flex items-center justify-center bg-brand-gray-50">
-                        <span className="text-brand-gray-300 font-serif text-2xl sm:text-4xl">{category.label.charAt(0)}</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <span 
-                    className={`font-serif text-[10px] sm:text-base leading-tight tracking-tight sm:tracking-wide text-center w-full break-words transition-colors duration-200 ${isActive ? 'text-brand-black font-semibold' : 'text-brand-gray-600 sm:group-hover:text-brand-black'}`}
-                  >
-                    {category.label}
-                  </span>
+                  {thumbData?.urls && thumbData.urls.length > 0 ? (
+                    <img 
+                      src={thumbData.urls[0]} 
+                      alt={category.label} 
+                      className={`w-full h-full object-cover transition-transform duration-500 ease-out sm:group-hover:scale-105 ${isActive ? 'scale-105' : 'scale-100'}`}
+                      loading="eager"
+                      fetchPriority="high"
+                      decoding="async"
+                    />
+                  ) : null}
+                  {(!thumbData?.urls || thumbData.urls.length === 0) && (
+                    <div className="w-full h-full flex items-center justify-center bg-brand-gray-50">
+                      <span className="text-brand-gray-300 font-serif text-2xl sm:text-4xl">{category.label.charAt(0)}</span>
+                    </div>
+                  )}
+                </div>
+                
+                <span 
+                  className={`font-serif text-[10px] sm:text-base leading-tight tracking-tight sm:tracking-wide text-center w-full break-words transition-colors duration-200 ${isActive ? 'text-brand-black font-semibold' : 'text-brand-gray-600 sm:group-hover:text-brand-black'}`}
+                >
+                  {category.label}
+                </span>
 
+                {isActive && (
+                  <motion.span
+                    layoutId="activeCategoryUnderline"
+                    className="absolute bottom-0 w-5 sm:w-10 h-[2px] bg-[#1C1917] rounded-full"
+                    transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                  />
+                )}
+              </motion.button>
+            );
+          })}
+        </div>
+
+        {/* Subcategories - Refined Underline Tabs with Scroll-Drawn Border */}
+        {!trimmedQuery && activeCategory?.items && (
+          <motion.div
+            key={`subcats-${activeCategoryId}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-wrap sm:flex-nowrap gap-x-5 gap-y-2 sm:gap-8 overflow-x-auto pb-2 scrollbar-hide border-b border-brand-gray-200"
+          >
+            {activeCategory.items.map(sub => {
+              const isActive = activeSubcategoryId === sub.id;
+              return (
+                <button
+                  key={sub.id}
+                  onClick={() => handleSubcategoryChange(sub.id)}
+                  className={`relative pb-2.5 sm:pb-4 text-xs sm:text-sm font-medium whitespace-nowrap transition-colors duration-300 cursor-pointer
+                    ${isActive ? 'text-brand-gray-900' : 'text-brand-gray-400 hover:text-brand-gray-600'}`}
+                >
+                  {sub.label}
                   {isActive && (
-                    <motion.span
-                      layoutId="activeCategoryUnderline"
-                      className="absolute bottom-0 w-5 sm:w-10 h-[2px] bg-[#1C1917] rounded-full"
-                      transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                    <motion.div layoutId="activeSubcategory"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-gray-900"
+                      transition={{ type: "spring", stiffness: 400, damping: 32 }}
                     />
                   )}
-                </motion.button>
+                </button>
               );
             })}
-          </div>
+          </motion.div>
+        )}
 
-          {/* Subcategories - Refined Underline Tabs with Scroll-Drawn Border */}
-          {activeCategory?.items && (
-            <motion.div
-              key={`subcats-${activeCategoryId}`}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-wrap sm:flex-nowrap gap-x-5 gap-y-2 sm:gap-8 overflow-x-auto pb-2 scrollbar-hide border-b border-brand-gray-200"
-            >
-              {activeCategory.items.map(sub => {
-                const isActive = activeSubcategoryId === sub.id;
-                return (
+        {/* Storefront Filter & Search Status Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
+          {!trimmedQuery ? (
+            activeSubcategory?.items ? (
+              <motion.div 
+                key={`subsubcats-${activeSubcategoryId}`}
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className="flex flex-wrap items-center gap-1.5 sm:gap-2"
+              >
+                {activeSubcategory.items.map(subsub => {
+                  const isActive = activeSubSubcategoryId === subsub.id;
+                  return (
+                    <motion.button
+                      key={subsub.id}
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => handleSubSubcategoryChange(subsub.id)}
+                      className={`px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors duration-200 cursor-pointer
+                        ${isActive 
+                          ? 'bg-brand-gray-900 text-brand-white shadow-sm' 
+                          : 'bg-brand-gray-100 text-brand-gray-500 hover:bg-brand-gray-200 hover:text-brand-gray-900'
+                        }`}
+                    >
+                      {subsub.label}
+                    </motion.button>
+                  );
+                })}
+              </motion.div>
+            ) : null
+          ) : (
+            <div className="w-full flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <div
+                  role="group"
+                  aria-label="Search Scope"
+                  className="inline-flex items-center p-0.5 rounded-lg bg-[#F5F2EB] border border-[#E6E1D6]"
+                >
                   <button
-                    key={sub.id}
-                    onClick={() => handleSubcategoryChange(sub.id)}
-                    className={`relative pb-3 sm:pb-4 text-xs sm:text-sm font-medium whitespace-nowrap transition-colors duration-300 cursor-pointer
-                      ${isActive ? 'text-brand-gray-900' : 'text-brand-gray-400 hover:text-brand-gray-600'}`}
+                    type="button"
+                    onClick={() => setSearchScope('all')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                      searchScope === 'all'
+                        ? 'bg-[#1C1917] text-[#FAF9F5] shadow-2xs'
+                        : 'text-[#57534E] hover:text-[#1C1917]'
+                    }`}
                   >
-                    {sub.label}
-                    {isActive && (
-                      <motion.div layoutId="activeSubcategory"
-                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-gray-900"
-                        transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                      />
-                    )}
+                    All Products
                   </button>
-                );
-              })}
-            </motion.div>
-          )}
-
-          {/* Sub-Subcategories - Minimalist Segmented Controls (Uncropped Wrap on Mobile) */}
-          {activeSubcategory?.items && (
-            <motion.div 
-              key={`subsubcats-${activeSubcategoryId}`}
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-wrap gap-2"
-            >
-              {activeSubcategory.items.map(subsub => {
-                const isActive = activeSubSubcategoryId === subsub.id;
-                return (
-                  <motion.button
-                    key={subsub.id}
-                    whileTap={{ scale: 0.96 }}
-                    onClick={() => handleSubSubcategoryChange(subsub.id)}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors duration-200 cursor-pointer
-                      ${isActive 
-                        ? 'bg-brand-gray-900 text-brand-white shadow-sm' 
-                        : 'bg-brand-gray-100 text-brand-gray-500 hover:bg-brand-gray-200 hover:text-brand-gray-900'
+                  {activeCategory && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchScope('category')}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                        searchScope === 'category'
+                          ? 'bg-[#1C1917] text-[#FAF9F5] shadow-2xs'
+                          : 'text-[#57534E] hover:text-[#1C1917]'
                       }`}
-                  >
-                    {subsub.label}
-                  </motion.button>
-                );
-              })}
-            </motion.div>
+                    >
+                      In {activeCategory.label}
+                    </button>
+                  )}
+                </div>
+
+                <span className="text-xs font-medium text-[#57534E] tabular-nums">
+                  Found <strong className="text-[#1C1917]">{displayedProducts.length}</strong>{' '}
+                  {displayedProducts.length === 1 ? 'product' : 'products'} for "{trimmedQuery}"
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="px-3 py-1.5 rounded-xl bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Clear Search
+              </button>
+            </div>
           )}
         </div>
-      )}
-
-      {/* Search Header */}
-      {searchQuery && (
-        <div className="mb-12 border-b border-brand-gray-200 pb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-brand-gray-100 flex items-center justify-center">
-              <Search className="w-5 h-5 text-brand-gray-600" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-serif text-brand-black">Search Results</h2>
-              <p className="text-brand-gray-500 text-sm mt-1">
-                Found {displayedProducts.length} items for "{searchQuery}"
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSearchQuery('')}
-            className="px-4 py-2 rounded-xl bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
-          >
-            Clear Search
-          </button>
-        </div>
-      )}
+      </div>
 
       {/* Resilient Catalog Sync Notice Banner */}
       {isUsingCachedCatalog && catalogError && (

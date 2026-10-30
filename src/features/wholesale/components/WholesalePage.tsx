@@ -1,10 +1,25 @@
 import React from "react";
 import { motion } from "motion/react";
-import { ArrowLeft, MessageCircle, Clock, Sparkles } from "lucide-react";
+import { ArrowLeft, MessageCircle } from "lucide-react";
 import { useSettings } from "../../../contexts/SettingsContext";
 import { sanitizeWhatsAppNumber } from "../../../utils/whatsapp";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
+const CLOCK_NUMERALS = [
+  { label: "12", x: 50, y: 19.5 },
+  { label: "1", x: 65.25, y: 23.59 },
+  { label: "2", x: 76.41, y: 34.75 },
+  { label: "3", x: 80.5, y: 50 },
+  { label: "4", x: 76.41, y: 65.25 },
+  { label: "5", x: 65.25, y: 76.41 },
+  { label: "6", x: 50, y: 80.5 },
+  { label: "7", x: 34.75, y: 76.41 },
+  { label: "8", x: 23.59, y: 65.25 },
+  { label: "9", x: 19.5, y: 50 },
+  { label: "10", x: 23.59, y: 34.75 },
+  { label: "11", x: 34.75, y: 23.59 },
+];
 
 export function WholesalePage({
   onBackToRetail,
@@ -50,16 +65,136 @@ export function WholesalePage({
           className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 bg-radial-gradient from-emerald-500/10 via-transparent to-transparent blur-2xl"
         />
 
-        {/* Minimalist Clock Icon Emblem */}
-        <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-[#FAF9F5] border border-[#E7E3DA] flex items-center justify-center text-[#1C1917] shadow-inner">
-          <Clock className="w-8 h-8 sm:w-9 sm:h-9 text-emerald-700" strokeWidth={1.5} />
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
-            className="absolute -top-1 -right-1"
+        {/* Authentic iPhone Clock Emoji / iOS Clock Squircle Emblem */}
+        <div
+          role="img"
+          aria-label="🕒 iPhone Clock"
+          className="relative w-18 h-18 sm:w-22 sm:h-22 rounded-[22px] sm:rounded-[26px] bg-gradient-to-b from-[#2C2C2E] via-[#1C1C1E] to-[#000000] p-1.5 sm:p-2 flex items-center justify-center shadow-[0_12px_28px_-6px_rgba(0,0,0,0.38),0_2px_6px_rgba(0,0,0,0.2),inset_0_1px_0.5px_rgba(255,255,255,0.22)] ring-1 ring-black/10 select-none"
+        >
+          <svg
+            viewBox="0 0 100 100"
+            className="w-full h-full overflow-visible drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]"
           >
-            <Sparkles className="w-4 h-4 text-amber-500" />
-          </motion.div>
+            <defs>
+              <radialGradient id="iosClockFace" cx="50%" cy="45%" r="55%">
+                <stop offset="0%" stopColor="#FFFFFF" />
+                <stop offset="88%" stopColor="#F9F9FB" />
+                <stop offset="100%" stopColor="#E5E5EA" />
+              </radialGradient>
+            </defs>
+
+            {/* Crisp White iPhone Clock Dial */}
+            <circle
+              cx="50"
+              cy="50"
+              r="44"
+              fill="url(#iosClockFace)"
+              stroke="#D1D1D6"
+              strokeWidth="0.6"
+            />
+
+            {/* 60 Precision Minute & Hour Ticks */}
+            {Array.from({ length: 60 }).map((_, i) => {
+              const isHour = i % 5 === 0;
+              return (
+                <line
+                  key={i}
+                  x1="50"
+                  y1={isHour ? "7.8" : "8.6"}
+                  x2="50"
+                  y2={isHour ? "11.6" : "10.6"}
+                  stroke={isHour ? "#1C1C1E" : "#8E8E93"}
+                  strokeWidth={isHour ? "1.35" : "0.65"}
+                  strokeLinecap="round"
+                  transform={`rotate(${i * 6} 50 50)`}
+                />
+              );
+            })}
+
+            {/* 12 Apple SF Pro Bold Numerals */}
+            {CLOCK_NUMERALS.map((n) => (
+              <text
+                key={n.label}
+                x={n.x}
+                y={n.y}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fill="#1C1C1E"
+                fontSize="8.8"
+                fontWeight="700"
+                style={{
+                  fontFamily:
+                    '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif',
+                }}
+              >
+                {n.label}
+              </text>
+            ))}
+
+            {/* Hour Hand (10:09 Apple Signature Position) */}
+            <g transform="rotate(-55 50 50)">
+              <line
+                x1="50"
+                y1="50"
+                x2="50"
+                y2="39"
+                stroke="#1C1C1E"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+              />
+              <rect
+                x="48.1"
+                y="24"
+                width="3.8"
+                height="17"
+                rx="1.9"
+                fill="#1C1C1E"
+              />
+            </g>
+
+            {/* Minute Hand (Pointing to 2 / 10 min) */}
+            <g transform="rotate(60 50 50)">
+              <line
+                x1="50"
+                y1="50"
+                x2="50"
+                y2="37"
+                stroke="#1C1C1E"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <rect
+                x="48.4"
+                y="14.5"
+                width="3.2"
+                height="24.5"
+                rx="1.6"
+                fill="#1C1C1E"
+              />
+            </g>
+
+            {/* Center Black Boss */}
+            <circle cx="50" cy="50" r="3.3" fill="#1C1C1E" />
+
+            {/* Sweeping iPhone Orange Second Hand (#FF9500) */}
+            <motion.g
+              style={{ originX: "50px", originY: "50px" }}
+              animate={{ rotate: 360 }}
+              transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+            >
+              <line
+                x1="50"
+                y1="59.5"
+                x2="50"
+                y2="11.5"
+                stroke="#FF9500"
+                strokeWidth="1.25"
+                strokeLinecap="round"
+              />
+              <circle cx="50" cy="50" r="2.2" fill="#FF9500" />
+              <circle cx="50" cy="50" r="0.85" fill="#FFFFFF" />
+            </motion.g>
+          </svg>
         </div>
 
         {/* Text Presentation */}

@@ -131,11 +131,13 @@ export function searchCatalogProducts(products: Product[], rawQuery: string): Pr
 
     let score = 0;
 
-    // 1. Full query matches start of product name
+    // 1. Full query matches start or substring of product name
     if (nameLower === queryLower) {
       score = 100;
     } else if (nameLower.startsWith(queryLower)) {
       score = 90;
+    } else if (nameLower.includes(queryLower)) {
+      score = 85;
     } else if (
       queryWords.every((qw) => nameWords.some((nw) => tokenExactOrPrefixMatches(nw, qw)))
     ) {

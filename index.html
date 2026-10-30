@@ -54,10 +54,12 @@
     }
     </script>
     <!-- Preconnect to image CDNs -->
-    <link rel="preconnect" href="https://images.unsplash.com" />
-    <!-- Premium Fonts -->
-    
-    <link rel="preload" as="image" href="/jiyoo.logo.jpeg" />
+    <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
+    <link rel="preconnect" href="https://upload.wikimedia.org" crossorigin />
+    <!-- Preload critical brand & hero banner assets -->
+    <link rel="preload" as="image" href="/jiyoo.logo.jpeg" fetchpriority="high" />
+    <link rel="preload" as="image" href="/banners/diwali_special_sale.webp" type="image/webp" fetchpriority="high" />
+    <link rel="preload" as="image" href="/banners/whatsapp_order_banner.webp" type="image/webp" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

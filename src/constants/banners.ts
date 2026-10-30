@@ -13,7 +13,7 @@ export const PRESET_BANNER_IMAGES: PresetBannerOption[] = [
   {
     id: 'preset-diwali-special',
     label: '✨ Special Diwali Sale (Featured Festive)',
-    url: '/banners/diwali_special_sale.png',
+    url: '/banners/diwali_special_sale.webp',
     defaultBadge: 'Festive Special',
     defaultTitle: 'Special Diwali Sale',
     defaultSubtitle: 'Exclusive Festive Offer & Fresh Gourmet Selection',
@@ -21,7 +21,7 @@ export const PRESET_BANNER_IMAGES: PresetBannerOption[] = [
   {
     id: 'preset-whatsapp-order',
     label: '💬 Order via WhatsApp (COD & Online Payments Coming Soon)',
-    url: '/banners/whatsapp_order_banner.png',
+    url: '/banners/whatsapp_order_banner.webp',
     defaultBadge: 'WhatsApp Order',
     defaultTitle: 'Order via WhatsApp',
     defaultSubtitle: 'Fresh Food, Meat, Seafood & Essentials with quick chat ordering',
@@ -29,7 +29,7 @@ export const PRESET_BANNER_IMAGES: PresetBannerOption[] = [
   {
     id: 'preset-indian-fruits',
     label: 'Indian Farm-Fresh Fruits',
-    url: '/banners/02_Indian_Fruits_Original.png',
+    url: '/banners/02_Indian_Fruits_Original.webp',
     defaultBadge: 'Farm Fresh',
     defaultTitle: 'Indian Farm-Fresh Fruits',
     defaultSubtitle: 'Sun-ripened, naturally sweet & 100% hand-selected',
@@ -37,7 +37,7 @@ export const PRESET_BANNER_IMAGES: PresetBannerOption[] = [
   {
     id: 'preset-imported-fruits',
     label: 'Imported & Exotic Fruits',
-    url: '/banners/03_Imported_Fruits_Original.png',
+    url: '/banners/03_Imported_Fruits_Original.webp',
     defaultBadge: 'Global Fresh',
     defaultTitle: 'Imported & Exotic Fruits',
     defaultSubtitle: 'Cold-chain air-shipped for crisp orchard freshness',
@@ -45,7 +45,7 @@ export const PRESET_BANNER_IMAGES: PresetBannerOption[] = [
   {
     id: 'preset-thai-veggies',
     label: 'Indian & Thai Vegetables',
-    url: '/banners/04_Indian_Thai_Vegetables_Original.png',
+    url: '/banners/04_Indian_Thai_Vegetables_Original.webp',
     defaultBadge: 'Daily Harvest',
     defaultTitle: 'Indian & Thai Vegetables',
     defaultSubtitle: 'Harvested fresh daily, crisp and ready for cooking',
@@ -61,7 +61,7 @@ export const PRESET_BANNER_IMAGES: PresetBannerOption[] = [
   {
     id: 'preset-fish-seafood',
     label: 'Fish & Coastal Seafood',
-    url: '/banners/06_Fish_And_Seafood_Original.png',
+    url: '/banners/06_Fish_And_Seafood_Original.webp',
     defaultBadge: 'Fresh Catch',
     defaultTitle: 'Coastal Fish & Seafood',
     defaultSubtitle: 'Zero preservatives, cleaned & delivered ice-fresh',
@@ -77,7 +77,7 @@ export const PRESET_BANNER_IMAGES: PresetBannerOption[] = [
   {
     id: 'preset-fresh-prep',
     label: 'Everyday Fresh Preparation',
-    url: '/banners/08_Everyday_Fresh_Preparation_Original.png',
+    url: '/banners/08_Everyday_Fresh_Preparation_Original.webp',
     defaultBadge: 'Ready to Cook',
     defaultTitle: 'Everyday Fresh Preparation',
     defaultSubtitle: 'Washed, peeled, chopped & ready for your pan',
@@ -85,7 +85,7 @@ export const PRESET_BANNER_IMAGES: PresetBannerOption[] = [
   {
     id: 'preset-grocery-basket',
     label: 'Pantry & Daily Grocery',
-    url: '/banners/09_Grocery_Basket_Original.png',
+    url: '/banners/09_Grocery_Basket_Original.webp',
     defaultBadge: 'Pantry Picks',
     defaultTitle: 'Pantry & Daily Essentials',
     defaultSubtitle: 'Top-grade kitchen staples, grains & organic pantry picks',
@@ -101,7 +101,7 @@ export const PRESET_BANNER_IMAGES: PresetBannerOption[] = [
   {
     id: 'preset-fruit-bowl-original',
     label: 'Fruit Bowl Lifestyle Original',
-    url: '/banners/10_Fruit_Bowl_Lifestyle_Original.png',
+    url: '/banners/10_Fruit_Bowl_Lifestyle_Original.webp',
     defaultBadge: 'Vitality Bowls',
     defaultTitle: 'Artisan Fruit & Wellness Bowls',
     defaultSubtitle: 'Hand-crafted daily bowls bursting with natural freshness',
@@ -111,7 +111,7 @@ export const PRESET_BANNER_IMAGES: PresetBannerOption[] = [
 export const DEFAULT_HERO_BANNERS: BannerSlide[] = [
   {
     id: 'diwali-special',
-    image: '/banners/diwali_special_sale.png',
+    image: '/banners/diwali_special_sale.webp',
     alt: 'Special Diwali Sale - Exclusive Festive Offers',
     badge: 'Festive Special',
     title: 'Special Diwali Sale',
@@ -123,7 +123,7 @@ export const DEFAULT_HERO_BANNERS: BannerSlide[] = [
   },
   {
     id: 'whatsapp-order',
-    image: '/banners/whatsapp_order_banner.png',
+    image: '/banners/whatsapp_order_banner.webp',
     alt: 'Order via WhatsApp - Fresh Food, Meat, Seafood & Essentials. COD & Online Payments Coming Soon.',
     badge: 'WhatsApp Ordering',
     title: 'Order via WhatsApp',
@@ -137,7 +137,7 @@ export const DEFAULT_HERO_BANNERS: BannerSlide[] = [
   },
   {
     id: 'indian-fruits',
-    image: '/banners/02_Indian_Fruits_Original.png',
+    image: '/banners/02_Indian_Fruits_Original.webp',
     alt: 'Fresh Indian seasonal fruits hand-picked daily',
     badge: 'Farm Fresh',
     title: 'Indian Farm-Fresh Fruits',
@@ -147,7 +147,7 @@ export const DEFAULT_HERO_BANNERS: BannerSlide[] = [
   },
   {
     id: 'imported-fruits',
-    image: '/banners/03_Imported_Fruits_Original.png',
+    image: '/banners/03_Imported_Fruits_Original.webp',
     alt: 'Imported and exotic fresh global fruits',
     badge: 'Global Fresh',
     title: 'Imported & Exotic Fruits',
@@ -157,7 +157,7 @@ export const DEFAULT_HERO_BANNERS: BannerSlide[] = [
   },
   {
     id: 'thai-veggies',
-    image: '/banners/04_Indian_Thai_Vegetables_Original.png',
+    image: '/banners/04_Indian_Thai_Vegetables_Original.webp',
     alt: 'Fresh Indian and Thai specialty culinary vegetables',
     badge: 'Daily Harvest',
     title: 'Indian & Thai Vegetables',
@@ -177,7 +177,7 @@ export const DEFAULT_HERO_BANNERS: BannerSlide[] = [
   },
   {
     id: 'fish-seafood',
-    image: '/banners/06_Fish_And_Seafood_Original.png',
+    image: '/banners/06_Fish_And_Seafood_Original.webp',
     alt: 'Fresh fish and coastal seafood catches',
     badge: 'Fresh Catch',
     title: 'Coastal Fish & Seafood',
@@ -197,7 +197,7 @@ export const DEFAULT_HERO_BANNERS: BannerSlide[] = [
   },
   {
     id: 'fresh-preparation',
-    image: '/banners/08_Everyday_Fresh_Preparation_Original.png',
+    image: '/banners/08_Everyday_Fresh_Preparation_Original.webp',
     alt: 'Everyday fresh culinary preparation and ready-to-cook items',
     badge: 'Ready to Cook',
     title: 'Everyday Fresh Preparation',
@@ -207,7 +207,7 @@ export const DEFAULT_HERO_BANNERS: BannerSlide[] = [
   },
   {
     id: 'grocery-basket',
-    image: '/banners/09_Grocery_Basket_Original.png',
+    image: '/banners/09_Grocery_Basket_Original.webp',
     alt: 'Gourmet pantry and daily grocery basket essentials',
     badge: 'Pantry Picks',
     title: 'Pantry & Daily Essentials',
@@ -227,7 +227,7 @@ export const DEFAULT_HERO_BANNERS: BannerSlide[] = [
   },
   {
     id: 'fruit-bowl-original',
-    image: '/banners/10_Fruit_Bowl_Lifestyle_Original.png',
+    image: '/banners/10_Fruit_Bowl_Lifestyle_Original.webp',
     alt: 'Artisan fruit and wellness bowl lifestyle harvest',
     badge: 'Vitality Bowls',
     title: 'Artisan Fruit & Wellness Bowls',

@@ -83,7 +83,14 @@ export const ProductCard = React.memo(function ProductCard({
   const currentUnit = selectedWeight ? selectedWeight.label : product.unit;
   const isOutOfStock = product.stock === 0 || product.stockStatus === 'out_of_stock';
 
-  const optimizedImage = getOptimizedImageUrl(product.image, 500, 80);
+  const isAboveFold = index < 8;
+  const optimizedImage = getOptimizedImageUrl(product.image, 420, 78);
+
+  React.useEffect(() => {
+    if (productImgRef.current?.complete && productImgRef.current?.naturalWidth > 0) {
+      setIsImgLoaded(true);
+    }
+  }, [optimizedImage]);
 
   const handleAddToCart = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation(); // Prevent opening the detail modal
@@ -146,15 +153,15 @@ export const ProductCard = React.memo(function ProductCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24, scale: 0.97 }}
+      initial={{ opacity: isAboveFold ? 1 : 0, y: isAboveFold ? 0 : 18, scale: isAboveFold ? 1 : 0.98 }}
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true, margin: "-10px", amount: 0.12 }}
+      viewport={{ once: true, margin: "120px", amount: 0.05 }}
       exit={{ opacity: 0, scale: 0.96 }}
       whileHover={{ y: -4, transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } }}
       whileTap={{ scale: 0.985 }}
       transition={{
-        duration: 0.55,
-        delay: (index % 4) * 0.045,
+        duration: 0.32,
+        delay: isAboveFold ? 0 : (index % 4) * 0.03,
         ease: [0.16, 1, 0.3, 1],
       }}
       onClick={() => onProductClick?.(product)}
@@ -166,18 +173,12 @@ export const ProductCard = React.memo(function ProductCard({
         initial={{ scaleX: 0, opacity: 0 }}
         whileInView={{ scaleX: 1, opacity: 1 }}
         viewport={{ once: true }}
-        transition={{ duration: 0.75, delay: 0.1 + (index % 4) * 0.065, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.55, delay: 0.05 + (index % 4) * 0.04, ease: [0.16, 1, 0.3, 1] }}
         className="pointer-events-none absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#C5A880]/70 to-transparent origin-left z-20"
       />
 
-      {/* Product Image Area (Full uncropped product view with scroll-linked lens settle) */}
-      <motion.div
-        initial={{ scale: 1.07 }}
-        whileInView={{ scale: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.78, delay: (index % 4) * 0.065, ease: [0.16, 1, 0.3, 1] }}
-        className="relative aspect-[4/3] overflow-hidden bg-white p-2 sm:p-3 flex items-center justify-center"
-      >
+      {/* Product Image Area (Full uncropped product view) */}
+      <div className="relative aspect-[4/3] overflow-hidden bg-white p-2 sm:p-3 flex items-center justify-center">
         {!isImgLoaded && (
           <div className="absolute inset-0 z-0 bg-brand-gray-100 animate-pulse" />
         )}
@@ -186,9 +187,10 @@ export const ProductCard = React.memo(function ProductCard({
           src={optimizedImage}
           alt={product.name}
           onLoad={() => setIsImgLoaded(true)}
-          className={`w-full h-full object-contain transition-all duration-500 ease-out sm:group-hover:scale-[1.06] ${isImgLoaded ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}
+          className={`w-full h-full object-contain transition-all duration-200 ease-out sm:group-hover:scale-[1.06] ${isImgLoaded ? "opacity-100 scale-100" : "opacity-0 scale-98"}`}
           referrerPolicy="no-referrer"
-          loading="lazy"
+          loading={isAboveFold ? "eager" : "lazy"}
+          fetchPriority={index < 4 ? "high" : "auto"}
           decoding="async"
           onError={(e) => {
             const target = e.target as HTMLImageElement;
@@ -251,7 +253,7 @@ export const ProductCard = React.memo(function ProductCard({
             stroke={isWishlisted ? "#DC2626" : "currentColor"}
           />
         </motion.button>
-      </motion.div>
+      </div>
 
       {/* Product Information Card (No cropped titles or badges on mobile) */}
       <div className="flex-1 flex flex-col p-3 sm:p-5">

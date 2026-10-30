@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { BannerSlide } from '../../../types';
 import { DEFAULT_HERO_BANNERS } from '../../../constants/banners';
 import { useSettings } from '../../../contexts/SettingsContext';
+import { getOptimizedBannerUrl } from '../../../utils/imageUtils';
 
 export type { BannerSlide };
 export const HERO_BANNERS = DEFAULT_HERO_BANNERS;
@@ -27,7 +28,11 @@ export function HeroSlideshow() {
       : DEFAULT_HERO_BANNERS;
     const active = raw
       .filter((b) => b.isActive !== false)
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map((b) => ({
+        ...b,
+        image: getOptimizedBannerUrl(b.image),
+      }));
     const base = active.length > 0 ? active : DEFAULT_HERO_BANNERS;
 
     // Identify featured priority banners: Diwali Festive Sale & Coming Soon WhatsApp Order
@@ -194,16 +199,37 @@ export function HeroSlideshow() {
     }
   };
 
-  // Preload upcoming slide image to guarantee instantaneous, stutter-free transitions
+  // Preload and decode upcoming slide images to guarantee instantaneous, stutter-free transitions
   useEffect(() => {
     if (slides.length <= 1) return;
-    const nextIdx = (currentIndex + 1) % slides.length;
-    const nextSlide = slides[nextIdx];
-    if (nextSlide?.image) {
-      const img = new Image();
-      img.src = nextSlide.image;
-    }
+    const indicesToPreload = [
+      (currentIndex + 1) % slides.length,
+      (currentIndex + 2) % slides.length,
+      (currentIndex + 3) % slides.length,
+    ];
+    indicesToPreload.forEach((idx) => {
+      const slide = slides[idx];
+      if (slide?.image) {
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = slide.image;
+        img.decode?.().catch(() => {});
+      }
+    });
   }, [currentIndex, slides]);
+
+  // Warm the browser cache with all remaining unique banner slides during idle time
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const uniqueUrls = Array.from(new Set(slides.map((s) => s.image).filter(Boolean)));
+      uniqueUrls.forEach((url) => {
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = url;
+      });
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [slides]);
 
   return (
     <div
@@ -237,7 +263,7 @@ export function HeroSlideshow() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{
-              duration: prefersReducedMotion ? 0.1 : 0.75,
+              duration: prefersReducedMotion ? 0.1 : 0.65,
               ease: [0.25, 0.1, 0.25, 1],
             }}
             className={`absolute inset-0 w-full h-full flex items-center justify-center will-change-[opacity] ${
@@ -247,7 +273,8 @@ export function HeroSlideshow() {
             <img
               src={currentSlide.image}
               alt={currentSlide.alt}
-              loading={currentIndex === 0 ? 'eager' : 'lazy'}
+              loading="eager"
+              fetchPriority="high"
               decoding="async"
               className={`w-full h-full pointer-events-none select-none ${
                 isWhatsAppSlide

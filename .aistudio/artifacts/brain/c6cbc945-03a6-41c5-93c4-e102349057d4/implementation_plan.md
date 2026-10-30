@@ -1,69 +1,26 @@
-# Implementation Plan: Featured Banner Integration & Luminous Highlighting
+# Architectural Dual-Shutter Wholesale Curtain Transition Plan
 
-## Overview
-Integrate the high-resolution "Special Diwali Sale" banner into the JIYOO hero banner slideshow. As confirmed via the planning clarifications:
-1. **Frequency:** The featured banner will alternate/repeat every 2 to 3 slides across the carousel sequence.
-2. **Visual Highlighting:** Rendered with a luminous amber border, subtle ambient glow, and a luxury festive accent badge.
-3. **Typography & Framing:** Minimalist title only with clean brand focus so the banner's artwork and embedded typographic crest remain pristine and unobstructed.
-4. **Admin Control:** Fully manageable within the Admin Panel (toggleable, editable, customizable order and presets).
+## 1. Visual & Architectural Design
+- **Warm Ivory Architectural Shutters**: Two full-width, 50% dynamic viewport height (`50dvh`) shutters (`Top Shutter` and `Bottom Shutter`) finished in warm ivory (`#FAF9F5` / `#F3EFE6`) with subtle architectural grain and hairline borders.
+- **Signature Butterfly-Blue Center Seam**: A crisp horizontal split line at the exact center (`top: 50%`) styled with the signature JIYOO Morpho Butterfly Blue gradient (`#00D2FF` → `#0EA5E9` → `#0284C7`) and subtle ambient luminescence that draws across the screen and splits cleanly as the curtains glide apart.
+- **Zero AI-Generated Clutter**: Pure bespoke editorial typography (`Cormorant Garamond` / `Cinzel` serif display paired with `Plus Jakarta Sans`) and clean geometric lines—no generic icons, sparkles, badges, or decorative status dots.
 
----
+## 2. Collision-Free Dual-Shutter Typography Engineering
+- **Root Cause Resolution**: Previously, placing independent text blocks inside the `50vh` Top Shutter and `50vh` Bottom Shutter without strict seam clearance caused `JIYOO PREMIUM`, the butterfly-blue horizontal line, and `WHOLESALE STORE` to overlap or clip on short screens, laptops, and mobile viewports.
+- **Top Shutter (`0` to `50dvh`)**:
+  - Uses `flex flex-col items-center justify-end overflow-hidden` with a guaranteed safe bottom clearance (`pb-5 sm:pb-7 md:pb-9`) strictly above the butterfly-blue seam.
+  - Displays the refined `JIYOO PREMIUM` editorial lockup using viewport-clamped sizing (`clamp(0.75rem, 1.8vw, 1rem)`) and wide luxury tracking so it never touches the center line.
+- **Bottom Shutter (`50dvh` to `100dvh`)**:
+  - Uses `flex flex-col items-center justify-start overflow-hidden` with a guaranteed safe top clearance (`pt-5 sm:pt-7 md:pt-9`) strictly below the butterfly-blue seam.
+  - Displays `WHOLESALE STORE` in luxury serif display typography with responsive fluid sizing (`clamp(1.35rem, 3.5vw, 2.5rem)`) and balanced line height, preventing any vertical or horizontal clipping across mobile, laptop, and desktop screens.
 
-## Proposed Changes
+## 3. Choreographed Motion Sequence (On Wholesale Tap Only)
+- **Trigger**: Activates exclusively when the customer taps the **Wholesale** switch in the header or mobile navigation to enter the Wholesale Store.
+- **Phase 1 — Seam Charge & Lockup Hold (`0ms – 420ms`)**:
+  - The Wholesale page mounts underneath while the Warm Ivory Dual Shutters hold closed with `JIYOO PREMIUM` (Top Shutter) and `WHOLESALE STORE` (Bottom Shutter) clearly separated by the glowing butterfly-blue horizontal seam.
+- **Phase 2 — Architectural Split Glide (`420ms – 1150ms`)**:
+  - The center butterfly-blue seam gracefully fades as the Top Shutter glides smoothly upward (`translateY(-100%)`) and the Bottom Shutter glides smoothly downward (`translateY(100%)`) using a custom GPU-accelerated exponential easing curve (`cubic-bezier(0.22, 1, 0.36, 1)`), seamlessly revealing the Wholesale Store beneath.
 
-### 1. Asset Placement & Optimization
-- **File:** `public/banners/diwali_special_sale.png`
-- Deploy the 2.2MB source asset (`file_000000002410821198a81a83a16d503f-1.png`) into `public/banners/diwali_special_sale.png`.
-- Ensure clean loading, caching, and fallback handling.
-
-### 2. Type Definition Updates
-- **File:** `src/types/index.ts`
-- Extend `BannerSlide` with:
-  ```typescript
-  isFeatured?: boolean;
-  highlightTone?: 'amber' | 'emerald' | 'none';
-  ```
-
-### 3. Banner Presets & Sequence Configuration
-- **File:** `src/constants/banners.ts`
-- Add `preset-diwali-special` to `PRESET_BANNER_IMAGES` with preset title *"Festive Special"* and subtitle *"Curated Festive Harvest & Daily Essentials"*.
-- In `DEFAULT_HERO_BANNERS`, interleave the featured festive banner so it repeats cyclically every 2 to 3 category slides:
-  - Slide 1: Indian Farm-Fresh Fruits
-  - Slide 2: **Diwali Special Sale (Featured Highlight)**
-  - Slide 3: Imported & Exotic Fruits
-  - Slide 4: Indian & Thai Vegetables
-  - Slide 5: **Diwali Special Sale (Featured Highlight)**
-  - Slide 6: Artisanal Fresh Meat Cuts
-  - Slide 7: Fish & Coastal Seafood
-  - Slide 8: **Diwali Special Sale (Featured Highlight)**
-  - Slide 9: Everyday Fresh Prep & Cold-Pressed Smoothies
-  - Slide 10: Pantry & Daily Essentials
-- Provide a utility to dynamically ensure the recurring sequence is maintained if the admin edits banners or toggles repeat mode.
-
-### 4. Hero Slideshow Highlighting & Polish
-- **File:** `src/features/storefront/components/HeroSlideshow.tsx`
-- **Luminous Amber Border & Glow:**
-  - When `currentSlide.isFeatured` is active, apply dynamic frame styling:
-    - Glowing amber border: `ring-2 ring-amber-400/90 shadow-[0_0_35px_-5px_rgba(245,158,11,0.45)]`
-    - Gentle ambient breathing pulse on the border/accent
-  - Accent badge: Amber glassmorphic badge with golden sparkle/flame icon and `"DIWALI SPECIAL"` or `"FESTIVE SPOTLIGHT"`.
-  - Minimalist layout: Keep caption text minimal and clean at bottom-left/bottom-right so it never masks the Diwali artwork.
-  - Golden progress bar indicator and distinctive active amber pip in the carousel dots track.
-  - Maintain mobile responsiveness: keep compact aspect ratio so products below stay immediately visible above the fold.
-
-### 5. Admin Panel Integration
-- **File:** `src/features/admin/components/BannersTab.tsx`
-- Add preset option for the Diwali Special Sale banner in the preset selector with 1-click apply.
-- Add a toggle switch in the banner editor: *"Mark as Featured Highlight (Luminous Amber Glow)"*.
-- Add an option to enable *"Repeat Featured Banner Every 2-3 Slides"* with live carousel preview.
-
----
-
-## Verification Plan
-1. **Compilation & Linting:**
-   - Run `lint_applet` and `compile_applet` to verify zero TypeScript errors or broken imports.
-2. **Visual & Behavioral Verification:**
-   - Verify slide deck transitions every 4.5s with touch swipe and hover pause.
-   - Verify the featured banner appears every 2-3 slides with the luminous amber border and glowing accent badge.
-   - Verify mobile viewport: ensure products below the hero remain comfortably visible without excessive vertical scrolling.
-   - Check Admin Banners tab: verify banner can be reordered, edited, or toggled on/off.
+## 4. Key Files to Create & Update
+- **`src/features/wholesale/components/WholesaleCurtainTransition.tsx`** *(New)*: Dedicated, self-contained dual-shutter architectural curtain component with `50dvh` top/bottom shutters, butterfly-blue center seam, and collision-proof viewport-clamped typography.
+- **`src/App.tsx`**: Wire `openWholesalePage` to trigger the `WholesaleCurtainTransition` overlay while mounting `WholesalePage` underneath for a seamless reveal, keeping `openRetailPage` instant as requested.

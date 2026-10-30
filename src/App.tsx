@@ -27,6 +27,7 @@ import { AboutModal } from "./features/core/components/AboutModal";
 import { ContactModal } from "./features/core/components/ContactModal";
 import { AdminPanel } from "./features/admin/components/AdminPanel";
 import { WholesalePage } from "./features/wholesale/components/WholesalePage";
+import { WholesaleCurtainTransition } from "./features/wholesale/components/WholesaleCurtainTransition";
 import {
   consumeProgrammaticDismissal,
   isOverlayActive,
@@ -47,14 +48,19 @@ function AppContent() {
     window.location.hash === '#wholesale' ? 'wholesale' : 'retail'
   );
   const [showSplash, setShowSplash] = useState(true);
+  const [isWholesaleCurtainActive, setIsWholesaleCurtainActive] = useState(false);
+  const [wholesaleCurtainKey, setWholesaleCurtainKey] = useState(0);
 
   const openWholesalePage = () => {
+    setWholesaleCurtainKey((prev) => prev + 1);
+    setIsWholesaleCurtainActive(true);
     setActivePage('wholesale');
     window.history.pushState({ jiyooPage: 'wholesale' }, '', '#wholesale');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   };
 
   const openRetailPage = () => {
+    setIsWholesaleCurtainActive(false);
     setActivePage('retail');
     if (window.location.hash === '#wholesale') {
       window.history.pushState({ jiyooPage: 'retail' }, '', window.location.pathname + window.location.search);
@@ -224,6 +230,11 @@ function AppContent() {
 
   return (
     <div className="bg-paper-texture min-h-[100dvh] flex flex-col text-brand-black font-sans selection:bg-brand-gray-900 selection:text-brand-white overflow-x-hidden">
+      <WholesaleCurtainTransition
+        active={isWholesaleCurtainActive}
+        transitionKey={wholesaleCurtainKey}
+        onComplete={() => setIsWholesaleCurtainActive(false)}
+      />
       <OfflineBanner />
       <Suspense fallback={<div />}>
         {isAdminOpen && <AdminPanel onClose={() => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { ShoppingBag, User, Search, X, Menu, ArrowRight, Plus, Sparkles } from "lucide-react";
+import { ShoppingBag, User, Search, X, Menu, ArrowRight, Plus } from "lucide-react";
 import { useCart } from "../contexts/CartContext";
 import { motion, AnimatePresence, useScroll, useSpring } from "motion/react";
 import { useSettings } from "../contexts/SettingsContext";
@@ -330,8 +330,8 @@ export function Navbar({
       ) : (
         <div className="p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C] flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-amber-600" /> Popular Searches
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#78716C]">
+              Popular Searches
             </span>
             <button
               type="button"
