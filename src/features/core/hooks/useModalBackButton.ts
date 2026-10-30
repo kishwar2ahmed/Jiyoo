@@ -5,6 +5,25 @@ let activeOverlayCount = 0;
 let programmaticBackCount = 0;
 let lastOverlayClosedTimestamp = 0;
 
+function syncDocumentScrollLock(): void {
+  if (typeof document === "undefined") return;
+  const html = document.documentElement;
+  const body = document.body;
+  if (!html || !body) return;
+
+  if (activeOverlayCount > 0) {
+    html.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+  } else {
+    html.style.overflow = "";
+    html.style.overscrollBehavior = "";
+    body.style.overflow = "";
+    body.style.overscrollBehavior = "";
+  }
+}
+
 export interface SectionSnapshot {
   page: "retail" | "wholesale";
   categoryId: string;
@@ -170,7 +189,7 @@ export function consumeProgrammaticDismissal(): boolean {
 /**
  * Makes the device/browser back button close an open overlay (product modal,
  * cart, account panel, etc.) one step at a time instead of navigating away
- * from the site entirely.
+ * from the site entirely, while strictly locking background page scrolling.
  */
 export function useModalBackButton(isOpen: boolean, onClose: () => void) {
   const activeRef = useRef(false);
@@ -186,6 +205,7 @@ export function useModalBackButton(isOpen: boolean, onClose: () => void) {
 
     activeOverlayCount++;
     activeRef.current = true;
+    syncDocumentScrollLock();
 
     const isIframe =
       typeof window !== "undefined" && window.self !== window.top;
@@ -202,6 +222,7 @@ export function useModalBackButton(isOpen: boolean, onClose: () => void) {
       if (!activeRef.current) return;
       activeRef.current = false;
       activeOverlayCount = Math.max(0, activeOverlayCount - 1);
+      syncDocumentScrollLock();
       lastOverlayClosedTimestamp = Date.now();
       onCloseRef.current();
     };
@@ -213,6 +234,7 @@ export function useModalBackButton(isOpen: boolean, onClose: () => void) {
       if (activeRef.current) {
         activeRef.current = false;
         activeOverlayCount = Math.max(0, activeOverlayCount - 1);
+        syncDocumentScrollLock();
         lastOverlayClosedTimestamp = Date.now();
         if (!isIframe) {
           programmaticBackCount++;

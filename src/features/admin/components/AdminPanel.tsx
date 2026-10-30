@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CreditCard, X, Lock, LayoutDashboard, Package, ShoppingCart, Users, Tags, Settings, BarChart, Tag, Star, Truck, Megaphone, ShieldAlert, MapPin, Images } from 'lucide-react';
 import { useCart } from '../../../contexts/CartContext';
+import { useModalBackButton } from '../../core/hooks/useModalBackButton';
 
 import { lazy, Suspense } from 'react';
 
@@ -25,6 +26,7 @@ const AuditLogTab = lazy(() => import('./AuditLogTab').then(m => ({ default: m.A
 type Tab = 'dashboard' | 'banners' | 'products' | 'orders' | 'payments' | 'users' | 'categories' | 'analytics' | 'promotions' | 'reviews' | 'messages' | 'shipping' | 'delivery' | 'marketing' | 'audit' | 'settings';
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
+  useModalBackButton(true, onClose);
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const { user, isAuthLoading } = useCart();
 

@@ -9,6 +9,7 @@ import { SOCIAL_LINKS } from "../features/core/components/SocialIcons";
 import { searchCatalogProducts } from "../utils/fuzzyMatch";
 import { getOptimizedImageUrl } from "../utils/imageUtils";
 import { Product } from "../types";
+import { useModalBackButton } from "../features/core/hooks/useModalBackButton";
 
 const TRENDING_SEARCHES = [
   "Mango",
@@ -44,6 +45,13 @@ export function Navbar({
   const [searchOpen, setSearchOpen] = useState(false);
   const [dropdownFocused, setDropdownFocused] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [cartPulseKey, setCartPulseKey] = useState(0);
+  const [isCartUpdating, setIsCartUpdating] = useState(false);
+  const prevCartCountRef = useRef(cartCount);
+  useModalBackButton(searchOpen || mobileMenuOpen, () => {
+    setSearchOpen(false);
+    setMobileMenuOpen(false);
+  });
   const desktopSearchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const modalSearchInputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +67,29 @@ export function Navbar({
     damping: 30,
     restDelta: 0.001,
   });
+
+  useEffect(() => {
+    const triggerCartPulse = () => {
+      setCartPulseKey((prev) => prev + 1);
+      setIsCartUpdating(true);
+    };
+
+    if (prevCartCountRef.current !== cartCount) {
+      prevCartCountRef.current = cartCount;
+      if (cartCount > 0) {
+        triggerCartPulse();
+      }
+    }
+
+    window.addEventListener("jiyoo-cart-landed", triggerCartPulse);
+    return () => window.removeEventListener("jiyoo-cart-landed", triggerCartPulse);
+  }, [cartCount]);
+
+  useEffect(() => {
+    if (!isCartUpdating) return;
+    const timer = setTimeout(() => setIsCartUpdating(false), 520);
+    return () => clearTimeout(timer);
+  }, [cartPulseKey, isCartUpdating]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -586,22 +617,68 @@ export function Navbar({
                   className="p-1.5 text-brand-gray-900 hover:text-brand-black transition-colors relative cursor-pointer shrink-0"
                   aria-label="Cart"
                 >
+                  <AnimatePresence>
+                    {isCartUpdating && (
+                      <motion.span
+                        key={`desktop-cart-halo-${cartPulseKey}`}
+                        initial={{ scale: 0.75, opacity: 0.75 }}
+                        animate={{ scale: 1.55, opacity: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
+                        className="pointer-events-none absolute inset-0 rounded-full border border-[#C5A880]"
+                      />
+                    )}
+                  </AnimatePresence>
+
                   <motion.div
-                    key={cartCount}
-                    animate={cartCount > 0 ? { scale: [1, 1.25, 1] } : {}}
-                    transition={{ duration: 0.3, ease: "easeOut" }}
+                    key={`desktop-bag-${cartPulseKey}`}
+                    animate={
+                      cartPulseKey > 0
+                        ? { scale: [1, 1.2, 0.94, 1], y: [0, -1.5, 0.5, 0] }
+                        : {}
+                    }
+                    transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
                   >
                     <ShoppingBag className="w-5 h-5" strokeWidth={1.5} />
                   </motion.div>
-                  {cartCount > 0 && (
-                    <motion.span
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute -top-0.5 -right-0.5 bg-brand-black text-brand-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center tabular-nums"
-                    >
-                      {cartCount}
-                    </motion.span>
-                  )}
+
+                  <AnimatePresence initial={false}>
+                    {cartCount > 0 && (
+                      <motion.span
+                        key="desktop-cart-badge"
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{
+                          scale: isCartUpdating ? [1, 1.22, 1] : 1,
+                          opacity: 1,
+                        }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+                        className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center overflow-hidden tabular-nums text-[10px] font-bold tracking-tight transition-colors duration-300 ${
+                          isCartUpdating
+                            ? "bg-[#1C1917] text-[#E5C99B] ring-2 ring-[#C5A880]/70 shadow-[0_2px_10px_rgba(197,168,128,0.45)]"
+                            : "bg-[#1C1917] text-[#FAF9F5] border border-[#C5A880]/60 shadow-xs"
+                        }`}
+                      >
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          <motion.span
+                            key={cartCount}
+                            initial={{ y: 10, opacity: 0, scale: 0.75 }}
+                            animate={{ y: 0, opacity: 1, scale: 1 }}
+                            exit={{ y: -10, opacity: 0, scale: 0.75 }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 540,
+                              damping: 30,
+                              mass: 0.6,
+                            }}
+                            className="inline-block leading-none"
+                          >
+                            {cartCount}
+                          </motion.span>
+                        </AnimatePresence>
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                 </button>
               )}
             </div>
@@ -731,22 +808,68 @@ export function Navbar({
                     className="p-1.5 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors relative cursor-pointer shrink-0"
                     aria-label="Cart"
                   >
+                    <AnimatePresence>
+                      {isCartUpdating && (
+                        <motion.span
+                          key={`mobile-cart-halo-${cartPulseKey}`}
+                          initial={{ scale: 0.75, opacity: 0.75 }}
+                          animate={{ scale: 1.55, opacity: 0 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
+                          className="pointer-events-none absolute inset-0 rounded-full border border-[#C5A880]"
+                        />
+                      )}
+                    </AnimatePresence>
+
                     <motion.div
-                      key={cartCount}
-                      animate={cartCount > 0 ? { scale: [1, 1.25, 1] } : {}}
-                      transition={{ duration: 0.3, ease: "easeOut" }}
+                      key={`mobile-bag-${cartPulseKey}`}
+                      animate={
+                        cartPulseKey > 0
+                          ? { scale: [1, 1.2, 0.94, 1], y: [0, -1.5, 0.5, 0] }
+                          : {}
+                      }
+                      transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
                     >
                       <ShoppingBag className="w-5 h-5" strokeWidth={1.75} />
                     </motion.div>
-                    {cartCount > 0 && (
-                      <motion.span
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="absolute -top-0.5 -right-0.5 bg-brand-black text-brand-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center tabular-nums"
-                      >
-                        {cartCount}
-                      </motion.span>
-                    )}
+
+                    <AnimatePresence initial={false}>
+                      {cartCount > 0 && (
+                        <motion.span
+                          key="mobile-cart-badge"
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{
+                            scale: isCartUpdating ? [1, 1.22, 1] : 1,
+                            opacity: 1,
+                          }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+                          className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center overflow-hidden tabular-nums text-[10px] font-bold tracking-tight transition-colors duration-300 ${
+                            isCartUpdating
+                              ? "bg-[#1C1917] text-[#E5C99B] ring-2 ring-[#C5A880]/70 shadow-[0_2px_10px_rgba(197,168,128,0.45)]"
+                              : "bg-[#1C1917] text-[#FAF9F5] border border-[#C5A880]/60 shadow-xs"
+                          }`}
+                        >
+                          <AnimatePresence mode="popLayout" initial={false}>
+                            <motion.span
+                              key={cartCount}
+                              initial={{ y: 10, opacity: 0, scale: 0.75 }}
+                              animate={{ y: 0, opacity: 1, scale: 1 }}
+                              exit={{ y: -10, opacity: 0, scale: 0.75 }}
+                              transition={{
+                                type: "spring",
+                                stiffness: 540,
+                                damping: 30,
+                                mass: 0.6,
+                              }}
+                              className="inline-block leading-none"
+                            >
+                              {cartCount}
+                            </motion.span>
+                          </AnimatePresence>
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
                   </button>
                 )}
               </div>
@@ -843,7 +966,7 @@ export function Navbar({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="lg:hidden border-t border-[#E7E3DA] bg-[#FAF9F5] px-4 sm:px-6 pt-4 pb-5 mt-3 shadow-lg"
+              className="lg:hidden border-t border-[#E7E3DA] bg-[#FAF9F5] px-4 sm:px-6 pt-4 pb-5 mt-3 shadow-lg max-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-contain"
             >
               {/* Store Mode Switch inside Drawer */}
               <div className="mb-3 p-1 rounded-xl bg-[#EAE5D9] border border-[#D6CFC2] grid grid-cols-2 gap-1">
@@ -944,7 +1067,7 @@ export function Navbar({
             initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -16 }}
-            className="fixed inset-0 z-50 bg-[#FAF9F5]/98 backdrop-blur-xl flex flex-col pt-[calc(4.5rem+env(safe-area-inset-top))] pb-8 px-4 sm:px-6 lg:px-10 overflow-y-auto"
+            className="fixed inset-0 z-50 bg-[#FAF9F5]/98 backdrop-blur-xl flex flex-col pt-[calc(4.5rem+env(safe-area-inset-top))] pb-8 px-4 sm:px-6 lg:px-10 overflow-y-auto overscroll-contain"
           >
             <div className="max-w-4xl mx-auto w-full">
               <div className="flex items-center justify-between mb-4">

@@ -7,9 +7,6 @@ import { useCart, CartProvider } from "./contexts/CartContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import { ErrorBoundary } from './features/core/components/ErrorBoundary';
 import { OfflineBanner } from './features/core/components/OfflineBanner';
-import { AnimatePresence } from "motion/react";
-
-import { ToastNotification } from './features/cart/components/ToastNotification';
 import { ToastProvider } from './features/core/contexts/ToastContext';
 import { ConfirmProvider, useConfirm } from './features/core/contexts/ConfirmContext';
 import { useFCM } from './services/useFCM';
@@ -35,7 +32,7 @@ import {
 } from "./features/core/hooks/useModalBackButton";
 
 function AppContent() {
-  const { user, addedItemToast, setAddedItemToast, searchQuery, setSearchQuery } = useCart();
+  const { user, searchQuery, setSearchQuery } = useCart();
   const confirm = useConfirm();
   useFCM();
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -112,15 +109,6 @@ function AppContent() {
     window.addEventListener('hashchange', checkHash);
     return () => window.removeEventListener('hashchange', checkHash);
   }, [user?.admin]);
-
-  useEffect(() => {
-    if (addedItemToast) {
-      const timer = setTimeout(() => {
-        setAddedItemToast(null);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [addedItemToast, setAddedItemToast]);
 
   // Hierarchical 4-Tier Back Button Navigation Stack:
   // Tier 1: Closes any active modal or overlay (Auth, Cart, Account, Admin, About, Contact, Product Detail)
@@ -228,6 +216,14 @@ function AppContent() {
     );
   }
 
+  const isAnyOverlayOpen =
+    isCartOpen ||
+    isAuthOpen ||
+    isAccountOpen ||
+    isAdminOpen ||
+    isAboutOpen ||
+    isContactOpen;
+
   return (
     <div className="bg-paper-texture min-h-[100dvh] flex flex-col text-brand-black font-sans selection:bg-brand-gray-900 selection:text-brand-white overflow-x-hidden">
       <WholesaleCurtainTransition
@@ -271,7 +267,12 @@ function AppContent() {
         <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} />
       </Suspense>
 
-      <div className="relative z-10 bg-paper-texture shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+      <div
+        aria-hidden={isAnyOverlayOpen}
+        className={`relative z-10 bg-paper-texture shadow-[0_20px_50px_rgba(0,0,0,0.5)] ${
+          isAnyOverlayOpen ? "pointer-events-none select-none overflow-hidden" : ""
+        }`}
+      >
         <main className="flex-grow pt-[calc(7.25rem+env(safe-area-inset-top))] sm:pt-[calc(7.75rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))] pb-0">
           {activePage === 'wholesale' ? (
             <WholesalePage onBackToRetail={openRetailPage} />
@@ -284,17 +285,18 @@ function AppContent() {
         </main>
       </div>
 
-      <div className="relative z-0 w-full">
+      <div
+        aria-hidden={isAnyOverlayOpen}
+        className={`relative z-0 w-full ${
+          isAnyOverlayOpen ? "pointer-events-none select-none overflow-hidden" : ""
+        }`}
+      >
         <Suspense fallback={null}>
           <Footer />
         </Suspense>
       </div>
 
       <FlyingItemsLayer />
-
-      <AnimatePresence>
-        <ToastNotification item={addedItemToast} onClose={() => setAddedItemToast(null)} />
-      </AnimatePresence>
     </div>
   );
 }

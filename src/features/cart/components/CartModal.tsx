@@ -254,8 +254,13 @@ export function CartModal({
       fetch("/api/delivery/active-areas")
         .then((r) => r.json())
         .then((data) => {
-          if (data?.success && Array.isArray(data.areas) && data.areas.length > 0) {
-            setActiveRetailAreas(data.areas);
+          const areas = Array.isArray(data?.retailAreas)
+            ? data.retailAreas
+            : Array.isArray(data?.areas)
+              ? data.areas
+              : null;
+          if (data?.success && areas && areas.length > 0) {
+            setActiveRetailAreas(areas);
           }
         })
         .catch(() => {
@@ -845,7 +850,8 @@ export function CartModal({
             }
           };
 
-          if (typeof window !== "undefined" && (window as any).Razorpay) {
+          const sdkReady = await loadRazorpayScript();
+          if (sdkReady && typeof window !== "undefined" && (window as any).Razorpay) {
             const rzp = new (window as any).Razorpay(options);
             rzp.on("payment.failed", function (response: any) {
               console.error("Payment failed:", response.error);
@@ -1067,72 +1073,98 @@ export function CartModal({
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            key="cart-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
-            onClick={onClose}
-          />
-        )}
-        {isOpen && (
-          <motion.div
             key="cart-content"
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed top-0 bottom-0 right-0 w-full max-w-md bg-white shadow-2xl z-50 flex flex-col overflow-hidden"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed inset-0 w-full h-screen supports-[height:100dvh]:h-[100dvh] bg-[#FAF9F5] z-50 flex flex-col overflow-hidden overscroll-contain"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pr-[calc(1.5rem+env(safe-area-inset-right))] pl-[calc(1.5rem+env(safe-area-inset-left))] border-b border-gray-100 bg-white z-10">
-              <div className="flex items-center gap-4">
-                {step === "checkout" && (
+            <div className="shrink-0 border-b border-[#E7E3DA] bg-white/95 backdrop-blur-md z-20 pt-[env(safe-area-inset-top)]">
+              <div className="max-w-6xl mx-auto w-full flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5 sm:py-4">
+                <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setStep("cart")}
-                    className="p-2 -ml-2 text-gray-400 hover:text-black transition-colors rounded-full hover:bg-gray-100"
+                    type="button"
+                    onClick={() => {
+                      if (step === "checkout") {
+                        setStep("cart");
+                      } else {
+                        onClose();
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-stone-700 hover:text-[#1C1917] bg-[#FAF9F5] hover:bg-stone-200/70 border border-[#E7E3DA] rounded-full transition-colors cursor-pointer"
                   >
-                    <ChevronLeft className="w-5 h-5" />
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>{step === "checkout" ? "Back to Bag" : "Store"}</span>
                   </button>
-                )}
-                <div>
-                  <h2 className="text-xl font-serif text-gray-900 tracking-wide">
-                    {step === "cart"
-                      ? "Your Bag"
-                      : step === "checkout"
-                        ? isWhatsAppCheckoutMode
-                          ? "WhatsApp Delivery Details"
-                          : "Checkout"
-                        : "Order Reference"}
-                  </h2>
-                  {step === "checkout" && isWhatsAppCheckoutMode && (
-                    <p className="text-[11px] font-medium text-emerald-700">
-                      Guest WhatsApp Checkout — No login required
-                    </p>
-                  )}
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <h2 className="text-lg sm:text-xl font-serif font-semibold text-[#1C1917] tracking-wide">
+                        {step === "cart"
+                          ? "Your Bag"
+                          : step === "checkout"
+                            ? isWhatsAppCheckoutMode
+                              ? "WhatsApp Delivery Details"
+                              : "Secure Checkout"
+                            : "Order Reference"}
+                      </h2>
+                      {items.length > 0 && (
+                        <span className="px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider bg-[#1C1917] text-[#FAF9F5] rounded-full">
+                          {cartCount} {cartCount === 1 ? "item" : "items"}
+                        </span>
+                      )}
+                    </div>
+                    {step === "checkout" && isWhatsAppCheckoutMode && (
+                      <p className="text-[11px] font-medium text-emerald-700">
+                        Guest WhatsApp Checkout — No login required
+                      </p>
+                    )}
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close bag"
+                  className="p-2 text-stone-500 hover:text-[#1C1917] transition-colors rounded-full hover:bg-stone-100 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                onClick={onClose}
-                className="p-2 text-gray-400 hover:text-black transition-colors rounded-full hover:bg-gray-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-gray-50/50 scrollbar-hide relative">
-              <AnimatePresence mode="wait">
-                {/* CART STEP */}
-                {step === "cart" && (
-                  <motion.div
-                    key="cart"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    transition={{ duration: 0.3 }}
-                    className="p-6 flex flex-col min-h-full"
-                  >
+            <div className="flex-1 overflow-y-auto overscroll-contain bg-[#FAF9F5] relative">
+              <div
+                className={
+                  step !== "success" &&
+                  step !== "whatsapp_confirm" &&
+                  step !== "upi_qr" &&
+                  items.length > 0
+                    ? "max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 sm:py-8 lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start"
+                    : "max-w-2xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10"
+                }
+              >
+                <div
+                  className={
+                    step !== "success" &&
+                    step !== "whatsapp_confirm" &&
+                    step !== "upi_qr" &&
+                    items.length > 0
+                      ? "lg:col-span-7 min-w-0"
+                      : "w-full"
+                  }
+                >
+                  <AnimatePresence mode="wait">
+                    {/* CART STEP */}
+                    {step === "cart" && (
+                      <motion.div
+                        key="cart"
+                        initial={{ opacity: 0, x: -16 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 16 }}
+                        transition={{ duration: 0.25 }}
+                        className="flex flex-col min-h-full"
+                      >
                     {items.length === 0 ? (
                       <div className="flex-1 flex flex-col items-center justify-center text-gray-400 space-y-6">
                         <ShoppingBag className="w-16 h-16 stroke-[1]" />
@@ -1926,204 +1958,292 @@ export function CartModal({
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
+                </div>
 
-            {/* Sticky Footer */}
-            {step !== "success" && step !== "whatsapp_confirm" && step !== "upi_qr" && items.length > 0 && (
-              <div className="bg-white border-t border-gray-100 p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-20 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-                <div className="space-y-3 mb-5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] uppercase tracking-wider font-bold text-gray-500">
-                      Order Summary ({cartCount} {cartCount === 1 ? "item" : "items"})
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowPriceBreakdown((v) => !v)}
-                      className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 cursor-pointer flex items-center gap-1"
-                    >
-                      {showPriceBreakdown ? "Show less" : "Show more"}
-                    </button>
-                  </div>
-                  {showPriceBreakdown && (
-                    <div className="space-y-3 pt-1">
-                      {/* Selected Items Details List */}
-                      <div className="max-h-40 overflow-y-auto pr-1 space-y-2 border border-gray-100 rounded-xl p-2.5 bg-gray-50/70">
-                        {items.map((item) => {
-                          const unitPrice = getValidPrice(item);
-                          const lineTotal = unitPrice * item.quantity;
-                          return (
-                            <div
-                              key={item.id}
-                              className="flex items-center justify-between gap-2.5 text-xs bg-white p-2 rounded-lg border border-gray-100"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                {item.image && (
-                                  <img
-                                    src={getOptimizedImageUrl(item.image, 80, 75)}
-                                    alt={item.name}
-                                    className="w-8 h-8 rounded-md object-contain bg-white border border-gray-100 shrink-0"
-                                  />
-                                )}
-                                <div className="min-w-0">
-                                  <p className="font-semibold text-gray-900 truncate">
-                                    {item.name}
-                                  </p>
-                                  <p className="text-[11px] text-gray-500">
-                                    Qty: {item.quantity} × ₹{unitPrice}
-                                    {(item as any).selectedWeight
-                                      ? ` · ${(item as any).selectedWeight}`
-                                      : ""}
-                                  </p>
-                                </div>
-                              </div>
-                              <span className="font-bold text-gray-900 shrink-0">
-                                ₹{lineTotal}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Price Breakdown */}
-                      <div className="space-y-2 pt-1">
-                        <div className="flex justify-between text-gray-500 text-sm">
-                          <span>Subtotal</span>
-                          <span>₹{cartTotal}</span>
+                {/* Order Summary & Desktop Checkout Column (also scrolls naturally at the bottom on Mobile) */}
+                {step !== "success" && step !== "whatsapp_confirm" && step !== "upi_qr" && items.length > 0 && (
+                  <div className="mt-6 lg:mt-0 lg:col-span-5 lg:sticky lg:top-6">
+                    <div className="bg-white border border-[#E7E3DA] rounded-2xl p-5 sm:p-6 shadow-sm">
+                      <div className="space-y-3 mb-5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] uppercase tracking-wider font-bold text-stone-500">
+                            Order Summary ({cartCount} {cartCount === 1 ? "item" : "items"})
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowPriceBreakdown((v) => !v)}
+                            className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 cursor-pointer flex items-center gap-1"
+                          >
+                            {showPriceBreakdown ? "Hide details" : "Show details"}
+                          </button>
                         </div>
-                        {isPromoApplied && (
-                          <div className="flex justify-between text-emerald-600 text-sm font-medium">
-                            <span>
-                              Coupon Discount
-                              {appliedCoupon?.code ? ` (${appliedCoupon.code})` : ""}
-                            </span>
-                            <span>-₹{discountAmount}</span>
+                        {showPriceBreakdown && (
+                          <div className="space-y-3 pt-1">
+                            {/* Selected Items Details List */}
+                            <div className="max-h-48 overflow-y-auto overscroll-contain pr-1 space-y-2 border border-stone-100 rounded-xl p-2.5 bg-[#FAF9F5]">
+                              {items.map((item) => {
+                                const unitPrice = getValidPrice(item);
+                                const lineTotal = unitPrice * item.quantity;
+                                return (
+                                  <div
+                                    key={item.id}
+                                    className="flex items-center justify-between gap-2.5 text-xs bg-white p-2 rounded-lg border border-stone-100"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {item.image && (
+                                        <img
+                                          src={getOptimizedImageUrl(item.image, 80, 75)}
+                                          alt={item.name}
+                                          className="w-8 h-8 rounded-md object-contain bg-white border border-stone-100 shrink-0"
+                                        />
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="font-semibold text-stone-900 truncate">
+                                          {item.name}
+                                        </p>
+                                        <p className="text-[11px] text-stone-500">
+                                          Qty: {item.quantity} × ₹{unitPrice}
+                                          {(item as any).selectedWeight
+                                            ? ` · ${(item as any).selectedWeight}`
+                                            : ""}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <span className="font-bold text-stone-900 shrink-0">
+                                      ₹{lineTotal}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Price Breakdown */}
+                            <div className="space-y-2 pt-1">
+                              <div className="flex justify-between text-stone-600 text-sm">
+                                <span>Subtotal</span>
+                                <span>₹{cartTotal}</span>
+                              </div>
+                              {isPromoApplied && (
+                                <div className="flex justify-between text-emerald-600 text-sm font-medium">
+                                  <span>
+                                    Coupon Discount
+                                    {appliedCoupon?.code ? ` (${appliedCoupon.code})` : ""}
+                                  </span>
+                                  <span>-₹{discountAmount}</span>
+                                </div>
+                              )}
+                              <div className="flex justify-between items-center text-stone-600 text-sm">
+                                <span className="inline-flex items-center gap-1.5">
+                                  <RealisticDeliveryScooter className="w-5 h-3.5 shrink-0" />
+                                  <span>Delivery Fee</span>
+                                </span>
+                                {effectiveDeliveryFee === 0 ? (
+                                  <span className="text-emerald-600 font-medium">Free</span>
+                                ) : (
+                                  <span className="font-semibold text-stone-900">
+                                    ₹{effectiveDeliveryFee}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         )}
-                        <div className="flex justify-between items-center text-gray-500 text-sm">
-                          <span className="inline-flex items-center gap-1.5">
-                            <RealisticDeliveryScooter className="w-5 h-3.5 shrink-0" />
-                            <span>Delivery Fee</span>
+                        <div className="pt-3 border-t border-stone-100 flex justify-between text-stone-900 font-medium text-lg">
+                          <span>Grand Total</span>
+                          <span className="font-bold text-stone-900">
+                            ₹{grandTotal}
                           </span>
-                          {effectiveDeliveryFee === 0 ? (
-                            <span className="text-emerald-600 font-medium">Free</span>
-                          ) : (
-                            <span className="font-semibold text-gray-900">
-                              ₹{effectiveDeliveryFee}
-                            </span>
-                          )}
+                        </div>
+                      </div>
+
+                      {/* Desktop Action Buttons (hidden on mobile because mobile has compact sticky bar below) */}
+                      <div className="hidden lg:block">
+                        {step === "cart" ? (
+                          <div className="space-y-3">
+                            <button
+                              type="button"
+                              onClick={() => { if (requireCheckoutAuth()) setStep("checkout"); }}
+                              className="group relative flex w-full h-[52px] text-[11px] font-bold uppercase tracking-[0.15em] text-[#FAF9F5] bg-[#1C1917] transition-all duration-300 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(28,25,23,0.3)] hover:bg-[#292524] active:scale-[0.98]"
+                            >
+                              <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
+                                Checkout (Online / COD)
+                                <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={triggerWhatsAppOrder}
+                              className="group relative flex w-full h-[52px] text-[11px] font-bold uppercase tracking-[0.15em] text-white bg-emerald-600 transition-all duration-300 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(5,150,105,0.3)] hover:bg-emerald-700 active:scale-[0.98]"
+                            >
+                              <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
+                                <MessageCircle className="w-4 h-4" />
+                                Order via WhatsApp
+                              </span>
+                            </button>
+                          </div>
+                        ) : isWhatsAppCheckoutMode ? (
+                          <div className="space-y-2.5">
+                            <button
+                              type="button"
+                              onClick={triggerWhatsAppOrder}
+                              disabled={isProcessing}
+                              className="group relative flex w-full h-[52px] text-[11px] font-bold uppercase tracking-[0.15em] text-white bg-emerald-600 transition-all duration-300 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(5,150,105,0.35)] hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50"
+                            >
+                              <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
+                                <MessageCircle className="w-4 h-4" />
+                                {isProcessing ? "Validating Order..." : `Proceed to WhatsApp (₹${grandTotal})`}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (requireCheckoutAuth()) {
+                                  setIsWhatsAppCheckoutMode(false);
+                                }
+                              }}
+                              className="w-full py-2 text-[11px] font-semibold text-stone-500 hover:text-[#1C1917] transition-colors cursor-pointer"
+                            >
+                              Prefer Online Payment or COD? Sign in here
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <button
+                              type="button"
+                              onClick={handleCheckout}
+                              disabled={isProcessing}
+                              className="group relative flex w-full h-[52px] text-[11px] font-bold uppercase tracking-[0.15em] text-[#FAF9F5] bg-[#1C1917] transition-all duration-300 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(28,25,23,0.3)] hover:bg-[#292524] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
+                                {isProcessing ? (
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" /> Processing...
+                                  </div>
+                                ) : (
+                                  <>
+                                    {paymentMethod === "cod"
+                                      ? `Place Order (COD ₹${grandTotal})`
+                                      : `Pay Online ₹${grandTotal}`}
+                                    <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+                                  </>
+                                )}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={triggerWhatsAppOrder}
+                              className="group relative flex w-full h-[52px] text-[11px] font-bold uppercase tracking-[0.15em] text-[#1C1917] bg-transparent border border-[#1C1917] transition-all duration-300 cursor-pointer rounded-full overflow-hidden hover:bg-stone-100 active:scale-[0.98]"
+                            >
+                              <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
+                                <MessageCircle className="w-4 h-4" />
+                                Instant Order via WhatsApp
+                              </span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-5 pt-4 border-t border-stone-100 flex flex-col items-center justify-center gap-2.5">
+                        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-emerald-800 font-bold">
+                          <PremiumShieldMark className="w-3.5 h-3.5 shrink-0" variant="emerald" /> 100% Secure Checkout
+                        </div>
+                        <div className="flex flex-wrap items-center justify-center gap-3.5 py-0.5">
+                          <GooglePayIcon className="h-4 w-auto" />
+                          <PhonePeIcon className="h-4 w-auto" />
+                          <PaytmIcon className="h-3.5 w-auto" />
+                          <UpiOfficialIcon className="h-4 w-auto" />
+                          <span className="h-4 w-[1px] bg-stone-300" aria-hidden="true" />
+                          <VisaIcon className="h-3.5 w-auto" />
+                          <MastercardIcon className="h-4 w-auto" />
+                          <RuPayIcon className="h-3.5 w-auto" />
                         </div>
                       </div>
                     </div>
-                  )}
-                  <div className="pt-3 border-t border-gray-100 flex justify-between text-gray-900 font-medium text-lg">
-                    <span>Total</span>
-                    <span className="font-bold text-gray-900">
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Compact Mobile Sticky Action Bar (< 15% viewport height) */}
+            {step !== "success" && step !== "whatsapp_confirm" && step !== "upi_qr" && items.length > 0 && (
+              <div className="lg:hidden shrink-0 bg-white border-t border-[#E7E3DA] px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.06)] z-20">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-[11px] uppercase tracking-wider font-semibold text-stone-500">
+                      Total
+                    </span>
+                    <span className="text-base font-bold text-[#1C1917]">
                       ₹{grandTotal}
                     </span>
+                    {effectiveDeliveryFee === 0 && (
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                        Free Delivery
+                      </span>
+                    )}
                   </div>
+                  <span className="text-[11px] text-stone-500">
+                    {cartCount} {cartCount === 1 ? "item" : "items"}
+                  </span>
                 </div>
 
                 {step === "cart" ? (
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2.5">
                     <button
+                      type="button"
                       onClick={() => { if (requireCheckoutAuth()) setStep("checkout"); }}
-                      className="group relative flex w-full h-[56px] text-[11px] font-bold uppercase tracking-[0.15em] text-[#FAF9F5] bg-[#1C1917] transition-all duration-500 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(28,25,23,0.3)] hover:shadow-[0_8px_20px_-5px_rgba(28,25,23,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96]"
+                      className="flex items-center justify-center gap-1.5 h-11 px-3 text-[11px] font-bold uppercase tracking-wider text-[#FAF9F5] bg-[#1C1917] rounded-full shadow-sm active:scale-[0.98] cursor-pointer"
                     >
-                      <span className="absolute inset-0 w-full h-full bg-[#292524] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                      <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
-                        Checkout (Online / COD)
-                        <ArrowRight className="w-4 h-4 transition-transform duration-500 group-hover:translate-x-1" />
-                      </span>
+                      <span>Checkout</span>
+                      <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                     </button>
                     <button
                       type="button"
                       onClick={triggerWhatsAppOrder}
-                      className="group relative flex w-full h-[56px] text-[11px] font-bold uppercase tracking-[0.15em] text-white bg-emerald-600 transition-all duration-500 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(5,150,105,0.3)] hover:shadow-[0_8px_20px_-5px_rgba(5,150,105,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96]"
+                      className="flex items-center justify-center gap-1.5 h-11 px-3 text-[11px] font-bold uppercase tracking-wider text-white bg-emerald-600 rounded-full shadow-sm active:scale-[0.98] cursor-pointer"
                     >
-                      <span className="absolute inset-0 w-full h-full bg-emerald-700 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                      <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
-                        <MessageCircle className="w-4 h-4" />
-                        Order via WhatsApp
-                      </span>
+                      <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>WhatsApp</span>
                     </button>
                   </div>
                 ) : isWhatsAppCheckoutMode ? (
-                  <div className="space-y-2.5">
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={triggerWhatsAppOrder}
                       disabled={isProcessing}
-                      className="group relative flex w-full h-[56px] text-[11px] font-bold uppercase tracking-[0.15em] text-white bg-emerald-600 transition-all duration-500 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(5,150,105,0.35)] hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50"
+                      className="flex-1 flex items-center justify-center gap-2 h-11 px-4 text-[11px] font-bold uppercase tracking-wider text-white bg-emerald-600 rounded-full shadow-sm active:scale-[0.98] disabled:opacity-50 cursor-pointer"
                     >
-                      <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
-                        <MessageCircle className="w-4 h-4" />
-                        {isProcessing ? "Validating Order..." : `Proceed to WhatsApp (₹${grandTotal})`}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (requireCheckoutAuth()) {
-                          setIsWhatsAppCheckoutMode(false);
-                        }
-                      }}
-                      className="w-full py-2 text-[11px] font-semibold text-stone-500 hover:text-[#1C1917] transition-colors cursor-pointer"
-                    >
-                      Prefer Online Payment or COD? Sign in here
+                      <MessageCircle className="w-4 h-4 shrink-0" />
+                      <span>{isProcessing ? "Validating..." : `WhatsApp Order (₹${grandTotal})`}</span>
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2.5">
                     <button
+                      type="button"
                       onClick={handleCheckout}
                       disabled={isProcessing}
-                      className="group relative flex w-full h-[56px] text-[11px] font-bold uppercase tracking-[0.15em] text-[#FAF9F5] bg-[#1C1917] transition-all duration-500 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(28,25,23,0.3)] hover:shadow-[0_8px_20px_-5px_rgba(28,25,23,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center justify-center gap-1.5 h-11 px-3 text-[11px] font-bold uppercase tracking-wider text-[#FAF9F5] bg-[#1C1917] rounded-full shadow-sm active:scale-[0.98] disabled:opacity-50 cursor-pointer"
                     >
-                      <span className="absolute inset-0 w-full h-full bg-[#292524] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                      <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
-                        {isProcessing ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" /> Processing...
-                          </div>
-                        ) : (
-                          <>
-                            {paymentMethod === "cod"
-                              ? `Place Order (COD ₹${grandTotal})`
-                              : `Pay Online ₹${grandTotal}`}
-                            <ArrowRight className="w-4 h-4 transition-transform duration-500 group-hover:translate-x-1" />
-                          </>
-                        )}
+                      <span>
+                        {isProcessing
+                          ? "Processing..."
+                          : paymentMethod === "cod"
+                            ? `COD ₹${grandTotal}`
+                            : `Pay ₹${grandTotal}`}
                       </span>
+                      <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                     </button>
                     <button
                       type="button"
                       onClick={triggerWhatsAppOrder}
-                      className="group relative flex w-full h-[56px] text-[11px] font-bold uppercase tracking-[0.15em] text-[#1C1917] bg-transparent border border-[#1C1917] transition-all duration-500 cursor-pointer rounded-full overflow-hidden hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96]"
+                      className="flex items-center justify-center gap-1.5 h-11 px-3 text-[11px] font-bold uppercase tracking-wider text-[#1C1917] bg-white border border-[#1C1917] rounded-full active:scale-[0.98] cursor-pointer"
                     >
-                      <span className="absolute inset-0 w-full h-full bg-[#1C1917] opacity-0 group-hover:opacity-5 transition-opacity duration-500" />
-                      <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
-                        <MessageCircle className="w-4 h-4" />
-                        Instant Order via WhatsApp
-                      </span>
+                      <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>WhatsApp</span>
                     </button>
                   </div>
                 )}
-                
-                <div className="mt-6 pt-4 border-t border-stone-100 flex flex-col items-center justify-center gap-3">
-                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-emerald-800 font-bold">
-                    <PremiumShieldMark className="w-3.5 h-3.5 shrink-0" variant="emerald" /> 100% Secure Checkout
-                  </div>
-                  <div className="flex flex-wrap items-center justify-center gap-4 py-1">
-                     <GooglePayIcon className="h-4 w-auto" />
-                     <PhonePeIcon className="h-4 w-auto" />
-                     <PaytmIcon className="h-3.5 w-auto" />
-                     <UpiOfficialIcon className="h-4 w-auto" />
-                     <span className="h-4 w-[1px] bg-stone-300" aria-hidden="true" />
-                     <VisaIcon className="h-3.5 w-auto" />
-                     <MastercardIcon className="h-4 w-auto" />
-                     <RuPayIcon className="h-3.5 w-auto" />
-                  </div>
-                </div>
               </div>
             )}
           </motion.div>

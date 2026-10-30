@@ -22,17 +22,19 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      // A self-created profile doc can never claim role "admin" -- real
-      // admin status only ever comes from the custom claim above.
+      // A self-created profile doc can never claim role "admin" or admin==true --
+      // real admin status only ever comes from the custom claim above.
       allow create: if isOwner(userId) &&
-        request.resource.data.get('role', 'user') != 'admin';
+        request.resource.data.get('role', 'user') != 'admin' &&
+        request.resource.data.get('admin', false) == false;
       // Admins may update any profile (role changes are actually granted via
       // the /api/admin/users/:uid/role endpoint, which sets the real custom
       // claim through the Admin SDK and mirrors this field for display).
-      // A user updating their own doc may never change their own role.
+      // A user updating their own doc may never change their own role or admin flag.
       allow update: if isAdmin() ||
         (isOwner(userId) &&
           request.resource.data.get('role', 'user') == resource.data.get('role', 'user') &&
+          request.resource.data.get('admin', false) == resource.data.get('admin', false) &&
           request.resource.data.get('email', resource.data.get('email', '')) == resource.data.get('email', ''));
       allow delete: if isAdmin();
 
