@@ -10,7 +10,6 @@ import { ArrowRight } from 'lucide-react';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { sanitizeWhatsAppNumber } from '../../../utils/whatsapp';
 import { WhatsAppIcon } from '../../core/components/SocialIcons';
-import { FssaiLogo } from '../../core/components/FssaiLogo';
 import { HeroSlideshow } from './HeroSlideshow';
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -103,31 +102,25 @@ export function Hero({
         </svg>
       </motion.div>
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 pt-3 pb-3.5 sm:pt-8 sm:pb-10 lg:pt-14 lg:pb-16">
+      <div className="relative z-10 max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-12 pt-2 pb-2.5 sm:pt-8 sm:pb-10 lg:pt-14 lg:pb-16">
         <motion.div
           style={{ opacity: heroOpacity }}
-          className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 lg:gap-10 items-center"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-6 lg:gap-10 items-center"
         >
-          {/* Editorial Typography, Original FSSAI Mark & Conversion Actions */}
-          <div className="lg:col-span-6 xl:col-span-6 flex flex-col justify-between">
-            <div>
-              {/* Unboxed Editorial Eyebrow with Original Full-Color FSSAI Logo */}
+          {/* Left Column on Desktop / Top Strip Above Banner on Mobile */}
+          <div className="order-1 lg:order-1 lg:col-span-6 xl:col-span-6 flex flex-col justify-between">
+            {/* Desktop Editorial Headline & Value Prop */}
+            <div className="hidden lg:block">
+              {/* Unboxed Bold Editorial Eyebrow (JIYOO PREMIUM) */}
               <motion.div
                 style={{ y: eyebrowY }}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, ease: EASE_OUT_EXPO }}
-                className="mb-2 sm:mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] sm:text-xs text-[#57534E] font-sans-clean"
+                className="mb-3 sm:mb-4 flex items-center text-xs sm:text-sm text-[#1C1917] font-sans-clean"
               >
-                <span className="font-semibold tracking-[0.12em] sm:tracking-[0.14em] uppercase text-[#1C1917]">
-                  {settings.storeName || 'JIYOO Premium Products'}
-                </span>
-                <span aria-hidden="true" className="text-[#C7C0B5]">·</span>
-                <span className="inline-flex items-center gap-1.5 sm:gap-2 text-[#1C1917] font-medium">
-                  <FssaiLogo className="h-4 sm:h-5.5 w-auto" variant="original" />
-                  <span className="font-mono text-[9.5px] sm:text-[11px] text-[#57534E] tracking-wider tabular-nums">
-                    Lic. 21226112000732
-                  </span>
+                <span className="font-extrabold tracking-[0.18em] uppercase text-[#1C1917]">
+                  JIYOO PREMIUM
                 </span>
               </motion.div>
 
@@ -140,7 +133,7 @@ export function Hero({
                   {HEADLINE_LINE_1.map((word, index) => (
                     <span
                       key={word}
-                      className="inline-block overflow-hidden py-0.5 -my-0.5 sm:py-1 sm:-my-1 px-0.5 -mx-0.5"
+                      className="inline-block overflow-hidden py-1 -my-1 px-0.5 -mx-0.5"
                     >
                       <motion.span
                         initial={{
@@ -162,11 +155,11 @@ export function Hero({
                   ))}
                 </span>
 
-                <span className="relative inline-flex flex-wrap gap-x-[0.25em] pt-0.5 pb-1 sm:pb-2">
+                <span className="relative inline-flex flex-wrap gap-x-[0.25em] pt-0.5 pb-2">
                   {HEADLINE_LINE_2.map((word, index) => (
                     <span
                       key={word}
-                      className="inline-block overflow-hidden py-1 -my-1 sm:py-1.5 sm:-my-1.5 px-0.5 -mx-0.5 sm:px-1 sm:-mx-1"
+                      className="inline-block overflow-hidden py-1.5 -my-1.5 px-1 -mx-1"
                     >
                       <motion.span
                         initial={{
@@ -205,18 +198,18 @@ export function Hero({
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.68, delay: 0.38, ease: EASE_OUT_EXPO }}
-                className="mt-1.5 sm:mt-4 text-xs sm:text-base text-[#44403C] font-sans-clean font-normal leading-[1.4] sm:leading-[1.68] max-w-[58ch] text-left line-clamp-1 sm:line-clamp-none"
+                className="mt-4 text-base text-[#44403C] font-sans-clean font-normal leading-[1.68] max-w-[58ch] text-left"
               >
                 Fresh imported fruits, farm-fresh daily vegetables, and clean custom-cut meats made just how you like.
               </motion.p>
 
-              {/* Primary & Secondary Conversion Actions (Side-by-side on mobile) */}
+              {/* Primary & Secondary Conversion Actions */}
               <motion.div
                 style={{ y: ctaY }}
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.68, delay: 0.46, ease: EASE_OUT_EXPO }}
-                className="mt-3 sm:mt-7 flex flex-row items-center gap-2 sm:gap-3.5"
+                className="mt-7 flex flex-row items-center gap-3.5"
               >
                 <motion.button
                   type="button"
@@ -224,12 +217,12 @@ export function Hero({
                   whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.01 }}
                   whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
                   transition={{ duration: 0.16, ease: EASE_OUT_EXPO }}
-                  className="group relative overflow-hidden inline-flex items-center justify-center gap-1.5 sm:gap-3 px-3.5 py-2 sm:px-6 sm:py-3.5 text-[11px] sm:text-xs font-semibold tracking-[0.06em] sm:tracking-[0.11em] uppercase text-[#FAF9F5] bg-[#1C1917] hover:bg-[#292524] rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C1917]"
+                  className="group relative overflow-hidden inline-flex items-center justify-center gap-3 px-6 py-3.5 text-xs font-semibold tracking-[0.11em] uppercase text-[#FAF9F5] bg-[#1C1917] hover:bg-[#292524] rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C1917]"
                 >
                   <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/12 to-transparent transition-transform duration-500 ease-out group-hover:translate-x-full" />
                   <span className="relative z-10">Shop Catalog</span>
                   <ArrowRight
-                    className="relative z-10 w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform duration-200 ease-out group-hover:translate-x-1"
+                    className="relative z-10 w-3.5 h-3.5 transition-transform duration-200 ease-out group-hover:translate-x-1"
                     strokeWidth={1.75}
                   />
                 </motion.button>
@@ -241,17 +234,36 @@ export function Hero({
                   whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.01 }}
                   whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
                   transition={{ duration: 0.16, ease: EASE_OUT_EXPO }}
-                  className="inline-flex items-center justify-center gap-1.5 sm:gap-2.5 px-3 py-2 sm:px-5 sm:py-3.5 text-[11px] sm:text-xs font-semibold tracking-[0.04em] sm:tracking-[0.06em] uppercase text-[#1C1917] bg-white hover:bg-[#F4F1EA] border border-[#D6D0C4] rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0"
+                  className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 text-xs sm:text-sm font-bold tracking-[0.06em] uppercase text-white bg-emerald-700 hover:bg-emerald-800 border border-emerald-800/30 rounded-lg shadow-xs transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0"
                 >
-                  <WhatsAppIcon className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
-                  <span>WhatsApp</span>
+                  <WhatsAppIcon className="w-5 h-5 shrink-0 text-white" />
+                  <span>Order via WhatsApp</span>
                 </motion.a>
               </motion.div>
             </div>
+
+            {/* Mobile Strip Above Banner: Bold JIYOO PREMIUM + Larger Order via WhatsApp Button */}
+            <div className="block lg:hidden pb-0.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-extrabold text-xs sm:text-sm tracking-[0.15em] uppercase text-[#1C1917] truncate">
+                  JIYOO PREMIUM
+                </span>
+
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-bold tracking-wider uppercase text-white bg-gradient-to-r from-[#0369A1] via-[#0284C7] to-[#0EA5E9] hover:from-[#075985] hover:via-[#0369A1] hover:to-[#0284C7] border border-[#38BDF8]/50 rounded-full shrink-0 shadow-[0_3px_12px_-2px_rgba(14,165,233,0.5),inset_0_1px_0_rgba(255,255,255,0.3)] transition-all duration-200 cursor-pointer"
+                >
+                  <WhatsAppIcon className="w-4 h-4 text-white shrink-0 drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)]" />
+                  <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)]">Order via WhatsApp</span>
+                </a>
+              </div>
+            </div>
           </div>
 
-          {/* Right Column / Mobile Sequential: Hero Banner Slideshow */}
-          <div className="lg:col-span-6 xl:col-span-6 w-full pt-1 lg:pt-0">
+          {/* Right Column on Desktop / Order 2 on Mobile (Below JIYOO PREMIUM bar): Hero Banner Slideshow */}
+          <div className="order-2 lg:order-2 lg:col-span-6 xl:col-span-6 w-full">
             <HeroSlideshow />
           </div>
         </motion.div>

@@ -403,47 +403,54 @@ export function Navbar({
               </span>
             </div>
 
-            {/* Zone 2: Desktop Navigation Categories & Wholesale */}
+            {/* Zone 2: Desktop Navigation Categories & Premium Retail | Wholesale Switch */}
             <nav className="flex items-center gap-3.5 xl:gap-5">
-              {navCategories.map((cat) => (
+              {/* Premium Segmented Switch: Retail | Wholesale */}
+              <div
+                role="group"
+                aria-label="Store mode switch"
+                className="inline-flex items-center p-0.5 rounded-xl bg-[#EAE5D9] border border-[#D6CFC2] shadow-inner shrink-0"
+              >
                 <button
-                  key={cat.id}
-                  onClick={() => {
-                    if (activePage === "wholesale") {
-                      onRetailClick?.();
-                      setTimeout(() => {
-                        window.dispatchEvent(
-                          new CustomEvent("select-category", { detail: cat.id })
-                        );
-                      }, 60);
-                    } else {
+                  type="button"
+                  onClick={() => onRetailClick?.()}
+                  aria-pressed={activePage === "retail"}
+                  className={`relative px-3.5 py-1.5 rounded-[9px] text-[11px] font-bold uppercase tracking-[0.1em] transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                    activePage === "retail"
+                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-xs"
+                      : "text-[#57534E] hover:text-[#1C1917]"
+                  }`}
+                >
+                  Retail
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onWholesaleClick?.()}
+                  aria-pressed={activePage === "wholesale"}
+                  className={`relative px-3.5 py-1.5 rounded-[9px] text-[11px] font-bold uppercase tracking-[0.1em] transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                    activePage === "wholesale"
+                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-xs"
+                      : "text-[#57534E] hover:text-[#1C1917]"
+                  }`}
+                >
+                  Wholesale
+                </button>
+              </div>
+
+              {activePage === "retail" &&
+                navCategories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
                       window.dispatchEvent(
                         new CustomEvent("select-category", { detail: cat.id })
                       );
-                    }
-                  }}
-                  className="text-sm font-medium text-[#57534E] hover:text-[#1C1917] underline-offset-4 hover:underline transition-colors cursor-pointer capitalize whitespace-nowrap shrink-0"
-                >
-                  {cat.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  if (activePage === "wholesale") {
-                    onRetailClick?.();
-                  } else {
-                    onWholesaleClick?.();
-                  }
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap shrink-0 border ${
-                  activePage === "wholesale"
-                    ? "bg-emerald-800 text-white border-emerald-800"
-                    : "bg-[#1C1917] text-[#FAF9F5] border-[#1C1917] hover:bg-[#292524]"
-                }`}
-              >
-                {activePage === "wholesale" ? "← Retail Store" : "Wholesale"}
-              </button>
+                    }}
+                    className="text-sm font-medium text-[#57534E] hover:text-[#1C1917] underline-offset-4 hover:underline transition-colors cursor-pointer capitalize whitespace-nowrap shrink-0"
+                  >
+                    {cat.label}
+                  </button>
+                ))}
               <button
                 onClick={onAboutClick}
                 className="text-sm font-medium text-[#57534E] hover:text-[#1C1917] underline-offset-4 hover:underline transition-colors cursor-pointer whitespace-nowrap shrink-0"
@@ -454,88 +461,90 @@ export function Navbar({
 
             {/* Zone 3: Desktop Real-Time Search Bar + Actions */}
             <div className="flex items-center gap-2.5 md:gap-3 shrink-0">
-              <div
-                ref={searchContainerRef}
-                className="relative w-[240px] xl:w-[290px]"
-              >
-                <form
-                  onSubmit={executeSearchAction}
-                  role="search"
-                  className="relative flex items-center w-full"
+              {activePage === "retail" && (
+                <div
+                  ref={searchContainerRef}
+                  className="relative w-[240px] xl:w-[290px]"
                 >
-                  <button
-                    type="submit"
-                    aria-label="Search products"
-                    title="Search products"
-                    className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1.5 text-[#57534E] hover:text-[#1C1917] rounded-md hover:bg-[#F4F1EA] transition-colors cursor-pointer z-10"
+                  <form
+                    onSubmit={executeSearchAction}
+                    role="search"
+                    className="relative flex items-center w-full"
                   >
-                    <Search className="w-3.5 h-3.5" strokeWidth={2} />
-                  </button>
+                    <button
+                      type="submit"
+                      aria-label="Search products"
+                      title="Search products"
+                      className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1.5 text-[#57534E] hover:text-[#1C1917] rounded-md hover:bg-[#F4F1EA] transition-colors cursor-pointer z-10"
+                    >
+                      <Search className="w-3.5 h-3.5" strokeWidth={2} />
+                    </button>
 
-                  <input
-                    ref={desktopSearchInputRef}
-                    type="search"
-                    value={searchQuery}
-                    onFocus={() => setDropdownFocused(true)}
-                    onChange={(e) => handleRealTimeSearchChange(e.target.value)}
-                    onKeyDown={handleSearchKeyDown}
-                    placeholder="Search fruits, meats..."
-                    aria-label="Search products by name in real-time"
-                    className="w-full pl-8 pr-16 py-1.5 text-xs sm:text-[13px] bg-white hover:bg-white focus:bg-white text-[#1C1917] placeholder:text-[#78716C] rounded-lg border border-[#DCD6CA] focus:border-[#1C1917] focus:ring-2 focus:ring-[#1C1917]/10 focus:outline-none transition-all shadow-2xs"
-                  />
+                    <input
+                      ref={desktopSearchInputRef}
+                      type="search"
+                      value={searchQuery}
+                      onFocus={() => setDropdownFocused(true)}
+                      onChange={(e) => handleRealTimeSearchChange(e.target.value)}
+                      onKeyDown={handleSearchKeyDown}
+                      placeholder="Search fruits, meats..."
+                      aria-label="Search products by name in real-time"
+                      className="w-full pl-8 pr-16 py-1.5 text-xs sm:text-[13px] bg-white hover:bg-white focus:bg-white text-[#1C1917] placeholder:text-[#78716C] rounded-lg border border-[#DCD6CA] focus:border-[#1C1917] focus:ring-2 focus:ring-[#1C1917]/10 focus:outline-none transition-all shadow-2xs"
+                    />
 
-                  {searchQuery ? (
-                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    {searchQuery ? (
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery("");
+                            desktopSearchInputRef.current?.focus();
+                          }}
+                          aria-label="Clear search query"
+                          className="p-1 text-[#78716C] hover:text-[#1C1917] transition-colors cursor-pointer rounded-md"
+                        >
+                          <X className="w-3.5 h-3.5" strokeWidth={2} />
+                        </button>
+                        <button
+                          type="submit"
+                          aria-label="Go to search results"
+                          className="px-2 py-1 bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors cursor-pointer"
+                        >
+                          Go
+                        </button>
+                      </div>
+                    ) : (
                       <button
                         type="button"
                         onClick={() => {
-                          setSearchQuery("");
-                          desktopSearchInputRef.current?.focus();
+                          setSearchOpen(true);
+                          setTimeout(() => modalSearchInputRef.current?.focus(), 60);
                         }}
-                        aria-label="Clear search query"
-                        className="p-1 text-[#78716C] hover:text-[#1C1917] transition-colors cursor-pointer rounded-md"
+                        aria-label="Open full search"
+                        title="Open Search (⌘K)"
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2 py-0.5 bg-[#F4F1EA] hover:bg-[#E7E3DA] text-[#1C1917] text-[10px] font-semibold rounded-md transition-colors cursor-pointer border border-[#DCD6CA]/70"
                       >
-                        <X className="w-3.5 h-3.5" strokeWidth={2} />
+                        Search
                       </button>
-                      <button
-                        type="submit"
-                        aria-label="Go to search results"
-                        className="px-2 py-1 bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors cursor-pointer"
-                      >
-                        Go
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchOpen(true);
-                        setTimeout(() => modalSearchInputRef.current?.focus(), 60);
-                      }}
-                      aria-label="Open full search"
-                      title="Open Search (⌘K)"
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2 py-0.5 bg-[#F4F1EA] hover:bg-[#E7E3DA] text-[#1C1917] text-[10px] font-semibold rounded-md transition-colors cursor-pointer border border-[#DCD6CA]/70"
-                    >
-                      Search
-                    </button>
-                  )}
-                </form>
+                    )}
+                  </form>
 
-                {/* Desktop Search Dropdown */}
-                <AnimatePresence>
-                  {dropdownFocused && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 6, scale: 0.98 }}
-                      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                      className="absolute right-0 top-full mt-2 w-[400px] md:w-[440px] bg-white rounded-2xl shadow-[0_24px_60px_-12px_rgba(28,25,23,0.28)] border border-[#E7E3DA] overflow-hidden z-50"
-                    >
-                      {renderSearchDropdownContent()}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                  {/* Desktop Search Dropdown */}
+                  <AnimatePresence>
+                    {dropdownFocused && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                        className="absolute right-0 top-full mt-2 w-[400px] md:w-[440px] bg-white rounded-2xl shadow-[0_24px_60px_-12px_rgba(28,25,23,0.28)] border border-[#E7E3DA] overflow-hidden z-50"
+                      >
+                        {renderSearchDropdownContent()}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
 
               {/* User Account Button */}
               <button
@@ -567,49 +576,51 @@ export function Navbar({
               </button>
 
               {/* Cart Button */}
-              <button
-                id="cart-icon-button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onCartClick();
-                }}
-                className="p-1.5 text-brand-gray-900 hover:text-brand-black transition-colors relative cursor-pointer shrink-0"
-                aria-label="Cart"
-              >
-                <motion.div
-                  key={cartCount}
-                  animate={cartCount > 0 ? { scale: [1, 1.25, 1] } : {}}
-                  transition={{ duration: 0.3, ease: "easeOut" }}
+              {activePage === "retail" && (
+                <button
+                  id="cart-icon-button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onCartClick();
+                  }}
+                  className="p-1.5 text-brand-gray-900 hover:text-brand-black transition-colors relative cursor-pointer shrink-0"
+                  aria-label="Cart"
                 >
-                  <ShoppingBag className="w-5 h-5" strokeWidth={1.5} />
-                </motion.div>
-                {cartCount > 0 && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -top-0.5 -right-0.5 bg-brand-black text-brand-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center tabular-nums"
+                  <motion.div
+                    key={cartCount}
+                    animate={cartCount > 0 ? { scale: [1, 1.25, 1] } : {}}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
                   >
-                    {cartCount}
-                  </motion.span>
-                )}
-              </button>
+                    <ShoppingBag className="w-5 h-5" strokeWidth={1.5} />
+                  </motion.div>
+                  {cartCount > 0 && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-0.5 -right-0.5 bg-brand-black text-brand-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center tabular-nums"
+                    >
+                      {cartCount}
+                    </motion.span>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
           {/* ========================================================= */}
           {/* MOBILE HEADER (< lg): Two-Row Layout, Zero Collision      */}
-          {/* Row 1: Menu + Wholesale | Centered Logo | Account + Cart  */}
-          {/* Row 2: Full-Width Search Bar with Live Suggestions Dropdown */}
+          {/* Row 1: Menu + Logo | Retail/Wholesale Switch | User+Cart  */}
+          {/* Row 2: Full-Width Search Bar (Only on Retail Page)        */}
           {/* ========================================================= */}
           <div className="flex flex-col gap-2 lg:hidden">
-            {/* Row 1: Navigation Actions & Uncrowded Brand Logo */}
+            {/* Row 1: Brand Identity, Premium Retail | Wholesale Switch & Actions */}
             <div className="flex items-center justify-between gap-1.5 w-full">
-              {/* Left Group: Menu Toggle & Compact Wholesale Button */}
-              <div className="flex items-center gap-1.5 shrink-0">
+              {/* Left Group: Menu Toggle & Brand Logo */}
+              <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 shrink-0">
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen((prev) => !prev)}
-                  className="p-2 -ml-1 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors cursor-pointer shrink-0"
+                  className="p-1.5 -ml-1 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors cursor-pointer shrink-0"
                   aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
                   aria-expanded={mobileMenuOpen}
                 >
@@ -620,50 +631,68 @@ export function Navbar({
                   )}
                 </button>
 
-                <button
-                  type="button"
+                <div
+                  className="cursor-pointer flex items-center gap-1.5 min-w-0"
                   onClick={() => {
                     setMobileMenuOpen(false);
                     if (activePage === "wholesale") {
                       onRetailClick?.();
                     } else {
-                      onWholesaleClick?.();
+                      window.scrollTo({ top: 0, behavior: "smooth" });
                     }
                   }}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap shrink-0 border ${
-                    activePage === "wholesale"
-                      ? "bg-emerald-800 text-white border-emerald-800"
-                      : "bg-[#1C1917] text-[#FAF9F5] border-[#1C1917] hover:bg-[#292524]"
+                >
+                  <img
+                    src="/jiyoo.logo.jpeg"
+                    alt={settings.storeName || "JIYOO"}
+                    className="h-6.5 sm:h-7 w-auto object-contain rounded-lg shrink-0"
+                  />
+                  <span className="font-serif-luxury text-sm sm:text-base font-bold tracking-wider text-brand-black block leading-tight truncate">
+                    JIYOO
+                  </span>
+                </div>
+              </div>
+
+              {/* Center: Premium Retail | Wholesale Segmented Switch */}
+              <div
+                role="group"
+                aria-label="Store mode switch"
+                className="inline-flex items-center p-0.5 rounded-lg bg-[#EAE5D9] border border-[#D6CFC2] shadow-inner shrink-0"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onRetailClick?.();
+                  }}
+                  aria-pressed={activePage === "retail"}
+                  className={`px-2 sm:px-2.5 py-1 rounded-md text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                    activePage === "retail"
+                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-2xs"
+                      : "text-[#57534E] hover:text-[#1C1917]"
                   }`}
                 >
-                  {activePage === "wholesale" ? "Retail" : "Wholesale"}
+                  Retail
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onWholesaleClick?.();
+                  }}
+                  aria-pressed={activePage === "wholesale"}
+                  className={`px-2 sm:px-2.5 py-1 rounded-md text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                    activePage === "wholesale"
+                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-2xs"
+                      : "text-[#57534E] hover:text-[#1C1917]"
+                  }`}
+                >
+                  Wholesale
                 </button>
               </div>
 
-              {/* Center: Brand Logo & Wordmark (Properly Centered, Never Overlapped) */}
-              <div
-                className="cursor-pointer flex items-center justify-center gap-1.5 sm:gap-2 min-w-0 flex-1 px-1"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  if (activePage === "wholesale") {
-                    onRetailClick?.();
-                  } else {
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }
-                }}
-              >
-                <img
-                  src="/jiyoo.logo.jpeg"
-                  alt={settings.storeName || "JIYOO"}
-                  className="h-7 sm:h-8 w-auto object-contain rounded-lg shrink-0"
-                />
-                <span className="font-serif-luxury text-base sm:text-lg font-bold tracking-wider text-brand-black block leading-tight truncate">
-                  {settings.storeName || "JIYOO"}
-                </span>
-              </div>
-
               {/* Right Group: User Account & Cart Buttons */}
-              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false);
@@ -692,113 +721,117 @@ export function Navbar({
                   )}
                 </button>
 
-                <button
-                  id="cart-icon-button-mobile"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onCartClick();
-                  }}
-                  className="p-1.5 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors relative cursor-pointer shrink-0"
-                  aria-label="Cart"
-                >
-                  <motion.div
-                    key={cartCount}
-                    animate={cartCount > 0 ? { scale: [1, 1.25, 1] } : {}}
-                    transition={{ duration: 0.3, ease: "easeOut" }}
+                {activePage === "retail" && (
+                  <button
+                    id="cart-icon-button-mobile"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onCartClick();
+                    }}
+                    className="p-1.5 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors relative cursor-pointer shrink-0"
+                    aria-label="Cart"
                   >
-                    <ShoppingBag className="w-5 h-5" strokeWidth={1.75} />
-                  </motion.div>
-                  {cartCount > 0 && (
-                    <motion.span
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute -top-0.5 -right-0.5 bg-brand-black text-brand-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center tabular-nums"
+                    <motion.div
+                      key={cartCount}
+                      animate={cartCount > 0 ? { scale: [1, 1.25, 1] } : {}}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
                     >
-                      {cartCount}
-                    </motion.span>
-                  )}
-                </button>
+                      <ShoppingBag className="w-5 h-5" strokeWidth={1.75} />
+                    </motion.div>
+                    {cartCount > 0 && (
+                      <motion.span
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="absolute -top-0.5 -right-0.5 bg-brand-black text-brand-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center tabular-nums"
+                      >
+                        {cartCount}
+                      </motion.span>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Row 2: Full-Width Search Input with Attached Live Dropdown */}
-            <div
-              ref={searchContainerMobileRef}
-              className="relative w-full"
-            >
-              <form
-                onSubmit={executeSearchAction}
-                role="search"
-                className="relative flex items-center w-full"
+            {/* Row 2: Full-Width Search Input with Attached Live Dropdown (Retail Page Only) */}
+            {activePage === "retail" && (
+              <div
+                ref={searchContainerMobileRef}
+                className="relative w-full"
               >
-                <button
-                  type="submit"
-                  aria-label="Search products"
-                  title="Search products"
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-900 transition-colors cursor-pointer z-10"
+                <form
+                  onSubmit={executeSearchAction}
+                  role="search"
+                  className="relative flex items-center w-full"
                 >
-                  <Search className="w-4 h-4" strokeWidth={2} />
-                </button>
-
-                <input
-                  ref={mobileSearchInputRef}
-                  type="search"
-                  value={searchQuery}
-                  onFocus={() => setDropdownFocused(true)}
-                  onChange={(e) => handleRealTimeSearchChange(e.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                  placeholder="Search fruits, vegetables, meats..."
-                  aria-label="Search products by name in real-time"
-                  className="w-full pl-9 pr-16 py-2 text-xs sm:text-[13px] bg-white text-stone-900 placeholder:text-stone-500 rounded-xl border border-stone-300/80 focus:border-stone-900 focus:ring-2 focus:ring-stone-900/10 focus:outline-none transition-all shadow-2xs"
-                />
-
-                {searchQuery ? (
-                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchQuery("");
-                        mobileSearchInputRef.current?.focus();
-                      }}
-                      aria-label="Clear search query"
-                      className="p-1 text-stone-500 hover:text-stone-900 transition-colors cursor-pointer rounded-md"
-                    >
-                      <X className="w-3.5 h-3.5" strokeWidth={2} />
-                    </button>
-                    <button
-                      type="submit"
-                      aria-label="Go to search results"
-                      className="px-2.5 py-1 bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors cursor-pointer"
-                    >
-                      Go
-                    </button>
-                  </div>
-                ) : (
                   <button
                     type="submit"
-                    aria-label="Search catalog"
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 text-[10px] font-semibold rounded-md transition-colors cursor-pointer border border-stone-200"
+                    aria-label="Search products"
+                    title="Search products"
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-900 transition-colors cursor-pointer z-10"
                   >
-                    Search
+                    <Search className="w-4 h-4" strokeWidth={2} />
                   </button>
-                )}
-              </form>
 
-              {/* Mobile Live Search Dropdown */}
-              <AnimatePresence>
-                {dropdownFocused && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6, scale: 0.99 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 4, scale: 0.99 }}
-                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                    className="absolute left-0 right-0 top-full mt-1.5 w-full bg-white rounded-2xl shadow-[0_20px_50px_-10px_rgba(28,25,23,0.25)] border border-[#E7E3DA] overflow-hidden z-50"
-                  >
-                    {renderSearchDropdownContent()}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                  <input
+                    ref={mobileSearchInputRef}
+                    type="search"
+                    value={searchQuery}
+                    onFocus={() => setDropdownFocused(true)}
+                    onChange={(e) => handleRealTimeSearchChange(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder="Search fruits, vegetables, meats..."
+                    aria-label="Search products by name in real-time"
+                    className="w-full pl-9 pr-16 py-2 text-xs sm:text-[13px] bg-white text-stone-900 placeholder:text-stone-500 rounded-xl border border-stone-300/80 focus:border-stone-900 focus:ring-2 focus:ring-stone-900/10 focus:outline-none transition-all shadow-2xs"
+                  />
+
+                  {searchQuery ? (
+                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery("");
+                          mobileSearchInputRef.current?.focus();
+                        }}
+                        aria-label="Clear search query"
+                        className="p-1 text-stone-500 hover:text-stone-900 transition-colors cursor-pointer rounded-md"
+                      >
+                        <X className="w-3.5 h-3.5" strokeWidth={2} />
+                      </button>
+                      <button
+                        type="submit"
+                        aria-label="Go to search results"
+                        className="px-2.5 py-1 bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors cursor-pointer"
+                      >
+                        Go
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="submit"
+                      aria-label="Search catalog"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 text-[10px] font-semibold rounded-md transition-colors cursor-pointer border border-stone-200"
+                    >
+                      Search
+                    </button>
+                  )}
+                </form>
+
+                {/* Mobile Live Search Dropdown */}
+                <AnimatePresence>
+                  {dropdownFocused && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 6, scale: 0.99 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 4, scale: 0.99 }}
+                      transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                      className="absolute left-0 right-0 top-full mt-1.5 w-full bg-white rounded-2xl shadow-[0_20px_50px_-10px_rgba(28,25,23,0.25)] border border-[#E7E3DA] overflow-hidden z-50"
+                    >
+                      {renderSearchDropdownContent()}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
         </div>
 
@@ -812,6 +845,38 @@ export function Navbar({
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               className="lg:hidden border-t border-[#E7E3DA] bg-[#FAF9F5] px-4 sm:px-6 pt-4 pb-5 mt-3 shadow-lg"
             >
+              {/* Store Mode Switch inside Drawer */}
+              <div className="mb-3 p-1 rounded-xl bg-[#EAE5D9] border border-[#D6CFC2] grid grid-cols-2 gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onRetailClick?.();
+                  }}
+                  className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    activePage === "retail"
+                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-xs"
+                      : "text-[#57534E] hover:text-[#1C1917]"
+                  }`}
+                >
+                  Retail Store
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onWholesaleClick?.();
+                  }}
+                  className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    activePage === "wholesale"
+                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-xs"
+                      : "text-[#57534E] hover:text-[#1C1917]"
+                  }`}
+                >
+                  Wholesale
+                </button>
+              </div>
+
               <div className="flex flex-col gap-1">
                 {navCategories.map((cat) => (
                   <button
@@ -823,22 +888,6 @@ export function Navbar({
                     {cat.label}
                   </button>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    if (activePage === "wholesale") {
-                      onRetailClick?.();
-                    } else {
-                      onWholesaleClick?.();
-                    }
-                  }}
-                  className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-bold text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/70 transition-colors cursor-pointer"
-                >
-                  {activePage === "wholesale"
-                    ? "← Switch to Retail Store"
-                    : "Wholesale Supply (All Over India) →"}
-                </button>
                 <button
                   type="button"
                   onClick={() => {

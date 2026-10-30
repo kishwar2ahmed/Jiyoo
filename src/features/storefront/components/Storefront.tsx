@@ -255,11 +255,11 @@ export function Storefront() {
   }, [categoriesList, currentProducts]);
 
   return (
-    <div id="products" className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-8 relative">
+    <div id="products" className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-1.5 sm:pt-8 pb-6 sm:pb-12 relative">
       {!searchQuery && (
-        <div className="flex flex-col gap-4 sm:gap-8 mb-6 sm:mb-12 relative z-10">
+        <div className="flex flex-col gap-2 sm:gap-8 mb-3.5 sm:mb-12 relative z-10">
           {/* Main Categories - Editorial Image Cards with Scroll-Triggered Choreography & Uncropped Mobile Labels */}
-          <div className="grid grid-cols-5 gap-1.5 sm:gap-6 md:gap-8 w-full pb-4 sm:pb-6 pt-2 items-start">
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-6 md:gap-8 w-full pb-1.5 sm:pb-6 pt-1 sm:pt-2 items-start">
             {categoriesList.map((category, index) => {
               const isActive = activeCategoryId === category.id;
               const thumbData = categoryThumbnails.get(category.id);
@@ -274,10 +274,10 @@ export function Storefront() {
                   whileHover={{ y: -4 }}
                   whileTap={{ scale: 0.97 }}
                   onClick={() => handleCategoryChange(category.id)}
-                  className="group relative flex min-w-0 w-full flex-col items-center outline-none gap-1.5 sm:gap-3.5 cursor-pointer pb-2.5"
+                  className="group relative flex min-w-0 w-full flex-col items-center outline-none gap-1 sm:gap-3.5 cursor-pointer pb-1.5 sm:pb-2.5"
                 >
                   <div 
-                    className={`relative w-full aspect-square sm:aspect-[4/5] rounded-xl sm:rounded-[20px] overflow-hidden bg-brand-white border border-brand-gray-100 transition-all duration-300 ease-out sm:group-hover:shadow-[0_14px_28px_-8px_rgba(0,0,0,0.14)] ${isActive ? 'shadow-[0_10px_20px_-6px_rgba(0,0,0,0.12)] ring-2 ring-brand-black/25' : 'shadow-[0_4px_12px_-4px_rgba(0,0,0,0.05)]'}`}
+                    className={`relative w-full aspect-square sm:aspect-[4/5] max-w-[54px] sm:max-w-none mx-auto rounded-xl sm:rounded-[20px] overflow-hidden bg-brand-white border border-brand-gray-100 transition-all duration-300 ease-out sm:group-hover:shadow-[0_14px_28px_-8px_rgba(0,0,0,0.14)] ${isActive ? 'shadow-[0_10px_20px_-6px_rgba(0,0,0,0.12)] ring-2 ring-brand-black/25' : 'shadow-[0_4px_12px_-4px_rgba(0,0,0,0.05)]'}`}
                   >
                     {thumbData?.urls && thumbData.urls.length > 0 ? (
                       <img 
@@ -295,7 +295,7 @@ export function Storefront() {
                   </div>
                   
                   <span 
-                    className={`font-serif text-[10.5px] sm:text-base leading-tight tracking-tight sm:tracking-wide text-center w-full break-words transition-colors duration-200 ${isActive ? 'text-brand-black font-semibold' : 'text-brand-gray-600 sm:group-hover:text-brand-black'}`}
+                    className={`font-serif text-[10px] sm:text-base leading-tight tracking-tight sm:tracking-wide text-center w-full break-words transition-colors duration-200 ${isActive ? 'text-brand-black font-semibold' : 'text-brand-gray-600 sm:group-hover:text-brand-black'}`}
                   >
                     {category.label}
                   </span>
