@@ -27,6 +27,15 @@
   text-wrap: balance;
 }
 
+@keyframes jiyooCaretPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.12;
+  }
+}
+
 /* Natural fine linen / subtle paper texture overlay */
 .bg-paper-texture {
   background-color: #FAF9F5;

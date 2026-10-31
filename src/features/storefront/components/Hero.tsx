@@ -10,12 +10,26 @@ import { ArrowRight } from 'lucide-react';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { sanitizeWhatsAppNumber } from '../../../utils/whatsapp';
 import { WhatsAppIcon } from '../../core/components/SocialIcons';
+import { TypewriterText } from '../../core/components/TypewriterText';
 import { HeroSlideshow } from './HeroSlideshow';
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 const HEADLINE_LINE_1 = ['Exotic', 'fruits,', 'daily', 'veggies', '&'];
-const HEADLINE_LINE_2 = ['fresh', 'custom-cut', 'meats,', 'delivered', 'fast.'];
+
+const HERO_TYPEWRITER_PHRASES = [
+  'fresh custom-cut meats, delivered fast.',
+  'imported orchard fruits, handpicked daily.',
+  'coastal catch & sea prawns, cleaned fresh.',
+  'farm-fresh daily veggies, at your doorstep.',
+  'pure cold-pressed smoothies, made to order.',
+] as const;
+
+const MOBILE_HERO_TYPEWRITER_PHRASES = [
+  'Exotic fruits, daily veggies & fresh custom-cut meats.',
+  'Cleaned with pure RO water & delivered cold to your home.',
+  'Handpicked imported fruits, coastal fish & rich smoothies.',
+] as const;
 
 export function Hero({
   onOpenWholesale: _onOpenWholesale,
@@ -124,7 +138,7 @@ export function Hero({
                 </span>
               </motion.div>
 
-              {/* Word-by-Word Mask-Clipped Kinetic Display Headline with Editorial Shimmer & Underline */}
+              {/* Word-by-Word Mask-Clipped Kinetic Display Headline with Editorial Typewriter & Underline */}
               <motion.h1
                 style={{ y: headlineY, scale: headlineScale }}
                 className="editorial-hero-headline font-medium text-[#1C1917] origin-left"
@@ -155,30 +169,22 @@ export function Hero({
                   ))}
                 </span>
 
-                <span className="relative inline-flex flex-wrap gap-x-[0.25em] pt-0.5 pb-2">
-                  {HEADLINE_LINE_2.map((word, index) => (
-                    <span
-                      key={word}
-                      className="inline-block overflow-hidden py-1.5 -my-1.5 px-1 -mx-1"
-                    >
-                      <motion.span
-                        initial={{
-                          opacity: 0,
-                          y: prefersReducedMotion ? 0 : '108%',
-                          rotateZ: prefersReducedMotion ? 0 : 1.75,
-                        }}
-                        animate={{ opacity: 1, y: '0%', rotateZ: 0 }}
-                        transition={{
-                          duration: 0.82,
-                          delay: 0.24 + index * 0.055,
-                          ease: EASE_OUT_EXPO,
-                        }}
-                        className="inline-block origin-bottom-left italic font-normal bg-gradient-to-r from-[#57534E] via-[#8A5A36] to-[#57534E] bg-clip-text text-transparent tracking-[-0.01em]"
-                      >
-                        {word}
-                      </motion.span>
-                    </span>
-                  ))}
+                <motion.span
+                  initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.78, delay: 0.26, ease: EASE_OUT_EXPO }}
+                  className="relative block pt-0.5 pb-2.5"
+                >
+                  <TypewriterText
+                    phrases={HERO_TYPEWRITER_PHRASES}
+                    typingSpeed={44}
+                    deletingSpeed={22}
+                    pauseDuration={2900}
+                    startDelay={1100}
+                    textClassName="italic font-normal bg-gradient-to-r from-[#57534E] via-[#8A5A36] to-[#57534E] bg-clip-text text-transparent tracking-[-0.01em]"
+                    cursorClassName="bg-[#8A5A36]"
+                    ariaLabel="fresh custom-cut meats, delivered fast."
+                  />
 
                   {/* Scroll-linked & Entrance-drawn Editorial Accent Hairline */}
                   <motion.span
@@ -189,7 +195,7 @@ export function Hero({
                     transition={{ duration: 1.05, delay: 0.52, ease: EASE_OUT_EXPO }}
                     className="pointer-events-none absolute left-0 bottom-0 h-[1.5px] w-full max-w-[360px] bg-gradient-to-r from-[#8A5A36]/70 via-[#C5A880]/60 to-transparent origin-left"
                   />
-                </span>
+                </motion.span>
               </motion.h1>
 
               {/* Concise Editorial Value Proposition */}
@@ -242,12 +248,27 @@ export function Hero({
               </motion.div>
             </div>
 
-            {/* Mobile Strip Above Banner: Bold JIYOO PREMIUM + Larger Order via WhatsApp Button */}
+            {/* Mobile Strip Above Banner: Bold JIYOO PREMIUM + Larger Order via WhatsApp Button + Compact Editorial Typewriter */}
             <div className="block lg:hidden pb-0.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-extrabold text-xs sm:text-sm tracking-[0.15em] uppercase text-[#1C1917] truncate">
-                  JIYOO PREMIUM
-                </span>
+                <div className="min-w-0 flex-1">
+                  <span className="font-extrabold text-xs sm:text-sm tracking-[0.15em] uppercase text-[#1C1917] block truncate">
+                    JIYOO PREMIUM
+                  </span>
+                  <div className="min-h-[1.15rem] flex items-center overflow-hidden">
+                    <TypewriterText
+                      phrases={MOBILE_HERO_TYPEWRITER_PHRASES}
+                      typingSpeed={42}
+                      deletingSpeed={20}
+                      pauseDuration={2700}
+                      startDelay={800}
+                      reserveLongestSpace={false}
+                      className="truncate max-w-full"
+                      textClassName="font-serif-luxury italic text-[11.5px] sm:text-xs text-[#6B4C35] tracking-wide"
+                      cursorClassName="bg-[#8A5A36]"
+                    />
+                  </div>
+                </div>
 
                 <a
                   href={whatsappHref}

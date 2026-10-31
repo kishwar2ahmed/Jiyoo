@@ -62,6 +62,7 @@ const getValidPrice = (item: any) => {
 // Zod schema for validating cart items from localStorage
 const CartItemSchema = z.object({
   id: z.union([z.string(), z.number()]),
+  baseId: z.union([z.string(), z.number()]).optional(),
   quantity: z.number().int().positive(),
   name: z.string().min(1),
   price: z.union([z.string(), z.number()]),
@@ -71,6 +72,7 @@ const CartItemSchema = z.object({
   stockStatus: z.string().optional(),
   selectedWeight: z.string().optional().nullable(),
   selectedCut: z.string().optional().nullable(),
+  selectedCleaning: z.string().optional().nullable(),
 }).passthrough(); // Allow additional fields for forward compatibility
 
 const normalizeCartItem = (item: z.infer<typeof CartItemSchema>): CartItem => {
@@ -81,6 +83,7 @@ const normalizeCartItem = (item: z.infer<typeof CartItemSchema>): CartItem => {
     image: item.image ?? '',
     selectedWeight: item.selectedWeight ?? undefined,
     selectedCut: item.selectedCut ?? undefined,
+    selectedCleaning: item.selectedCleaning ?? undefined,
   } as CartItem;
 };
 
@@ -265,28 +268,62 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // previously never refreshed until submit. Called when the cart opens.
   const syncCartPrices = React.useCallback(async () => {
     if (items.length === 0) return;
+    const uniqueBaseIds = Array.from(
+      new Set(
+        items.map((item) => {
+          const rawBase = item.baseId ?? String(item.id).split('-')[0];
+          return String(rawBase);
+        })
+      )
+    );
     const results = await Promise.all(
-      items.map(async (item) => {
+      uniqueBaseIds.map(async (baseId) => {
         try {
-          const snap = await getDoc(doc(db, 'products', String(item.id)));
+          const snap = await getDoc(doc(db, 'products', baseId));
           if (!snap.exists()) return null;
-          return { id: item.id, data: snap.data() as any };
+          return { baseId, data: snap.data() as any };
         } catch {
           return null;
         }
       })
     );
-    const updates = new Map(results.filter(Boolean).map((r: any) => [String(r.id), r.data]));
+    const updates = new Map(results.filter(Boolean).map((r: any) => [String(r.baseId), r.data]));
     if (updates.size === 0) return;
-    setItems(current => current.map(item => {
-      const fresh = updates.get(String(item.id)) as any;
-      if (!fresh) return item;
-      const freshPrice = typeof fresh.numericPrice === 'number' ? fresh.numericPrice
-        : (typeof fresh.price === 'number' ? fresh.price : parseFloat(String(fresh.price).replace(/[^0-9.]/g, '')) || item.numericPrice);
-      const changed = freshPrice !== item.numericPrice || fresh.stock !== item.stock || fresh.stockStatus !== item.stockStatus;
-      if (!changed) return item;
-      return { ...item, numericPrice: freshPrice, price: fresh.price ?? item.price, stock: fresh.stock ?? item.stock, stockStatus: fresh.stockStatus ?? item.stockStatus };
-    }));
+    setItems((current) =>
+      current.map((item) => {
+        const lookupId = String(item.baseId ?? String(item.id).split('-')[0]);
+        const fresh = updates.get(lookupId) as any;
+        if (!fresh) return item;
+
+        let targetRawPrice = fresh.numericPrice ?? fresh.price;
+        if (item.selectedWeight && Array.isArray(fresh.weights)) {
+          const matchedWeight = fresh.weights.find(
+            (w: any) => (w.label || w.weight) === item.selectedWeight
+          );
+          if (matchedWeight && matchedWeight.price !== undefined) {
+            targetRawPrice = matchedWeight.price;
+          }
+        }
+
+        const freshPrice =
+          typeof targetRawPrice === 'number'
+            ? targetRawPrice
+            : parseFloat(String(targetRawPrice).replace(/[^0-9.]/g, '')) || item.numericPrice;
+        const formattedPrice = `₹${freshPrice}`;
+        const changed =
+          freshPrice !== item.numericPrice ||
+          fresh.stock !== item.stock ||
+          fresh.stockStatus !== item.stockStatus;
+        if (!changed) return item;
+        return {
+          ...item,
+          numericPrice: freshPrice,
+          price: formattedPrice,
+          stock: fresh.stock ?? item.stock,
+          stockStatus: fresh.stockStatus ?? item.stockStatus,
+        };
+      })
+    );
   }, [items]);
 
   const logoutUser = React.useCallback(async () => {

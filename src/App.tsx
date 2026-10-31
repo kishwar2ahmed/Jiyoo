@@ -243,10 +243,8 @@ function AppContent() {
         activePage={activePage}
         onWholesaleClick={openWholesalePage}
         onRetailClick={openRetailPage}
-        onAboutClick={() => {
-          document.getElementById('about-us-section')?.scrollIntoView({ behavior: 'smooth' });
-          setIsAboutOpen(true);
-        }}
+        onAboutClick={() => setIsAboutOpen(true)}
+        onContactClick={() => setIsContactOpen(true)}
         onUserClick={() => user ? setIsAccountOpen(true) : setIsAuthOpen(true)}
         onCartClick={() => setIsCartOpen(true)}
       />

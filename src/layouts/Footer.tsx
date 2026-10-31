@@ -29,8 +29,16 @@ import {
   isIOSDevice,
   isRunningStandalone,
 } from "../utils/installPrompt";
+import { TypewriterText } from "../features/core/components/TypewriterText";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
+const FOOTER_CTA_PHRASES = [
+  "delivered home today?",
+  "cleaned with pure RO water?",
+  "custom-cut just how you like?",
+  "handpicked fresh every morning?",
+] as const;
 
 export function Footer() {
   const { settings } = useSettings();
@@ -79,6 +87,19 @@ export function Footer() {
     } else {
       window.scrollTo({ top: 400, behavior: "smooth" });
     }
+  };
+
+  const selectCategoryAndScroll = (categoryId: string) => {
+    try {
+      sessionStorage.setItem("jiyoo_pending_category", categoryId);
+    } catch {
+      // ignore storage errors
+    }
+    document.dispatchEvent(new CustomEvent("open-retail"));
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("select-category", { detail: categoryId }));
+      scrollToProducts();
+    }, 60);
   };
 
   return (
@@ -139,10 +160,18 @@ export function Footer() {
 
             {/* Headline */}
             <h2 className="font-serif-luxury text-2xl sm:text-4xl lg:text-[50px] font-normal text-white leading-[1.15] tracking-tight text-balance">
-              Want fresh food{" "}
-              <span className="italic bg-gradient-to-r from-[#F5E6C8] via-[#D4AF37] to-[#F5E6C8] bg-clip-text text-transparent">
-                delivered home today?
-              </span>
+              <span className="block sm:inline">Want fresh food </span>
+              <TypewriterText
+                phrases={FOOTER_CTA_PHRASES}
+                typingSpeed={46}
+                deletingSpeed={22}
+                pauseDuration={2800}
+                startDelay={700}
+                className="justify-items-center sm:justify-items-start"
+                textClassName="italic bg-gradient-to-r from-[#F5E6C8] via-[#D4AF37] to-[#F5E6C8] bg-clip-text text-transparent"
+                cursorClassName="bg-[#D4AF37]"
+                ariaLabel="delivered home today?"
+              />
             </h2>
 
             {/* Subtitle */}
@@ -315,7 +344,7 @@ export function Footer() {
                   <li>
                     <button
                       type="button"
-                      onClick={scrollToProducts}
+                      onClick={() => selectCategoryAndScroll("fruits")}
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
                       Fresh &amp; Imported Fruits
@@ -324,7 +353,7 @@ export function Footer() {
                   <li>
                     <button
                       type="button"
-                      onClick={scrollToProducts}
+                      onClick={() => selectCategoryAndScroll("vegetables")}
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
                       Daily Farm Vegetables
@@ -333,7 +362,7 @@ export function Footer() {
                   <li>
                     <button
                       type="button"
-                      onClick={scrollToProducts}
+                      onClick={() => selectCategoryAndScroll("meat")}
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
                       Fresh Chicken &amp; Mutton
@@ -342,7 +371,7 @@ export function Footer() {
                   <li>
                     <button
                       type="button"
-                      onClick={scrollToProducts}
+                      onClick={() => selectCategoryAndScroll("meat")}
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
                       Fish, Prawns &amp; Seafood

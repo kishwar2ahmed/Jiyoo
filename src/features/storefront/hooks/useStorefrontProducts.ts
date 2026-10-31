@@ -34,7 +34,9 @@ export function isValidProductRecord(raw: unknown): raw is Partial<Product> & { 
 }
 
 function sanitizePublicProduct(product: Product): Product {
+  const rawCuts = (product as any).fishCuts || (product as any).cuts;
   return {
+    ...product,
     id: String(product.id),
     name: String(product.name || '').trim(),
     category: product.category || 'General',
@@ -43,16 +45,31 @@ function sanitizePublicProduct(product: Product): Product {
     subSubcategoryId: product.subSubcategoryId,
     price: product.price,
     numericPrice: product.numericPrice,
-    wholesalePrice: (product as any).wholesalePrice,
+    originalPrice: product.originalPrice,
+    discount: product.discount,
+    wholesaleEligible: product.wholesaleEligible,
+    wholesalePrice: product.wholesalePrice,
+    wholesaleUnit: product.wholesaleUnit,
+    wholesaleMinQty: product.wholesaleMinQty,
     unit: product.unit || '1 kg',
     image: getOptimizedImageUrl(resolveProductImage(product.image), 500, 80),
+    images: Array.isArray(product.images)
+      ? product.images.map((img) => getOptimizedImageUrl(resolveProductImage(img), 500, 80))
+      : undefined,
     description: product.description || '',
     stockStatus: product.stockStatus || 'in_stock',
+    stock: product.stock,
     badge: product.badge,
+    freshnessBadge: product.freshnessBadge,
+    deliveryEstimate: product.deliveryEstimate,
+    origin: product.origin,
+    cutType: product.cutType,
+    rating: product.rating,
+    reviewsCount: product.reviewsCount,
     tags: Array.isArray(product.tags) ? product.tags : undefined,
-    weights: Array.isArray((product as any).weights) ? (product as any).weights : undefined,
-    cuts: Array.isArray((product as any).cuts) ? (product as any).cuts : undefined,
-    cleaningOptions: Array.isArray((product as any).cleaningOptions) ? (product as any).cleaningOptions : undefined,
+    weights: Array.isArray(product.weights) ? product.weights : undefined,
+    fishCuts: Array.isArray(rawCuts) ? rawCuts : undefined,
+    cleaningOptions: Array.isArray(product.cleaningOptions) ? product.cleaningOptions : undefined,
   } as Product;
 }
 

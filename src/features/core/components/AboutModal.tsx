@@ -18,7 +18,7 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
   return (
     <AnimatePresence>
       {isOpen && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -115,9 +115,12 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
                   <h3 className="text-lg font-bold text-brand-black mb-2">
                     Contact &amp; Official Socials
                   </h3>
-                  <p className="text-brand-gray-600 font-medium text-base font-mono mb-3 tabular-nums">
-                    {settings.aboutUs?.contactPhone || settings.whatsappNumber || "+91 97393 91891"}
-                  </p>
+                  <a
+                    href="tel:+919739391891"
+                    className="inline-block text-brand-gray-600 hover:text-brand-black font-medium text-base font-mono mb-3 tabular-nums transition-colors"
+                  >
+                    +91 97393 91891
+                  </a>
                   <div className="flex items-center gap-2.5">
                     {SOCIAL_LINKS.map((link) => (
                       <a

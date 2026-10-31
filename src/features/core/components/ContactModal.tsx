@@ -186,9 +186,9 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
             {/* General Info & Socials */}
             <div className="pt-8 border-t border-stone-200 grid sm:grid-cols-2 gap-6">
               <div>
-                <h4 className="text-sm font-bold text-stone-900 mb-2">Direct Line</h4>
-                <a href="tel:+917899744335" className="text-stone-600 hover:text-emerald-600 transition-colors flex items-center gap-2 text-lg font-mono mb-1 tabular-nums">
-                  <PhoneCallIcon className="w-4 h-4 text-[#D97706]" /> +91 78997 44335
+                <h4 className="text-sm font-bold text-stone-900 mb-2">Direct Call Support</h4>
+                <a href="tel:+919739391891" className="text-stone-600 hover:text-emerald-600 transition-colors flex items-center gap-2 text-lg font-mono mb-1 tabular-nums">
+                  <PhoneCallIcon className="w-4 h-4 text-[#D97706]" /> +91 97393 91891
                 </a>
                 <p className="text-xs text-stone-400">Available Daily, 7:00 AM to 10:00 PM</p>
               </div>
@@ -196,6 +196,14 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
               <div>
                 <h4 className="text-sm font-bold text-stone-900 mb-3">Official Socials</h4>
                 <div className="flex items-center gap-3">
+                  <a
+                    href="tel:+919739391891"
+                    aria-label="Call Support (+91 97393 91891)"
+                    title="Call Support: +91 97393 91891"
+                    className="w-10 h-10 rounded-full bg-white border border-stone-200 flex items-center justify-center text-[#10B981] hover:border-[#1C1917] hover:shadow-md transition-all"
+                  >
+                    <PhoneCallIcon className="w-4 h-4" />
+                  </a>
                   <a
                     href="https://www.instagram.com/shamsjiyoo2026?exln=aG43cXdnZmgwZDRu"
                     target="_blank"

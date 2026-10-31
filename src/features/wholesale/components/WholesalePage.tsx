@@ -3,8 +3,16 @@ import { motion } from "motion/react";
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { useSettings } from "../../../contexts/SettingsContext";
 import { sanitizeWhatsAppNumber } from "../../../utils/whatsapp";
+import { TypewriterText } from "../../core/components/TypewriterText";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
+const WHOLESALE_TYPEWRITER_PHRASES = [
+  "Bulk supply for luxury hotels, resorts & fine dining.",
+  "Direct farm-to-business supply for supermarkets.",
+  "Custom wholesale cuts for cloud kitchens & caterers.",
+  "Pan-India cold-chain logistics for HoReCa partners.",
+] as const;
 
 const CLOCK_NUMERALS = [
   { label: "12", x: 50, y: 19.5 },
@@ -205,6 +213,18 @@ export function WholesalePage({
           <h1 className="font-serif-luxury text-3xl sm:text-5xl font-bold text-[#1C1917] tracking-tight">
             Launching Soon
           </h1>
+          <div className="pt-0.5 flex justify-center">
+            <TypewriterText
+              phrases={WHOLESALE_TYPEWRITER_PHRASES}
+              typingSpeed={42}
+              deletingSpeed={20}
+              pauseDuration={2600}
+              startDelay={600}
+              className="text-center justify-items-center"
+              textClassName="font-serif-luxury italic text-base sm:text-xl text-[#8A5A36]"
+              cursorClassName="bg-[#8A5A36]"
+            />
+          </div>
           <p className="text-sm sm:text-base text-[#57534E] leading-relaxed pt-1">
             Our specialized B2B wholesale platform for HoReCa, supermarkets, and bulk buyers across India is currently being prepared.
           </p>

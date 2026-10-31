@@ -18,6 +18,7 @@ interface DeveloperPresentationProps {
 
 import { useSettings } from "../../../contexts/SettingsContext";
 import { InstagramIcon } from "./SocialIcons";
+import { useModalBackButton } from "../hooks/useModalBackButton";
 
 export function DeveloperPresentation({
   isOpen,
@@ -27,9 +28,10 @@ export function DeveloperPresentation({
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
+  useModalBackButton(isOpen, onClose);
+
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = "hidden";
       const handleMouseMove = (e: MouseEvent) => {
         if (!containerRef.current) return;
         const { clientX, clientY } = e;
@@ -40,7 +42,6 @@ export function DeveloperPresentation({
       };
       window.addEventListener("mousemove", handleMouseMove);
       return () => {
-        document.body.style.overflow = "auto";
         window.removeEventListener("mousemove", handleMouseMove);
       };
     }

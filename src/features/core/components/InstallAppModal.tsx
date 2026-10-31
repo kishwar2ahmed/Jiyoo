@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "motion/react";
 import { X, Share, Plus, MoreVertical, Smartphone } from "lucide-react";
+import { useModalBackButton } from "../hooks/useModalBackButton";
 
 interface InstallAppModalProps {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface InstallAppModalProps {
 }
 
 export function InstallAppModal({ isOpen, onClose, isIOS }: InstallAppModalProps) {
+  useModalBackButton(isOpen, onClose);
   return (
     <AnimatePresence>
       {isOpen && (

@@ -610,10 +610,17 @@ export function ProductDetailModal({
                     {/* WhatsApp Direct Order CTA */}
                     <button
                       onClick={handleWhatsAppOrder}
-                      className="group relative h-[52px] px-6 text-[11px] font-bold uppercase tracking-[0.15em] text-white bg-emerald-600 transition-all duration-500 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(5,150,105,0.3)] hover:shadow-[0_8px_20px_-5px_rgba(5,150,105,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] shrink-0"
-                      title="Order directly via WhatsApp"
+                      disabled={isOutOfStock}
+                      className={`group relative h-[52px] px-6 text-[11px] font-bold uppercase tracking-[0.15em] transition-all duration-500 rounded-full overflow-hidden shrink-0 ${
+                        isOutOfStock
+                          ? "bg-brand-gray-100 text-brand-gray-400 cursor-not-allowed"
+                          : "text-white bg-emerald-600 cursor-pointer shadow-[0_5px_15px_-5px_rgba(5,150,105,0.3)] hover:shadow-[0_8px_20px_-5px_rgba(5,150,105,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96]"
+                      }`}
+                      title={isOutOfStock ? "Out of stock" : "Order directly via WhatsApp"}
                     >
-                      <span className="absolute inset-0 w-full h-full bg-emerald-700 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                      {!isOutOfStock && (
+                        <span className="absolute inset-0 w-full h-full bg-emerald-700 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                      )}
                       <span className="relative z-10 flex items-center justify-center gap-2">
                         <MessageCircle className="w-5 h-5" />
                         <span className="hidden sm:inline">WhatsApp</span>

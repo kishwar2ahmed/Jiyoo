@@ -236,9 +236,16 @@ export function useModalBackButton(isOpen: boolean, onClose: () => void) {
         activeOverlayCount = Math.max(0, activeOverlayCount - 1);
         syncDocumentScrollLock();
         lastOverlayClosedTimestamp = Date.now();
-        if (!isIframe) {
-          programmaticBackCount++;
-          window.history.back();
+        if (!isIframe && window.history.state?.jiyooOverlay) {
+          try {
+            window.history.replaceState(
+              { jiyooGuard: true },
+              "",
+              window.location.href
+            );
+          } catch {
+            // Ignore history state replacement errors
+          }
         }
       }
     };

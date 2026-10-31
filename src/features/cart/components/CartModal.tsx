@@ -740,6 +740,44 @@ export function CartModal({
 
         sendEmailNotification(serverOrderId, { ...orderData, amount: grandTotal });
 
+        try {
+          const summaryUrl = createWhatsAppOrderUrl({
+            orderId: serverOrderId || undefined,
+            orderType,
+            priceVerified: true,
+            whatsappNumber: settings.whatsappNumber,
+            items: items.map((i) => ({
+              name: i.name,
+              quantity: i.quantity,
+              price: i.price,
+              numericPrice: getValidPrice(i),
+              selectedWeight: (i as any).selectedWeight,
+              selectedCut: (i as any).selectedCut,
+            })),
+            subtotal: cartTotal,
+            discountAmount,
+            deliveryFee: effectiveDeliveryFee,
+            totalAmount: grandTotal,
+            customerName: name.trim(),
+            customerPhone: phone.trim(),
+            customerWhatsappPhone: whatsappPhone.trim() || phone.trim(),
+            customerHouseNo: houseNo.trim(),
+            customerStreet: street.trim(),
+            customerCity: city.trim(),
+            customerState: state.trim(),
+            customerLandmark: landmark.trim() || undefined,
+            customerAddressType: addressType,
+            deliveryInstructions: deliveryInstructions.trim() || undefined,
+            selectedArea: selectedRetailArea || area.trim() || undefined,
+            customerAddress: formattedFullAddress,
+            customerPincode: cleanPin,
+            paymentMethod: "Cash on Delivery",
+          });
+          setGeneratedWhatsAppUrl(summaryUrl);
+        } catch {
+          // ignore fallback URL build failure
+        }
+
         setStep("success");
         resetCheckoutIdempotencyKey();
         setTimeout(clearCart, 1500);
@@ -822,6 +860,43 @@ export function CartModal({
                 if (verifyRes.ok && verifyData.success) {
                   const serverOrderId = verifyData.orderId;
                   sendEmailNotification(serverOrderId, { ...orderData, amount: grandTotal });
+                  try {
+                    const summaryUrl = createWhatsAppOrderUrl({
+                      orderId: serverOrderId || undefined,
+                      orderType,
+                      priceVerified: true,
+                      whatsappNumber: settings.whatsappNumber,
+                      items: items.map((i) => ({
+                        name: i.name,
+                        quantity: i.quantity,
+                        price: i.price,
+                        numericPrice: getValidPrice(i),
+                        selectedWeight: (i as any).selectedWeight,
+                        selectedCut: (i as any).selectedCut,
+                      })),
+                      subtotal: cartTotal,
+                      discountAmount,
+                      deliveryFee: effectiveDeliveryFee,
+                      totalAmount: grandTotal,
+                      customerName: name.trim(),
+                      customerPhone: phone.trim(),
+                      customerWhatsappPhone: whatsappPhone.trim() || phone.trim(),
+                      customerHouseNo: houseNo.trim(),
+                      customerStreet: street.trim(),
+                      customerCity: city.trim(),
+                      customerState: state.trim(),
+                      customerLandmark: landmark.trim() || undefined,
+                      customerAddressType: addressType,
+                      deliveryInstructions: deliveryInstructions.trim() || undefined,
+                      selectedArea: selectedRetailArea || area.trim() || undefined,
+                      customerAddress: formattedFullAddress,
+                      customerPincode: cleanPin,
+                      paymentMethod: "Online (Razorpay Paid)",
+                    });
+                    setGeneratedWhatsAppUrl(summaryUrl);
+                  } catch {
+                    // ignore fallback URL build failure
+                  }
                   setStep("success");
                   resetCheckoutIdempotencyKey();
                   setTimeout(clearCart, 1500);
@@ -1047,6 +1122,7 @@ export function CartModal({
         totalAmount: verifiedGrandTotal,
         customerName: name.trim(),
         customerPhone: phone.trim(),
+        customerWhatsappPhone: whatsappPhone.trim() || phone.trim(),
         customerHouseNo: houseNo.trim(),
         customerStreet: street.trim(),
         customerCity: city.trim(),

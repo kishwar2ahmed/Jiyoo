@@ -142,8 +142,8 @@ export const SOCIAL_LINKS = [
   {
     id: 'phone',
     label: 'Call Direct',
-    handle: '+91 78997 44335',
-    href: 'tel:+917899744335',
+    handle: '+91 97393 91891',
+    href: 'tel:+919739391891',
     icon: (props: { className?: string }) => <PhoneCallIcon className={props.className || 'w-5 h-5'} />,
     badge: 'Phone Desk',
     purpose: 'Quick answers and custom meat or fish cut requests',

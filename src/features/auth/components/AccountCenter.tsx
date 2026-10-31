@@ -10,7 +10,7 @@ import { useCart } from '../../../contexts/CartContext';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { useOrderActions } from '../hooks/useOrderActions';
 import { auth, db, storage } from '../../../services/firebase';
-import { doc, updateDoc, collection, query, where, getDocs, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, collection, query, where, getDocs, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { LocationPickerModal } from '../../core/components/LocationPickerModal';
@@ -241,6 +241,27 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
   // Order Search & Filter state
   const [orderFilter, setOrderFilter] = useState<'all' | 'processing' | 'delivered' | 'cancelled'>('all');
   const [orderSearch, setOrderSearch] = useState('');
+  const [notifPrefs, setNotifPrefs] = useState<{ orderUpdates: boolean; promotions: boolean; push: boolean }>(() => {
+    try {
+      const saved = localStorage.getItem('jiyoo_notification_prefs');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    return { orderUpdates: true, promotions: false, push: false };
+  });
+
+  const toggleNotifPref = (key: 'orderUpdates' | 'promotions' | 'push') => {
+    setNotifPrefs((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      try {
+        localStorage.setItem('jiyoo_notification_prefs', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   const filteredOrders = useMemo(() => {
     const queryStr = orderSearch.trim().toLowerCase();
@@ -538,9 +559,6 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
   const escapeInvoiceHtml = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
   const handlePrintInvoice = (order: any) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
     const dateStr = order.createdAt?.seconds 
       ? new Date(order.createdAt.seconds * 1000).toLocaleString() 
       : (order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A');
@@ -558,7 +576,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
       </tr>
     `).join('');
 
-    printWindow.document.write(`
+    const invoiceHtml = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -626,11 +644,31 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
           Thank you for ordering with JIYOO!<br>
           For support or delivery tracking queries, please reach out via our Help Center.
         </div>
-        <script>window.onload = function() { window.print(); }</script>
       </body>
       </html>
-    `);
-    printWindow.document.close();
+    `;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+    const docWin = iframe.contentWindow;
+    if (docWin) {
+      docWin.document.open();
+      docWin.document.write(invoiceHtml);
+      docWin.document.close();
+      setTimeout(() => {
+        docWin.focus();
+        docWin.print();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1000);
+      }, 250);
+    }
   };
 
   const handleReorder = (order: any) => {
@@ -1356,16 +1394,19 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                         <label className="block text-sm font-medium text-stone-700 mb-1">Phone Number</label>
                         <input id="profile-phone" type="tel" defaultValue={(user as any).phone || ''} placeholder="+91 98765 43210" className="w-full border-stone-200 rounded-lg bg-stone-50 px-4 py-2.5 outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent transition-all" />
                       </div>
-<button onClick={async () => {
-                        const name = (document.getElementById('profile-name') as HTMLInputElement).value;
-                        const phone = (document.getElementById('profile-phone') as HTMLInputElement).value;
+                      <button onClick={async () => {
+                        const name = (document.getElementById('profile-name') as HTMLInputElement)?.value?.trim() || '';
+                        const phone = (document.getElementById('profile-phone') as HTMLInputElement)?.value?.trim() || '';
                         try {
-                          await updateDoc(doc(db, 'users', user.id), { name, phone });
+                          await setDoc(doc(db, 'users', user.id), { name, phone }, { merge: true });
+                          if (auth.currentUser && name) {
+                            await updateProfile(auth.currentUser, { displayName: name }).catch(() => {});
+                          }
                           showToast('Profile updated successfully!', 'success');
                         } catch (e) {
                           showToast('Failed to update profile', 'error');
                         }
-                      }} className="bg-stone-900 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-stone-800 transition-colors w-full sm:w-auto">
+                      }} className="bg-stone-900 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-stone-800 transition-colors w-full sm:w-auto cursor-pointer">
                         Save Changes
                       </button>
 
@@ -1641,27 +1682,57 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                          <h3 className="font-medium text-stone-900">Order Updates</h3>
                          <p className="text-sm text-stone-500">Get SMS and Email updates on order status.</p>
                        </div>
-                       <div className="w-10 h-6 bg-green-500 rounded-full relative cursor-pointer shadow-inner">
-                         <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow"></div>
-                       </div>
+                       <button
+                         type="button"
+                         role="switch"
+                         aria-checked={notifPrefs.orderUpdates}
+                         onClick={() => toggleNotifPref('orderUpdates')}
+                         className={`w-10 h-6 rounded-full relative cursor-pointer shadow-inner transition-colors ${
+                           notifPrefs.orderUpdates ? 'bg-green-500' : 'bg-stone-200'
+                         }`}
+                       >
+                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${
+                           notifPrefs.orderUpdates ? 'right-1' : 'left-1'
+                         }`}></div>
+                       </button>
                      </div>
                      <div className="flex items-center justify-between">
                        <div>
-                         <h3 className="font-medium text-stone-900">Promotions & Offers</h3>
+                         <h3 className="font-medium text-stone-900">Promotions &amp; Offers</h3>
                          <p className="text-sm text-stone-500">Receive exclusive deals and discounts.</p>
                        </div>
-                       <div className="w-10 h-6 bg-stone-200 rounded-full relative cursor-pointer shadow-inner">
-                         <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow"></div>
-                       </div>
+                       <button
+                         type="button"
+                         role="switch"
+                         aria-checked={notifPrefs.promotions}
+                         onClick={() => toggleNotifPref('promotions')}
+                         className={`w-10 h-6 rounded-full relative cursor-pointer shadow-inner transition-colors ${
+                           notifPrefs.promotions ? 'bg-green-500' : 'bg-stone-200'
+                         }`}
+                       >
+                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${
+                           notifPrefs.promotions ? 'right-1' : 'left-1'
+                         }`}></div>
+                       </button>
                      </div>
                      <div className="flex items-center justify-between">
                        <div>
                          <h3 className="font-medium text-stone-900">Push Notifications</h3>
                          <p className="text-sm text-stone-500">FCM push notifications on your device.</p>
                        </div>
-                       <div className="w-10 h-6 bg-stone-200 rounded-full relative cursor-pointer shadow-inner">
-                         <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow"></div>
-                       </div>
+                       <button
+                         type="button"
+                         role="switch"
+                         aria-checked={notifPrefs.push}
+                         onClick={() => toggleNotifPref('push')}
+                         className={`w-10 h-6 rounded-full relative cursor-pointer shadow-inner transition-colors ${
+                           notifPrefs.push ? 'bg-green-500' : 'bg-stone-200'
+                         }`}
+                       >
+                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${
+                           notifPrefs.push ? 'right-1' : 'left-1'
+                         }`}></div>
+                       </button>
                      </div>
                    </div>
                 )}

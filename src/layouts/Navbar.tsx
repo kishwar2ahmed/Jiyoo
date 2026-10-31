@@ -10,6 +10,7 @@ import { searchCatalogProducts } from "../utils/fuzzyMatch";
 import { getOptimizedImageUrl } from "../utils/imageUtils";
 import { Product } from "../types";
 import { useModalBackButton } from "../features/core/hooks/useModalBackButton";
+import { useTypewriter } from "../features/core/components/TypewriterText";
 
 const TRENDING_SEARCHES = [
   "Mango",
@@ -24,10 +25,19 @@ const TRENDING_SEARCHES = [
   "Momos",
 ];
 
+const SEARCH_TYPEWRITER_PROMPTS = [
+  "Search mangoes, avocados, berries...",
+  "Search curry-cut chicken & mutton...",
+  "Search sea pomfret & tiger prawns...",
+  "Search daily farm-fresh vegetables...",
+  "Search rich smoothies & steamed momos...",
+] as const;
+
 export function Navbar({
   onUserClick,
   onCartClick,
   onAboutClick,
+  onContactClick,
   activePage = "retail",
   onWholesaleClick,
   onRetailClick,
@@ -35,6 +45,7 @@ export function Navbar({
   onUserClick: () => void;
   onCartClick: () => void;
   onAboutClick?: () => void;
+  onContactClick?: () => void;
   activePage?: "retail" | "wholesale";
   onWholesaleClick?: () => void;
   onRetailClick?: () => void;
@@ -48,10 +59,10 @@ export function Navbar({
   const [cartPulseKey, setCartPulseKey] = useState(0);
   const [isCartUpdating, setIsCartUpdating] = useState(false);
   const prevCartCountRef = useRef(cartCount);
-  useModalBackButton(searchOpen || mobileMenuOpen, () => {
+  useModalBackButton(searchOpen, () => {
     setSearchOpen(false);
-    setMobileMenuOpen(false);
   });
+  const headerRef = useRef<HTMLElement>(null);
   const desktopSearchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const modalSearchInputRef = useRef<HTMLInputElement>(null);
@@ -60,6 +71,15 @@ export function Navbar({
 
   const { categoriesList: navCategories } = useStorefrontCategories();
   const { currentProducts } = useStorefrontProducts();
+
+  const { displayText: animatedSearchPlaceholder } = useTypewriter({
+    phrases: SEARCH_TYPEWRITER_PROMPTS,
+    typingSpeed: 45,
+    deletingSpeed: 22,
+    pauseDuration: 2400,
+    startDelay: 900,
+    paused: searchQuery.trim().length > 0,
+  });
 
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
@@ -99,7 +119,8 @@ export function Navbar({
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close inline dropdown when clicking outside either desktop or mobile search
+  // Close inline dropdown when clicking outside either desktop or mobile search,
+  // and close mobile menu when clicking outside the header or pressing Escape
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -108,9 +129,21 @@ export function Navbar({
       if (!clickedDesktop && !clickedMobile) {
         setDropdownFocused(false);
       }
+      if (headerRef.current && !headerRef.current.contains(target)) {
+        setMobileMenuOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMobileMenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("keydown", handleEsc);
+    };
   }, []);
 
   // Global keyboard shortcut Cmd/Ctrl + K to open search
@@ -253,13 +286,30 @@ export function Navbar({
 
   const handleMobileNavCategory = (catId: string) => {
     setMobileMenuOpen(false);
+    setDropdownFocused(false);
+    if (searchQuery.trim()) {
+      setSearchQuery("");
+    }
+    try {
+      sessionStorage.setItem("jiyoo_pending_category", catId);
+    } catch {
+      // ignore storage error
+    }
+
+    const dispatchAndScroll = () => {
+      window.dispatchEvent(new CustomEvent("select-category", { detail: catId }));
+      const el = document.getElementById("products");
+      if (el) {
+        const y = el.getBoundingClientRect().top + window.scrollY - 116;
+        window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+      }
+    };
+
     if (activePage === "wholesale") {
       onRetailClick?.();
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent("select-category", { detail: catId }));
-      }, 60);
+      setTimeout(dispatchAndScroll, 120);
     } else {
-      window.dispatchEvent(new CustomEvent("select-category", { detail: catId }));
+      setTimeout(dispatchAndScroll, 20);
     }
   };
 
@@ -394,6 +444,7 @@ export function Navbar({
   return (
     <>
       <header
+        ref={headerRef}
         className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
           scrolled || mobileMenuOpen
             ? "bg-[#FAF9F5]/95 backdrop-blur-md border-b border-[#E7E3DA] pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2.5 sm:pb-3 shadow-2xs"
@@ -472,11 +523,8 @@ export function Navbar({
                 navCategories.map((cat) => (
                   <button
                     key={cat.id}
-                    onClick={() => {
-                      window.dispatchEvent(
-                        new CustomEvent("select-category", { detail: cat.id })
-                      );
-                    }}
+                    type="button"
+                    onClick={() => handleMobileNavCategory(cat.id)}
                     className="text-sm font-medium text-[#57534E] hover:text-[#1C1917] underline-offset-4 hover:underline transition-colors cursor-pointer capitalize whitespace-nowrap shrink-0"
                   >
                     {cat.label}
@@ -518,7 +566,7 @@ export function Navbar({
                       onFocus={() => setDropdownFocused(true)}
                       onChange={(e) => handleRealTimeSearchChange(e.target.value)}
                       onKeyDown={handleSearchKeyDown}
-                      placeholder="Search fruits, meats..."
+                      placeholder={animatedSearchPlaceholder || "Search fruits, meats..."}
                       aria-label="Search products by name in real-time"
                       className="w-full pl-8 pr-16 py-1.5 text-xs sm:text-[13px] bg-white hover:bg-white focus:bg-white text-[#1C1917] placeholder:text-[#78716C] rounded-lg border border-[#DCD6CA] focus:border-[#1C1917] focus:ring-2 focus:ring-[#1C1917]/10 focus:outline-none transition-all shadow-2xs"
                     />
@@ -902,7 +950,7 @@ export function Navbar({
                     onFocus={() => setDropdownFocused(true)}
                     onChange={(e) => handleRealTimeSearchChange(e.target.value)}
                     onKeyDown={handleSearchKeyDown}
-                    placeholder="Search fruits, vegetables, meats..."
+                    placeholder={animatedSearchPlaceholder || "Search fruits, vegetables, meats..."}
                     aria-label="Search products by name in real-time"
                     className="w-full pl-9 pr-16 py-2 text-xs sm:text-[13px] bg-white text-stone-900 placeholder:text-stone-500 rounded-xl border border-stone-300/80 focus:border-stone-900 focus:ring-2 focus:ring-stone-900/10 focus:outline-none transition-all shadow-2xs"
                   />
@@ -1006,31 +1054,50 @@ export function Navbar({
                     key={cat.id}
                     type="button"
                     onClick={() => handleMobileNavCategory(cat.id)}
-                    className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-medium text-[#1C1917] hover:bg-[#F4F1EA] transition-colors capitalize cursor-pointer"
+                    className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-medium text-[#1C1917] hover:bg-[#F4F1EA] active:bg-[#EAE5D9] transition-colors capitalize cursor-pointer"
                   >
-                    {cat.label}
+                    <span>{cat.label}</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#78716C]" />
                   </button>
                 ))}
                 <button
                   type="button"
                   onClick={() => {
                     setMobileMenuOpen(false);
-                    onAboutClick?.();
+                    if (onAboutClick) {
+                      onAboutClick();
+                    } else {
+                      document.dispatchEvent(new CustomEvent("open-about"));
+                    }
                   }}
-                  className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-medium text-[#1C1917] hover:bg-[#F4F1EA] transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-medium text-[#1C1917] hover:bg-[#F4F1EA] active:bg-[#EAE5D9] transition-colors cursor-pointer"
                 >
-                  About Us
+                  <span>About Us</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#78716C]" />
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setMobileMenuOpen(false);
-                    document.dispatchEvent(new CustomEvent("open-contact"));
+                    if (onContactClick) {
+                      onContactClick();
+                    } else {
+                      document.dispatchEvent(new CustomEvent("open-contact"));
+                    }
                   }}
-                  className="w-full text-left py-2.5 px-3 rounded-lg text-sm font-medium text-[#57534E] hover:text-[#1C1917] hover:bg-[#F4F1EA] transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-medium text-[#57534E] hover:text-[#1C1917] hover:bg-[#F4F1EA] active:bg-[#EAE5D9] transition-colors cursor-pointer"
                 >
-                  Help &amp; Contact
+                  <span>Help &amp; Contact</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#78716C]" />
                 </button>
+                <a
+                  href="tel:+919739391891"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-medium text-emerald-800 hover:bg-emerald-50/80 active:bg-emerald-100/70 transition-colors cursor-pointer"
+                >
+                  <span>Call Support (+91 97393 91891)</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-emerald-700" />
+                </a>
               </div>
 
               {/* Official Social Channels inside Mobile Drawer */}
@@ -1090,7 +1157,7 @@ export function Navbar({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => handleRealTimeSearchChange(e.target.value)}
-                  placeholder="Search fruits, vegetables, chicken, mutton, seafood, smoothies..."
+                  placeholder={animatedSearchPlaceholder || "Search fruits, vegetables, chicken, mutton, seafood, smoothies..."}
                   className="w-full bg-white border-2 border-[#1C1917] rounded-2xl pl-13 pr-32 py-4 text-base sm:text-xl font-medium text-[#1C1917] placeholder:text-[#A8A29E] focus:outline-none shadow-sm"
                   onKeyDown={handleSearchKeyDown}
                   autoFocus

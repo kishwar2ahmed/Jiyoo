@@ -214,11 +214,37 @@ export function Storefront() {
   ]);
 
   useEffect(() => {
+    const activateAndScrollCategory = (categoryId: string) => {
+      if (categoryId === activeCategoryIdRef.current) {
+        applyCategoryState(categoryId);
+      } else {
+        handleCategoryChange(categoryId);
+      }
+      try {
+        sessionStorage.removeItem('jiyoo_pending_category');
+      } catch {
+        // ignore
+      }
+      const el = document.getElementById('products');
+      if (el) {
+        const y = el.getBoundingClientRect().top + window.scrollY - 116;
+        window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+      }
+    };
+
+    try {
+      const pendingCat = sessionStorage.getItem('jiyoo_pending_category');
+      if (pendingCat && categoriesList.some((c) => c.id === pendingCat)) {
+        activateAndScrollCategory(pendingCat);
+      }
+    } catch {
+      // ignore
+    }
+
     const handleSelectCategory = (e: CustomEvent<string | { categoryId: string }>) => {
       const categoryId = typeof e.detail === 'string' ? e.detail : e.detail?.categoryId;
       if (categoryId) {
-        handleCategoryChange(categoryId);
-        document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
+        activateAndScrollCategory(categoryId);
       }
     };
     const handleSelectProduct = (e: any) => {
@@ -233,7 +259,7 @@ export function Storefront() {
       window.removeEventListener('select-category' as any, handleSelectCategory);
       window.removeEventListener('select-product' as any, handleSelectProduct);
     };
-  }, [categoriesList, handleProductClick, handleCategoryChange]);
+  }, [categoriesList, handleProductClick, handleCategoryChange, applyCategoryState]);
 
   const categoryThumbnails = useMemo(() => {
     const map = new Map<string, { type: 'real-composite' | 'products', urls: string[] }>();
