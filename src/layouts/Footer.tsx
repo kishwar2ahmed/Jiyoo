@@ -142,8 +142,9 @@ export function Footer() {
           </div>
 
           <div className="relative z-10 max-w-3xl mx-auto">
-            {/* Kicker */}
-            <div className="mb-3 sm:mb-5">
+            {/* Kicker with Animated 3D Express Delivery Truck */}
+            <div className="mb-3 sm:mb-5 inline-flex items-center justify-center gap-2.5">
+              <RealisticDeliveryScooter className="w-9 h-7.5 sm:w-11 sm:h-9 shrink-0" />
               <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.2em] sm:tracking-[0.24em] text-[#C5A880] font-medium font-sans-clean">
                 Fresh Daily Delivery in Bengaluru
               </span>
@@ -449,9 +450,9 @@ export function Footer() {
                     </button>
                   </li>
                   <li className="pt-1.5">
-                    <div className="p-3 rounded-xl bg-stone-50 border border-stone-200/60 space-y-1">
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-stone-900">
-                        <Clock className="w-3.5 h-3.5 text-[#B08D57] shrink-0" />
+                    <div className="group p-3 rounded-xl bg-stone-50 border border-stone-200/60 space-y-1">
+                      <div className="flex items-center gap-2 text-xs font-medium text-stone-900">
+                        <RealisticDeliveryScooter className="w-7 h-6 shrink-0" />
                         <span>Daily Delivery Hours</span>
                       </div>
                       <p className="text-[11px] text-stone-500 leading-snug">

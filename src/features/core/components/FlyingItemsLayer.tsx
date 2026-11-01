@@ -1,11 +1,332 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Check } from "lucide-react";
-import { useCart, FlyingItem } from "../../../contexts/CartContext";
+import { useFlyingItems, FlyingItem } from "../../../contexts/CartContext";
 
 interface CartCoordinates {
   x: number;
   y: number;
+}
+
+// In-memory cache of background-stripped transparent product cutouts
+const cutoutCache = new Map<string, string>();
+const inFlightCutouts = new Map<string, Promise<string>>();
+
+// Non-blocking background idle queue so initial page load & scrolling stay at 60fps
+const idlePreloadQueue: string[] = [];
+const queuedSet = new Set<string>();
+let isProcessingIdleQueue = false;
+
+function scheduleIdleWork(cb: () => void) {
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    (window as any).requestIdleCallback(cb, { timeout: 1200 });
+  } else {
+    setTimeout(cb, 64);
+  }
+}
+
+function drainIdlePreloadQueue() {
+  if (isProcessingIdleQueue || idlePreloadQueue.length === 0) return;
+  isProcessingIdleQueue = true;
+  scheduleIdleWork(() => {
+    const nextUrl = idlePreloadQueue.shift();
+    if (!nextUrl) {
+      isProcessingIdleQueue = false;
+      return;
+    }
+    queuedSet.delete(nextUrl);
+    stripProductBackground(nextUrl).finally(() => {
+      isProcessingIdleQueue = false;
+      if (idlePreloadQueue.length > 0) {
+        drainIdlePreloadQueue();
+      }
+    });
+  });
+}
+
+/**
+ * Enqueues a product image for non-blocking background cutout extraction during idle frames,
+ * or prioritizes it immediately when `immediate = true` (e.g. on pointer hover / touchstart).
+ */
+export function preloadProductCutout(imageUrl: string, immediate = false): void {
+  if (
+    !imageUrl ||
+    imageUrl.endsWith(".mp4") ||
+    cutoutCache.has(imageUrl) ||
+    inFlightCutouts.has(imageUrl)
+  ) {
+    return;
+  }
+  if (immediate) {
+    void stripProductBackground(imageUrl);
+    return;
+  }
+  if (!queuedSet.has(imageUrl) && idlePreloadQueue.length < 48) {
+    queuedSet.add(imageUrl);
+    idlePreloadQueue.push(imageUrl);
+    drainIdlePreloadQueue();
+  }
+}
+
+/**
+ * Removes solid white / cream / studio backgrounds from a product image
+ * using edge-connected flood-fill matting while strictly protecting interior
+ * product details and ensuring the central product remains 100% opaque and vivid.
+ */
+function stripProductBackground(imageUrl: string): Promise<string> {
+  if (!imageUrl || imageUrl.endsWith(".mp4")) {
+    return Promise.resolve(imageUrl);
+  }
+  const cached = cutoutCache.get(imageUrl);
+  if (cached) {
+    return Promise.resolve(cached);
+  }
+  const existingPromise = inFlightCutouts.get(imageUrl);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const job = new Promise<string>((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.decoding = "async";
+
+    img.onload = () => {
+      try {
+        const maxDim = 160;
+        const scale = Math.min(
+          1,
+          maxDim / Math.max(img.naturalWidth || 1, img.naturalHeight || 1)
+        );
+        const width = Math.max(1, Math.round((img.naturalWidth || 160) * scale));
+        const height = Math.max(1, Math.round((img.naturalHeight || 160) * scale));
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) {
+          resolve(imageUrl);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data;
+        const totalPixels = width * height;
+
+        // 1. Inspect outer perimeter to check if already transparent or has a studio background
+        let transparentBorderCount = 0;
+        let totalBorderCount = 0;
+        let sumR = 0;
+        let sumG = 0;
+        let sumB = 0;
+        let studioBorderCount = 0;
+
+        const sampleBorderPixel = (x: number, y: number) => {
+          const i = (y * width + x) * 4;
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const a = data[i + 3];
+          totalBorderCount++;
+          if (a < 25) {
+            transparentBorderCount++;
+          } else {
+            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            const maxC = Math.max(r, g, b);
+            const minC = Math.min(r, g, b);
+            if (lum > 205 && maxC - minC < 34) {
+              sumR += r;
+              sumG += g;
+              sumB += b;
+              studioBorderCount++;
+            }
+          }
+        };
+
+        for (let x = 0; x < width; x++) {
+          sampleBorderPixel(x, 0);
+          sampleBorderPixel(x, height - 1);
+        }
+        for (let y = 1; y < height - 1; y++) {
+          sampleBorderPixel(0, y);
+          sampleBorderPixel(width - 1, y);
+        }
+
+        // If already a transparent PNG cutout, keep it untouched
+        if (transparentBorderCount > totalBorderCount * 0.6) {
+          cutoutCache.set(imageUrl, imageUrl);
+          resolve(imageUrl);
+          return;
+        }
+
+        const bgR = studioBorderCount > 0 ? sumR / studioBorderCount : 252;
+        const bgG = studioBorderCount > 0 ? sumG / studioBorderCount : 251;
+        const bgB = studioBorderCount > 0 ? sumB / studioBorderCount : 248;
+
+        const isBackgroundLike = (pixelIdx: number): boolean => {
+          const i = pixelIdx * 4;
+          const a = data[i + 3];
+          if (a < 20) return true;
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+
+          const maxC = Math.max(r, g, b);
+          const minC = Math.min(r, g, b);
+          const chroma = maxC - minC;
+
+          const dr = r - bgR;
+          const dg = g - bgG;
+          const db = b - bgB;
+          const distBg = Math.sqrt(dr * dr + dg * dg + db * db);
+          const dw = Math.sqrt((255 - r) ** 2 + (255 - g) ** 2 + (255 - b) ** 2);
+
+          if ((distBg < 32 || dw < 30) && chroma < 24) return true;
+          if (r > 240 && g > 238 && b > 233 && chroma < 20) return true;
+          return false;
+        };
+
+        // 2. Flood-fill from all 4 outer edges inward
+        const visited = new Uint8Array(totalPixels);
+        const queue = new Int32Array(totalPixels);
+        let head = 0;
+        let tail = 0;
+
+        const enqueueIfBg = (x: number, y: number) => {
+          const idx = y * width + x;
+          if (visited[idx]) return;
+          if (isBackgroundLike(idx)) {
+            visited[idx] = 1;
+            queue[tail++] = idx;
+          }
+        };
+
+        for (let x = 0; x < width; x++) {
+          enqueueIfBg(x, 0);
+          enqueueIfBg(x, height - 1);
+        }
+        for (let y = 1; y < height - 1; y++) {
+          enqueueIfBg(0, y);
+          enqueueIfBg(width - 1, y);
+        }
+
+        while (head < tail) {
+          const curr = queue[head++];
+          const cx = curr % width;
+          const cy = (curr - cx) / width;
+
+          if (cx > 0) enqueueIfBg(cx - 1, cy);
+          if (cx < width - 1) enqueueIfBg(cx + 1, cy);
+          if (cy > 0) enqueueIfBg(cx, cy - 1);
+          if (cy < height - 1) enqueueIfBg(cx, cy + 1);
+        }
+
+        // Verify that the central subject of the product was NOT erased
+        let centerRemaining = 0;
+        let centerTotal = 0;
+        const x0 = Math.floor(width * 0.25);
+        const x1 = Math.ceil(width * 0.75);
+        const y0 = Math.floor(height * 0.25);
+        const y1 = Math.ceil(height * 0.75);
+        for (let y = y0; y < y1; y++) {
+          for (let x = x0; x < x1; x++) {
+            centerTotal++;
+            if (!visited[y * width + x]) {
+              centerRemaining++;
+            }
+          }
+        }
+
+        if (centerRemaining >= centerTotal * 0.22 && tail > totalPixels * 0.08) {
+          // 3. Knock out visited studio background pixels & softly feather 1px boundary
+          for (let idx = 0; idx < totalPixels; idx++) {
+            if (visited[idx]) {
+              data[idx * 4 + 3] = 0;
+              continue;
+            }
+
+            const x = idx % width;
+            const y = (idx - x) / width;
+            const touchesBg =
+              (x > 0 && visited[idx - 1] === 1) ||
+              (x < width - 1 && visited[idx + 1] === 1) ||
+              (y > 0 && visited[idx - width] === 1) ||
+              (y < height - 1 && visited[idx + width] === 1);
+
+            if (touchesBg) {
+              const i = idx * 4;
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+              const maxC = Math.max(r, g, b);
+              const minC = Math.min(r, g, b);
+              const distBg = Math.sqrt(
+                (r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2
+              );
+              if (maxC - minC < 30 && distBg < 54) {
+                const featheredAlpha = Math.max(
+                  0,
+                  Math.min(255, Math.round(((distBg - 14) / 40) * 255))
+                );
+                data[i + 3] = Math.min(data[i + 3], featheredAlpha);
+              }
+            }
+          }
+        } else {
+          // Fallback for full-bleed photos without a white background:
+          // Sculpt into a soft organic floating silhouette by feathering the rectangular corners
+          const cx = width / 2;
+          const cy = height / 2;
+          const rx = width * 0.46;
+          const ry = height * 0.46;
+          for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+              const normDist = Math.hypot((x - cx) / rx, (y - cy) / ry);
+              if (normDist > 1.0) {
+                const i = (y * width + x) * 4;
+                data[i + 3] = 0;
+              } else if (normDist > 0.86) {
+                const i = (y * width + x) * 4;
+                const fade = Math.max(0, Math.min(1, (1.0 - normDist) / 0.14));
+                data[i + 3] = Math.round(data[i + 3] * fade);
+              }
+            }
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+
+        if (typeof canvas.toBlob === "function") {
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const objUrl = URL.createObjectURL(blob);
+              cutoutCache.set(imageUrl, objUrl);
+              resolve(objUrl);
+            } else {
+              const dataUrl = canvas.toDataURL("image/png");
+              cutoutCache.set(imageUrl, dataUrl);
+              resolve(dataUrl);
+            }
+          }, "image/png");
+        } else {
+          const cutoutUrl = canvas.toDataURL("image/png");
+          cutoutCache.set(imageUrl, cutoutUrl);
+          resolve(cutoutUrl);
+        }
+      } catch {
+        resolve(imageUrl);
+      }
+    };
+
+    img.onerror = () => resolve(imageUrl);
+    img.src = imageUrl;
+  }).finally(() => {
+    inFlightCutouts.delete(imageUrl);
+  });
+
+  inFlightCutouts.set(imageUrl, job);
+  return job;
 }
 
 function sampleQuadraticBezier(
@@ -32,29 +353,100 @@ function computeFlightTrajectory(item: FlyingItem, cartPos: CartCoordinates) {
   const end = { x: cartPos.x, y: cartPos.y };
   const distance = Math.hypot(end.x - start.x, end.y - start.y);
 
-  // Create an elevated parabolic control point so the product arcs gracefully into the cart
-  const arcLift = Math.max(95, Math.min(195, distance * 0.25));
+  // Snappy, well-proportioned parabolic arc so the flying product is clearly visible and brisk
+  const arcLift = Math.max(85, Math.min(165, distance * 0.22));
   const control: CartCoordinates = {
-    x: start.x + (end.x - start.x) * 0.36,
+    x: start.x + (end.x - start.x) * 0.38,
     y: Math.max(36, Math.min(start.y, end.y) - arcLift),
   };
 
-  // Sample 7 points along the curve; step 1 is a brief showcase lift right above the card
-  const uSteps = [0, 0.05, 0.22, 0.48, 0.74, 0.93, 1];
+  // Responsive Bezier steps: quick visible pop at liftoff followed by a brisk glide into the cart
+  const uSteps = [0, 0.09, 0.26, 0.5, 0.74, 0.91, 1];
   const points = uSteps.map((u) => sampleQuadraticBezier(start, control, end, u));
 
   return {
-    start,
-    control,
-    end,
     xKeyframes: points.map((p) => p.x),
     yKeyframes: points.map((p) => p.y),
-    svgPath: `M ${start.x} ${start.y} Q ${control.x} ${control.y} ${end.x} ${end.y}`,
   };
 }
 
+function FlyingProductCutout({
+  item,
+  cartPos,
+  onComplete,
+}: {
+  item: FlyingItem;
+  cartPos: CartCoordinates;
+  onComplete: (id: string) => void;
+}) {
+  const [cutoutSrc, setCutoutSrc] = useState<string | null>(() =>
+    cutoutCache.get(item.image) || null
+  );
+
+  useEffect(() => {
+    let active = true;
+    stripProductBackground(item.image).then((result) => {
+      if (active) setCutoutSrc(result);
+    });
+    return () => {
+      active = false;
+    };
+  }, [item.image]);
+
+  const { xKeyframes, yKeyframes } = computeFlightTrajectory(item, cartPos);
+  const displaySrc = cutoutSrc || item.image;
+
+  return (
+    <motion.div
+      initial={{
+        x: xKeyframes[0],
+        y: yKeyframes[0],
+        scale: 0.96,
+        opacity: 1,
+        rotate: -4,
+      }}
+      animate={{
+        x: xKeyframes,
+        y: yKeyframes,
+        scale: [0.96, 1.28, 1.2, 1.08, 0.88, 0.55, 0.24],
+        opacity: [1, 1, 1, 1, 1, 0.94, 0],
+        rotate: [-4, -8, -2, 5, 8, 4, 0],
+      }}
+      exit={{ opacity: 0, scale: 0.2 }}
+      transition={{
+        duration: 0.72,
+        times: [0, 0.14, 0.32, 0.54, 0.76, 0.91, 1],
+        ease: [0.24, 0.86, 0.34, 1],
+      }}
+      onAnimationComplete={() => onComplete(item.id)}
+      className="absolute top-0 left-0 -ml-16 -mt-16 sm:-ml-18 sm:-mt-18 w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center bg-transparent pointer-events-none select-none will-change-transform"
+    >
+      {displaySrc.endsWith(".mp4") ? (
+        <video
+          src={displaySrc}
+          autoPlay
+          loop
+          muted
+          playsInline
+          webkit-playsinline="true"
+          className="w-full h-full object-contain bg-transparent drop-shadow-[0_2px_4px_rgba(255,255,255,0.75)] drop-shadow-[0_18px_26px_rgba(28,25,23,0.45)]"
+        />
+      ) : (
+        <img
+          src={displaySrc}
+          alt={item.name || "Product"}
+          loading="eager"
+          decoding="sync"
+          className="w-full h-full object-contain bg-transparent drop-shadow-[0_2px_4px_rgba(255,255,255,0.75)] drop-shadow-[0_18px_26px_rgba(28,25,23,0.45)]"
+          referrerPolicy="no-referrer"
+        />
+      )}
+    </motion.div>
+  );
+}
+
 export function FlyingItemsLayer() {
-  const { flyingItems, removeFlyingItem } = useCart();
+  const { flyingItems, removeFlyingItem } = useFlyingItems();
   const [cartPos, setCartPos] = useState<CartCoordinates>(() => ({
     x: typeof window !== "undefined" ? window.innerWidth - 44 : 320,
     y: 36,
@@ -89,7 +481,6 @@ export function FlyingItemsLayer() {
     };
   }, [updateCartPos]);
 
-  // Re-measure cart icon position immediately whenever a new flying item launches
   useEffect(() => {
     if (flyingItems.length > 0) {
       updateCartPos();
@@ -104,154 +495,18 @@ export function FlyingItemsLayer() {
   return (
     <div
       aria-hidden="true"
-      className="fixed inset-0 pointer-events-none z-[100] overflow-hidden"
+      className="fixed inset-0 pointer-events-none z-[100] overflow-hidden bg-transparent"
     >
-      {/* Golden Parabolic Flight Trails */}
-      <svg className="absolute inset-0 w-full h-full overflow-visible">
-        <defs>
-          <linearGradient id="jiyoo-flight-arc" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#C5A880" stopOpacity="0.2" />
-            <stop offset="55%" stopColor="#C5A880" stopOpacity="0.85" />
-            <stop offset="100%" stopColor="#059669" stopOpacity="0.95" />
-          </linearGradient>
-        </defs>
-        <AnimatePresence>
-          {flyingItems.map((item) => {
-            const { svgPath } = computeFlightTrajectory(item, cartPos);
-            return (
-              <motion.path
-                key={`trail-${item.id}`}
-                d={svgPath}
-                fill="none"
-                stroke="url(#jiyoo-flight-arc)"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeDasharray="6 6"
-                initial={{ pathLength: 0, opacity: 0 }}
-                animate={{
-                  pathLength: [0, 0.4, 0.88, 1],
-                  opacity: [0, 0.9, 0.75, 0],
-                }}
-                exit={{ opacity: 0 }}
-                transition={{
-                  duration: 0.62,
-                  times: [0, 0.2, 0.78, 1],
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-              />
-            );
-          })}
-        </AnimatePresence>
-      </svg>
-
-      {/* Launch Ripple & Parabolic Flying Product Cards */}
       <AnimatePresence>
-        {flyingItems.map((item) => {
-          const { start, xKeyframes, yKeyframes } = computeFlightTrajectory(
-            item,
-            cartPos
-          );
-
-          return (
-            <div key={item.id}>
-              {/* Origin Lift-Off Halo */}
-              <motion.div
-                initial={{
-                  x: start.x,
-                  y: start.y,
-                  scale: 0.45,
-                  opacity: 0.85,
-                }}
-                animate={{
-                  x: start.x,
-                  y: start.y,
-                  scale: 1.65,
-                  opacity: 0,
-                }}
-                transition={{ duration: 0.36, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute top-0 left-0 -ml-12 -mt-12 w-24 h-24 rounded-full border-2 border-[#C5A880] bg-[#C5A880]/15"
-              />
-
-              {/* Flying Product Showcase Miniature */}
-              <motion.div
-                initial={{
-                  x: xKeyframes[0],
-                  y: yKeyframes[0],
-                  scale: 0.65,
-                  opacity: 0,
-                  rotate: -6,
-                }}
-                animate={{
-                  x: xKeyframes,
-                  y: yKeyframes,
-                  scale: [0.65, 1.16, 1.1, 0.98, 0.8, 0.48, 0.22],
-                  opacity: [0, 1, 1, 1, 1, 0.96, 0],
-                  rotate: [-6, -2, 3, 5, 2, 0, 0],
-                }}
-                exit={{ opacity: 0, scale: 0.2 }}
-                transition={{
-                  duration: 0.62,
-                  times: [0, 0.12, 0.28, 0.5, 0.72, 0.89, 1],
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                onAnimationComplete={() => handleFlightComplete(item.id)}
-                className="absolute top-0 left-0 -ml-12 -mt-12 sm:-ml-14 sm:-mt-14 w-24 h-24 sm:w-28 sm:h-28 flex flex-col items-center justify-center will-change-transform"
-              >
-                <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white border-2 border-[#C5A880] ring-4 ring-[#1C1917]/10 shadow-[0_24px_48px_-8px_rgba(28,25,23,0.42)] p-1.5 sm:p-2 flex items-center justify-center overflow-hidden">
-                  {item.image.endsWith(".mp4") ? (
-                    <video
-                      src={item.image}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      webkit-playsinline="true"
-                      className="w-full h-full object-contain rounded-xl"
-                    />
-                  ) : (
-                    <img
-                      src={item.image}
-                      alt={item.name || "Flying product"}
-                      loading="eager"
-                      decoding="sync"
-                      className="w-full h-full object-contain rounded-xl"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        if (!target.src.includes("/jiyoo.logo.jpeg")) {
-                          target.src = "/jiyoo.logo.jpeg";
-                        }
-                      }}
-                    />
-                  )}
-
-                  {/* Corner Emerald Verification Badge */}
-                  <div className="absolute top-1 right-1 w-5 h-5 sm:w-5.5 sm:h-5.5 rounded-full bg-emerald-700 text-white shadow-md flex items-center justify-center border border-white">
-                    <Check className="w-3 h-3 stroke-[2.75]" />
-                  </div>
-                </div>
-
-                {/* Product Name / Price Pill Tag during Flight */}
-                {(item.name || item.price) && (
-                  <div className="-mt-2 relative z-10 px-2.5 py-0.5 rounded-full bg-[#1C1917] text-[#FAF9F5] border border-[#C5A880]/70 shadow-lg flex items-center gap-1.5 max-w-[136px] sm:max-w-[156px]">
-                    {item.name && (
-                      <span className="text-[9px] sm:text-[10px] font-semibold truncate">
-                        {item.name}
-                      </span>
-                    )}
-                    {item.price && (
-                      <span className="text-[9px] sm:text-[10px] font-bold text-[#E5C99B] shrink-0">
-                        {item.price}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </motion.div>
-            </div>
-          );
-        })}
+        {flyingItems.map((item) => (
+          <FlyingProductCutout
+            key={item.id}
+            item={item}
+            cartPos={cartPos}
+            onComplete={handleFlightComplete}
+          />
+        ))}
       </AnimatePresence>
     </div>
   );
 }
-

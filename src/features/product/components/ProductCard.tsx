@@ -17,6 +17,7 @@ import { InstaBlueTickIcon } from "../../core/components/SocialIcons";
 import { PremiumShieldMark } from "../../core/components/PremiumShieldMark";
 import { RealisticDeliveryScooter } from "../../core/components/RealisticDeliveryScooter";
 import { useToast } from "../../core/contexts/ToastContext";
+import { preloadProductCutout } from "../../core/components/FlyingItemsLayer";
 import { VelvetyBalloonButton } from "./VelvetyBalloonButton";
 
 function ProductCardRating({
@@ -172,6 +173,8 @@ export const ProductCard = React.memo(function ProductCard({
         ease: [0.16, 1, 0.3, 1],
       }}
       onClick={() => onProductClick?.(product)}
+      onPointerEnter={() => preloadProductCutout(productImgRef.current?.currentSrc || optimizedImage, true)}
+      onTouchStart={() => preloadProductCutout(productImgRef.current?.currentSrc || optimizedImage, true)}
       className="group relative flex flex-col bg-white rounded-xl overflow-hidden shadow-xs hover:shadow-[0_20px_40px_-14px_rgba(28,25,23,0.12)] transition-shadow duration-300 border border-[#E7E3DA] hover:border-[#C5A880]/70 cursor-pointer h-full"
     >
       {/* Scroll-Triggered Top Gold Shimmer Accent Line */}
@@ -193,7 +196,10 @@ export const ProductCard = React.memo(function ProductCard({
           ref={productImgRef}
           src={optimizedImage}
           alt={product.name}
-          onLoad={() => setIsImgLoaded(true)}
+          onLoad={(e) => {
+            setIsImgLoaded(true);
+            preloadProductCutout(e.currentTarget.currentSrc || optimizedImage);
+          }}
           className={`w-full h-full object-contain transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] sm:group-hover:scale-[1.045] ${isImgLoaded ? "opacity-100 scale-100" : "opacity-0 scale-98"}`}
           referrerPolicy="no-referrer"
           loading={isAboveFold ? "eager" : "lazy"}
@@ -421,8 +427,8 @@ export const ProductCard = React.memo(function ProductCard({
           {/* Action Row (Stacked on mobile so price & Add button never crowd or crop) */}
           <div className="pt-2.5 sm:pt-4 border-t border-[#E7E3DA] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-2 mt-auto">
             <div className="flex items-center justify-between sm:flex-col sm:items-start gap-1">
-              <span className="text-[9px] sm:text-[10px] text-emerald-800 uppercase font-semibold tracking-wider inline-flex items-center gap-1.5 order-2 sm:order-1">
-                <RealisticDeliveryScooter className="w-5 h-3.5 shrink-0" />
+              <span className="group/delivery text-[9px] sm:text-[10px] text-emerald-800 uppercase font-semibold tracking-wider inline-flex items-center gap-1.5 order-2 sm:order-1">
+                <RealisticDeliveryScooter className="w-6 h-5 sm:w-7 sm:h-6 shrink-0" />
                 <span className="tabular-nums">{product.deliveryEstimate || "60m"}</span>
               </span>
               <div className="flex items-baseline gap-1.5 tabular-nums order-1 sm:order-2 overflow-hidden">

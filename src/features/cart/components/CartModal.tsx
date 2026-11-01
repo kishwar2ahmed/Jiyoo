@@ -1179,12 +1179,12 @@ export function CartModal({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
             transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-0 w-full h-screen supports-[height:100dvh]:h-[100dvh] bg-[#FAF9F5] z-50 flex flex-col overflow-hidden overscroll-contain"
+            className="fixed inset-0 w-full h-[100dvh] max-h-[100dvh] bg-[#FAF9F5] z-50 flex flex-col overflow-hidden overscroll-contain"
           >
             {/* Header */}
             <div className="shrink-0 border-b border-[#E7E3DA] bg-white/95 backdrop-blur-md z-20 pt-[env(safe-area-inset-top)]">
-              <div className="max-w-6xl mx-auto w-full flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5 sm:py-4">
-                <div className="flex items-center gap-3">
+              <div className="max-w-6xl mx-auto w-full flex items-center justify-between gap-2 px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                   <button
                     type="button"
                     onClick={() => {
@@ -1194,30 +1194,30 @@ export function CartModal({
                         onClose();
                       }
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-stone-700 hover:text-[#1C1917] bg-[#FAF9F5] hover:bg-stone-200/70 border border-[#E7E3DA] rounded-full transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-stone-700 hover:text-[#1C1917] bg-[#FAF9F5] hover:bg-stone-200/70 border border-[#E7E3DA] rounded-full transition-colors cursor-pointer shrink-0"
                   >
-                    <ChevronLeft className="w-4 h-4" />
-                    <span>{step === "checkout" ? "Back to Bag" : "Store"}</span>
+                    <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span>{step === "checkout" ? "Bag" : "Store"}</span>
                   </button>
-                  <div>
-                    <div className="flex items-center gap-2.5">
-                      <h2 className="text-lg sm:text-xl font-serif font-semibold text-[#1C1917] tracking-wide">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base sm:text-xl font-serif font-semibold text-[#1C1917] tracking-wide truncate">
                         {step === "cart"
                           ? "Your Bag"
                           : step === "checkout"
                             ? isWhatsAppCheckoutMode
-                              ? "WhatsApp Delivery Details"
+                              ? "WhatsApp Delivery"
                               : "Secure Checkout"
                             : "Order Reference"}
                       </h2>
                       {items.length > 0 && (
-                        <span className="px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider bg-[#1C1917] text-[#FAF9F5] rounded-full">
+                        <span className="px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider bg-[#1C1917] text-[#FAF9F5] rounded-full shrink-0 tabular-nums">
                           {cartCount} {cartCount === 1 ? "item" : "items"}
                         </span>
                       )}
                     </div>
                     {step === "checkout" && isWhatsAppCheckoutMode && (
-                      <p className="text-[11px] font-medium text-emerald-700">
+                      <p className="text-[10.5px] sm:text-[11px] font-medium text-emerald-700 truncate">
                         Guest WhatsApp Checkout — No login required
                       </p>
                     )}
@@ -1227,7 +1227,7 @@ export function CartModal({
                   type="button"
                   onClick={onClose}
                   aria-label="Close bag"
-                  className="p-2 text-stone-500 hover:text-[#1C1917] transition-colors rounded-full hover:bg-stone-100 cursor-pointer"
+                  className="p-2 text-stone-500 hover:text-[#1C1917] transition-colors rounded-full hover:bg-stone-100 cursor-pointer shrink-0"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1240,8 +1240,8 @@ export function CartModal({
                   step !== "success" &&
                   step !== "whatsapp_confirm" &&
                   items.length > 0
-                    ? "max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 sm:py-8 lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start"
-                    : "max-w-2xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10"
+                    ? "max-w-6xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-3.5 sm:py-8 lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start"
+                    : "max-w-2xl mx-auto w-full px-3.5 sm:px-6 py-6 sm:py-10"
                 }
               >
                 <div
@@ -1279,7 +1279,7 @@ export function CartModal({
                       </div>
                     ) : (
                       <>
-                        <div className="space-y-6 flex-1">
+                        <div className="space-y-3 sm:space-y-4 flex-1">
                           <AnimatePresence initial={false}>
                             {items.map((item, idx) => (
                               <motion.div
@@ -1293,9 +1293,9 @@ export function CartModal({
                                   delay: Math.min(idx * 0.035, 0.2),
                                   ease: [0.16, 1, 0.3, 1],
                                 }}
-                                className="flex gap-6 p-4 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-[#C5A880]/70 transition-colors"
+                                className="flex items-center sm:items-stretch gap-3 sm:gap-5 p-3 sm:p-4 bg-white rounded-2xl shadow-xs border border-[#E7E3DA] hover:border-[#C5A880]/70 transition-colors"
                               >
-                                <div className="w-24 h-24 bg-gray-50 rounded-xl overflow-hidden relative flex-shrink-0">
+                                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[#FAF9F5] border border-[#E7E3DA]/60 rounded-xl overflow-hidden relative flex-shrink-0 p-1">
                                   {item.image ? (
                                     <img
                                       src={getOptimizedImageUrl(
@@ -1304,7 +1304,7 @@ export function CartModal({
                                         80,
                                       )}
                                       alt={item.name}
-                                      className="w-full h-full object-contain bg-white"
+                                      className="w-full h-full object-contain bg-white rounded-lg"
                                       onError={(e) => {
                                         const target =
                                           e.target as HTMLImageElement;
@@ -1365,11 +1365,11 @@ export function CartModal({
                                     </div>
                                   )}
                                 </div>
-                                <div className="flex-1 flex flex-col justify-between py-1">
+                                <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
                                   <div>
                                     <div className="flex justify-between items-start gap-2">
-                                      <div>
-                                        <h3 className="font-medium text-gray-900">
+                                      <div className="min-w-0">
+                                        <h3 className="text-sm sm:text-base font-semibold text-[#1C1917] leading-snug line-clamp-2">
                                           {item.name}
                                         </h3>
                                         {(item.selectedWeight || item.badge) && (
@@ -1380,31 +1380,33 @@ export function CartModal({
                                       </div>
                                       <button
                                         onClick={() => removeFromCart(item.id)}
-                                        className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                                        aria-label={`Remove ${item.name}`}
+                                        className="p-1 -mr-1 -mt-0.5 text-stone-400 hover:text-red-500 transition-colors cursor-pointer shrink-0"
                                       >
                                         <X className="w-4 h-4" />
                                       </button>
                                     </div>
-                                    <p className="text-gray-500 text-sm mt-1 tabular-nums">
-                                      ₹{getValidPrice(item)}
+                                    <p className="text-stone-500 text-xs sm:text-sm mt-1 tabular-nums">
+                                      ₹{getValidPrice(item)} each
                                       {(item as any).wholesaleMinQty && (item as any).wholesaleMinQty > 1
                                         ? ` · MOQ ${(item as any).wholesaleMinQty}`
                                         : ""}
                                     </p>
                                   </div>
-                                  <div className="flex items-center justify-between mt-4">
-                                    <div className="flex items-center gap-4 bg-gray-50 rounded-lg p-1 border border-gray-100">
+                                  <div className="flex items-center justify-between gap-2 mt-2.5 sm:mt-3.5">
+                                    <div className="flex items-center gap-2 sm:gap-3 bg-[#FAF9F5] rounded-xl p-1 border border-[#E7E3DA]">
                                       <button
                                         onClick={() => {
                                           const minQty = Number((item as any).wholesaleMinQty) || 1;
                                           const nextQty = item.quantity <= minQty ? 0 : item.quantity - 1;
                                           updateQuantity(item.id, nextQty);
                                         }}
-                                        className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-black hover:bg-white active:scale-90 rounded-md transition-all shadow-sm cursor-pointer"
+                                        aria-label="Decrease quantity"
+                                        className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-[#1C1917] bg-white hover:bg-stone-100 active:scale-90 rounded-lg transition-all shadow-2xs border border-[#E7E3DA]/80 cursor-pointer"
                                       >
-                                        <Minus className="w-3 h-3" />
+                                        <Minus className="w-3.5 h-3.5" />
                                       </button>
-                                      <span className="w-5 text-center text-sm font-medium overflow-hidden inline-flex items-center justify-center tabular-nums">
+                                      <span className="min-w-[20px] text-center text-xs sm:text-sm font-bold text-[#1C1917] overflow-hidden inline-flex items-center justify-center tabular-nums">
                                         <AnimatePresence mode="popLayout" initial={false}>
                                           <motion.span
                                             key={`cart-item-qty-${item.quantity}`}
@@ -1425,12 +1427,13 @@ export function CartModal({
                                             item.quantity + 1,
                                           )
                                         }
-                                        className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-black hover:bg-white active:scale-90 rounded-md transition-all shadow-sm cursor-pointer"
+                                        aria-label="Increase quantity"
+                                        className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-[#1C1917] bg-white hover:bg-stone-100 active:scale-90 rounded-lg transition-all shadow-2xs border border-[#E7E3DA]/80 cursor-pointer"
                                       >
-                                        <Plus className="w-3 h-3" />
+                                        <Plus className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
-                                    <div className="overflow-hidden tabular-nums">
+                                    <div className="overflow-hidden tabular-nums shrink-0">
                                       <AnimatePresence mode="popLayout" initial={false}>
                                         <motion.p
                                           key={`cart-item-sub-${getValidPrice(item) * item.quantity}`}
@@ -1438,7 +1441,7 @@ export function CartModal({
                                           animate={{ y: 0, opacity: 1 }}
                                           exit={{ y: -8, opacity: 0 }}
                                           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                                          className="font-medium text-gray-900 tracking-tight"
+                                          className="text-sm sm:text-base font-bold text-[#1C1917] tracking-tight"
                                         >
                                           ₹{getValidPrice(item) * item.quantity}
                                         </motion.p>
@@ -1511,13 +1514,13 @@ export function CartModal({
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.3 }}
-                    className="p-6 space-y-6 pb-32"
+                    className="space-y-4 sm:space-y-6 pb-6"
                   >
                     {/* Delivery Info */}
-                    <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-5">
+                    <section className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4 sm:space-y-5">
                       <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                        <div className="flex items-center gap-2 text-gray-900">
-                          <MapPin className="w-5 h-5 text-emerald-600" />
+                        <div className="flex items-center gap-2.5 text-gray-900">
+                          <RealisticDeliveryScooter className="w-8 h-7 shrink-0" />
                           <h3 className="font-serif text-lg font-semibold">
                             Delivery Details
                           </h3>
@@ -2151,8 +2154,8 @@ export function CartModal({
                                 </div>
                               )}
                               <div className="flex justify-between items-center text-stone-600 text-sm">
-                                <span className="inline-flex items-center gap-1.5">
-                                  <RealisticDeliveryScooter className="w-5 h-3.5 shrink-0" />
+                                <span className="inline-flex items-center gap-2">
+                                  <RealisticDeliveryScooter className="w-7 h-6 shrink-0" />
                                   <span>Delivery Fee</span>
                                 </span>
                                 {effectiveDeliveryFee === 0 ? (
@@ -2270,66 +2273,63 @@ export function CartModal({
               </div>
             </div>
 
-            {/* Compact Mobile Sticky Action Bar (< 15% viewport height) */}
+            {/* Compact Mobile Sticky Action Bar */}
             {step !== "success" && step !== "whatsapp_confirm" && items.length > 0 && (
-              <div className="lg:hidden shrink-0 bg-white border-t border-[#E7E3DA] px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.06)] z-20">
+              <div className="lg:hidden shrink-0 bg-white border-t border-[#E7E3DA] px-3.5 py-2.5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] z-20">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-[11px] uppercase tracking-wider font-semibold text-stone-500">
                       Total
                     </span>
-                    <span className="text-base font-bold text-[#1C1917]">
+                    <span className="text-base font-bold text-[#1C1917] tabular-nums">
                       ₹{grandTotal}
                     </span>
                     {effectiveDeliveryFee === 0 && (
-                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                        Free Delivery
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                        <RealisticDeliveryScooter className="w-5 h-4 shrink-0" />
+                        <span>Free Delivery</span>
                       </span>
                     )}
                   </div>
-                  <span className="text-[11px] text-stone-500">
+                  <span className="text-[11px] font-medium text-stone-600 tabular-nums">
                     {cartCount} {cartCount === 1 ? "item" : "items"}
                   </span>
                 </div>
 
                 {step === "cart" ? (
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-2 items-center gap-2">
                     <button
                       type="button"
                       onClick={() => { if (requireCheckoutAuth()) setStep("checkout"); }}
-                      className="flex items-center justify-center gap-1.5 h-11 px-3 text-[11px] font-bold uppercase tracking-wider text-[#FAF9F5] bg-[#1C1917] rounded-full shadow-sm active:scale-[0.98] cursor-pointer"
+                      className="flex items-center justify-center gap-1.5 h-[44px] px-3 text-[11px] font-bold uppercase tracking-wider text-[#FAF9F5] bg-[#1C1917] border border-[#C5A880]/40 rounded-full shadow-sm active:scale-[0.98] cursor-pointer"
                     >
                       <span>Checkout</span>
                       <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                     </button>
-                    <button
-                      type="button"
+                    <VelvetWhatsAppButton
                       onClick={triggerWhatsAppOrder}
-                      className="flex items-center justify-center gap-1.5 h-11 px-3 text-[11px] font-bold uppercase tracking-wider text-white bg-emerald-600 rounded-full shadow-sm active:scale-[0.98] cursor-pointer"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>WhatsApp</span>
-                    </button>
+                      label="Order via WhatsApp"
+                      size="card"
+                      className="w-full"
+                    />
                   </div>
                 ) : isWhatsAppCheckoutMode ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
+                  <div className="flex items-center justify-center">
+                    <VelvetWhatsAppButton
                       onClick={triggerWhatsAppOrder}
                       disabled={isProcessing}
-                      className="flex-1 flex items-center justify-center gap-2 h-11 px-4 text-[11px] font-bold uppercase tracking-wider text-white bg-emerald-600 rounded-full shadow-sm active:scale-[0.98] disabled:opacity-50 cursor-pointer"
-                    >
-                      <MessageCircle className="w-4 h-4 shrink-0" />
-                      <span>{isProcessing ? "Validating..." : `WhatsApp Order (₹${grandTotal})`}</span>
-                    </button>
+                      label={isProcessing ? "Validating..." : `WhatsApp Order (₹${grandTotal})`}
+                      size="modal"
+                      className="w-full"
+                    />
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-2 items-center gap-2">
                     <button
                       type="button"
                       onClick={handleCheckout}
                       disabled={isProcessing}
-                      className="flex items-center justify-center gap-1.5 h-11 px-3 text-[11px] font-bold uppercase tracking-wider text-[#FAF9F5] bg-[#1C1917] rounded-full shadow-sm active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                      className="flex items-center justify-center gap-1.5 h-[44px] px-3 text-[11px] font-bold uppercase tracking-wider text-[#FAF9F5] bg-[#1C1917] border border-[#C5A880]/40 rounded-full shadow-sm active:scale-[0.98] disabled:opacity-50 cursor-pointer"
                     >
                       <span>
                         {isProcessing
@@ -2340,14 +2340,12 @@ export function CartModal({
                       </span>
                       <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                     </button>
-                    <button
-                      type="button"
+                    <VelvetWhatsAppButton
                       onClick={triggerWhatsAppOrder}
-                      className="flex items-center justify-center gap-1.5 h-11 px-3 text-[11px] font-bold uppercase tracking-wider text-[#1C1917] bg-white border border-[#1C1917] rounded-full active:scale-[0.98] cursor-pointer"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>WhatsApp</span>
-                    </button>
+                      label="Order via WhatsApp"
+                      size="card"
+                      className="w-full"
+                    />
                   </div>
                 )}
               </div>

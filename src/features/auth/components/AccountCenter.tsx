@@ -14,6 +14,7 @@ import { doc, setDoc, updateDoc, collection, query, where, getDocs, deleteDoc, a
 import { updateProfile } from 'firebase/auth';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { LocationPickerModal } from '../../core/components/LocationPickerModal';
+import { RealisticDeliveryScooter } from '../../core/components/RealisticDeliveryScooter';
 import { getOptimizedImageUrl } from '../../../utils/imageUtils';
 import { useToast } from '../../core/contexts/ToastContext';
 import { useConfirm } from '../../core/contexts/ConfirmContext';
@@ -99,8 +100,8 @@ const OrderTrackingTimeline = ({ order }: { order: any }) => {
   return (
     <div className="mt-4 pt-4 border-t border-stone-200/80">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <h4 className="font-bold text-stone-900 text-xs sm:text-sm flex items-center gap-1.5">
-          <Truck className="w-4 h-4 text-emerald-700" />
+        <h4 className="font-bold text-stone-900 text-xs sm:text-sm flex items-center gap-2">
+          <RealisticDeliveryScooter className="w-7 h-6 shrink-0" />
           Live Order Status &amp; Tracking
         </h4>
         <span className="text-[11px] font-mono font-semibold text-emerald-800 tabular-nums">
@@ -709,15 +710,15 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
     }
     if (['shipped', 'dispatched'].includes(status)) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-full text-xs font-semibold">
-          <Truck className="w-3.5 h-3.5" /> Dispatched
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-full text-xs font-semibold">
+          <RealisticDeliveryScooter className="w-6 h-5 shrink-0" /> Dispatched
         </span>
       );
     }
     if (['out_for_delivery'].includes(status)) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-xs font-semibold">
-          <Truck className="w-3.5 h-3.5" /> Out for Delivery
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-xs font-semibold">
+          <RealisticDeliveryScooter className="w-6 h-5 shrink-0" /> Out for Delivery
         </span>
       );
     }

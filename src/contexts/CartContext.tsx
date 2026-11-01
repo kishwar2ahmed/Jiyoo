@@ -53,6 +53,24 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+interface FlyingItemsContextType {
+  flyingItems: FlyingItem[];
+  triggerFlyingItem: (item: Omit<FlyingItem, 'id'>) => void;
+  removeFlyingItem: (id: string) => void;
+}
+
+const FlyingItemsContext = createContext<FlyingItemsContextType>({
+  flyingItems: [],
+  triggerFlyingItem: () => {},
+  removeFlyingItem: () => {},
+});
+
+export function useFlyingItems() {
+  return useContext(FlyingItemsContext);
+}
+
+const EMPTY_FLYING_ITEMS: FlyingItem[] = [];
+
 const getValidPrice = (item: any) => {
   const p1 = Number(item.numericPrice);
   if (!isNaN(p1) && p1 > 0) return p1;
@@ -102,12 +120,30 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return [];
     }
   });
-  useEffect(() => { localStorage.setItem('jiyoo_cart', JSON.stringify(items)); }, [items]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        localStorage.setItem('jiyoo_cart', JSON.stringify(items));
+      } catch {
+        // Ignore storage quota errors
+      }
+    }, 60);
+    return () => window.clearTimeout(timer);
+  }, [items]);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [wishlist, setWishlist] = useState<string[]>(() => { try { const local = localStorage.getItem('jiyoo_wishlist'); return local ? JSON.parse(local) : []; } catch { return []; } });
-  useEffect(() => { localStorage.setItem('jiyoo_wishlist', JSON.stringify(wishlist)); }, [wishlist]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        localStorage.setItem('jiyoo_wishlist', JSON.stringify(wishlist));
+      } catch {
+        // Ignore storage quota errors
+      }
+    }, 60);
+    return () => window.clearTimeout(timer);
+  }, [wishlist]);
   const [addedItemToast, setAddedItemToast] = useState<AddedItemToastData | null>(null);
   const [flyingItems, setFlyingItems] = useState<FlyingItem[]>([]);
 
@@ -365,6 +401,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
 
+  const flyingContextValue = React.useMemo(() => ({
+    flyingItems,
+    triggerFlyingItem,
+    removeFlyingItem,
+  }), [flyingItems, triggerFlyingItem, removeFlyingItem]);
+
   const contextValue = React.useMemo(() => ({
     items,
     addToCart,
@@ -383,14 +425,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     toggleWishlist,
     addedItemToast,
     setAddedItemToast,
-    flyingItems,
+    flyingItems: EMPTY_FLYING_ITEMS,
     triggerFlyingItem,
     removeFlyingItem
-  }), [items, cartTotal, cartCount, syncCartPrices, user, isAuthLoading, searchQuery, wishlist, addedItemToast, flyingItems]);
+  }), [items, addToCart, removeFromCart, updateQuantity, cartTotal, cartCount, clearCart, syncCartPrices, user, logoutUser, isAuthLoading, searchQuery, wishlist, toggleWishlist, addedItemToast, triggerFlyingItem, removeFlyingItem]);
 
   return (
     <CartContext.Provider value={contextValue}>
-      {children}
+      <FlyingItemsContext.Provider value={flyingContextValue}>
+        {children}
+      </FlyingItemsContext.Provider>
     </CartContext.Provider>
   );
 

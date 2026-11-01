@@ -143,6 +143,94 @@ const inMemoryBruteForceStore = new Map<
 >();
 const inMemoryAdminSecurityStore = new Map<string, Record<string, any>>();
 
+// ============================================================================
+// HIGH-CONCURRENCY IN-MEMORY EDGE CACHE + SINGLEFLIGHT REQUEST COALESCING
+// Protects Firestore & Node event loop under massive traffic spikes (10k+ req/s)
+// ============================================================================
+interface ServerCacheEntry<T = any> {
+  value: T;
+  expiresAt: number;
+  staleUntil: number;
+}
+
+const serverMemoryCache = new Map<string, ServerCacheEntry>();
+const singleflightPromises = new Map<string, Promise<any>>();
+
+async function withServerCache<T>(
+  key: string,
+  ttlMs: number,
+  staleWhileRevalidateMs: number,
+  fetcher: () => Promise<T>
+): Promise<T> {
+  const now = Date.now();
+  const cached = serverMemoryCache.get(key);
+
+  if (cached && now < cached.expiresAt) {
+    return cached.value as T;
+  }
+
+  // If within stale-while-revalidate window, serve stale immediately & refresh in background
+  if (cached && now < cached.staleUntil) {
+    if (!singleflightPromises.has(key)) {
+      const bgPromise = fetcher()
+        .then((freshVal) => {
+          const doneAt = Date.now();
+          serverMemoryCache.set(key, {
+            value: freshVal,
+            expiresAt: doneAt + ttlMs,
+            staleUntil: doneAt + ttlMs + staleWhileRevalidateMs,
+          });
+          return freshVal;
+        })
+        .catch(() => cached.value)
+        .finally(() => {
+          singleflightPromises.delete(key);
+        });
+      singleflightPromises.set(key, bgPromise);
+    }
+    return cached.value as T;
+  }
+
+  // Coalesce concurrent cache-miss requests into a single Firestore query
+  const existingInFlight = singleflightPromises.get(key);
+  if (existingInFlight) {
+    return existingInFlight as Promise<T>;
+  }
+
+  const flight = fetcher()
+    .then((freshVal) => {
+      const doneAt = Date.now();
+      serverMemoryCache.set(key, {
+        value: freshVal,
+        expiresAt: doneAt + ttlMs,
+        staleUntil: doneAt + ttlMs + staleWhileRevalidateMs,
+      });
+      return freshVal;
+    })
+    .finally(() => {
+      singleflightPromises.delete(key);
+    });
+
+  singleflightPromises.set(key, flight);
+  return flight;
+}
+
+function invalidateServerCache(prefix?: string) {
+  if (!prefix) {
+    serverMemoryCache.clear();
+    return;
+  }
+  for (const k of serverMemoryCache.keys()) {
+    if (k.startsWith(prefix)) {
+      serverMemoryCache.delete(k);
+    }
+  }
+}
+
+// Bounded LRU cache for Firestore-backed binary images (/api/images/:id)
+const imageBufferCache = new Map<string, { buffer: Buffer; mimeType: string; etag: string }>();
+const MAX_CACHED_IMAGES = 40;
+
 function getAdminEncryptionKey(): Buffer {
   return crypto.createHash('sha256').update(`aes256:${ADMIN_SESSION_HMAC_SECRET}`).digest();
 }
@@ -2961,10 +3049,24 @@ app.use(compression() as unknown as express.RequestHandler);
 
   // High-Quality Binary Image Upload Endpoint to public/uploads
   
-  // Image retrieval endpoint (Firestore backed)
+  // Image retrieval endpoint (Firestore backed with bounded in-memory LRU & ETag 304)
   app.get('/api/images/:id', async (req, res) => {
     try {
-       const doc = await getFirestore().collection('_images').doc(req.params.id).get();
+       const imgId = String(req.params.id || '');
+       const cachedImg = imageBufferCache.get(imgId);
+       if (cachedImg) {
+          if (req.headers['if-none-match'] === cachedImg.etag) {
+             return res.status(304).end();
+          }
+          res.set('Content-Type', cachedImg.mimeType);
+          res.set('ETag', cachedImg.etag);
+          res.set('X-Content-Type-Options', 'nosniff');
+          res.set('Content-Security-Policy', "default-src 'none'; sandbox");
+          res.set('Cache-Control', 'public, max-age=31536000, immutable');
+          return res.send(cachedImg.buffer);
+       }
+
+       const doc = await getFirestore().collection('_images').doc(imgId).get();
        if (!doc.exists) {
           return res.status(404).send('Image not found');
        }
@@ -2978,10 +3080,19 @@ app.use(compression() as unknown as express.RequestHandler);
        if (!buffer.length || buffer.length > 10 * 1024 * 1024) {
           return res.status(413).send('Image is too large');
        }
+       const etag = `"${crypto.createHash('sha1').update(buffer).digest('hex')}"`;
+       if (buffer.length <= 1.5 * 1024 * 1024) {
+          if (imageBufferCache.size >= MAX_CACHED_IMAGES) {
+             const oldestKey = imageBufferCache.keys().next().value;
+             if (oldestKey) imageBufferCache.delete(oldestKey);
+          }
+          imageBufferCache.set(imgId, { buffer, mimeType, etag });
+       }
        res.set('Content-Type', mimeType);
+       res.set('ETag', etag);
        res.set('X-Content-Type-Options', 'nosniff');
        res.set('Content-Security-Policy', "default-src 'none'; sandbox");
-       res.set('Cache-Control', 'public, max-age=31536000');
+       res.set('Cache-Control', 'public, max-age=31536000, immutable');
        res.send(buffer);
     } catch (e) {
        res.status(500).send('Failed to load image');
@@ -3635,6 +3746,7 @@ app.use(compression() as unknown as express.RequestHandler);
         { ...updates, updatedAt: new Date().toISOString() },
         { merge: true }
       );
+      invalidateServerCache('settings:');
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ success: false, error: 'Failed to save settings on server' });
@@ -3643,8 +3755,12 @@ app.use(compression() as unknown as express.RequestHandler);
 
   app.get('/api/admin/settings', optionalAuth, async (_req: express.Request, res: express.Response) => {
     try {
-      const snap = await getFirestore().collection('settings').doc('global').get();
-      res.json({ success: true, settings: snap.exists ? snap.data() : {} });
+      const settingsData = await withServerCache('settings:global', 20_000, 120_000, async () => {
+        const snap = await getFirestore().collection('settings').doc('global').get();
+        return snap.exists ? snap.data() : {};
+      });
+      res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
+      res.json({ success: true, settings: settingsData });
     } catch (err: any) {
       res.status(500).json({ success: false, error: 'Failed to load settings' });
     }
@@ -3683,6 +3799,7 @@ app.use(compression() as unknown as express.RequestHandler);
         { ...payload, id, updatedAt: new Date().toISOString() },
         { merge: true }
       );
+      invalidateServerCache();
       res.json({ success: true, id });
     } catch (err: any) {
       res.status(500).json({ success: false, error: 'Failed to save document' });
@@ -3697,6 +3814,7 @@ app.use(compression() as unknown as express.RequestHandler);
         return res.status(400).json({ success: false, error: 'Invalid collection or document ID' });
       }
       await getFirestore().collection(col).doc(id).delete();
+      invalidateServerCache();
       res.json({ success: true, id });
     } catch (err: any) {
       res.status(500).json({ success: false, error: 'Failed to delete document' });
@@ -3946,6 +4064,7 @@ app.use(compression() as unknown as express.RequestHandler);
       if (parsed.data.deliveryFee !== undefined) update.deliveryFee = parsed.data.deliveryFee;
       if (parsed.data.minOrderAmount !== undefined) update.minOrderAmount = parsed.data.minOrderAmount;
       await ref.set(update, { merge: true });
+      invalidateServerCache('delivery:');
       await writeAuditLogDirect(actorEmail, 'UPDATE_DELIVERY_PINCODE', 'DELIVERY', `Updated PIN code ${pincode}: ${JSON.stringify(parsed.data)}`);
       res.json({ success: true });
     } catch (err: any) {
@@ -3959,6 +4078,7 @@ app.use(compression() as unknown as express.RequestHandler);
       const pincode = req.params.pincode;
       const ref = getFirestore().collection('deliveryPincodes').doc(pincode);
       await ref.delete();
+      invalidateServerCache('delivery:');
       const actorEmail = (req as any).authUser.email || (req as any).authUser.uid;
       await writeAuditLogDirect(actorEmail, 'REMOVE_DELIVERY_PINCODE', 'DELIVERY', `Removed PIN code ${pincode}`);
       res.json({ success: true });
@@ -3988,6 +4108,7 @@ app.use(compression() as unknown as express.RequestHandler);
         }, { merge: true });
       }
       await batch.commit();
+      invalidateServerCache('delivery:');
       await writeAuditLogDirect(actorEmail, 'SEED_CANDIDATE_PINCODES', 'DELIVERY', `Activated 13 Bangalore retail areas across ${added} PIN code(s)`);
       res.json({ success: true, added, skipped: 0 });
     } catch (err: any) {
@@ -3999,27 +4120,31 @@ app.use(compression() as unknown as express.RequestHandler);
   // Public endpoint returning active retail areas & Pan-India wholesale status
   app.get('/api/delivery/active-areas', apiLimiter, async (req, res) => {
     try {
-      const mergedMap = new Map<string, any>();
-      Object.values(DEFAULT_RETAIL_PINCODES).forEach((item) => {
-        mergedMap.set(item.pincode, { ...item });
-      });
-      try {
-        const snap = await getFirestore().collection('deliveryPincodes').get();
-        snap.docs.forEach((d) => {
-          const data = d.data() as any;
-          const base = mergedMap.get(d.id) || {};
-          mergedMap.set(d.id, { ...base, pincode: d.id, ...data });
+      const payload = await withServerCache('delivery:active-areas', 30_000, 180_000, async () => {
+        const mergedMap = new Map<string, any>();
+        Object.values(DEFAULT_RETAIL_PINCODES).forEach((item) => {
+          mergedMap.set(item.pincode, { ...item });
         });
-      } catch {
-        // Fallback to DEFAULT_RETAIL_PINCODES when Firestore is offline
-      }
-      const activePincodes = Array.from(mergedMap.values()).filter((p) => p.enabled === true);
-      res.json({
-        success: true,
-        retailAreas: DEFAULT_RETAIL_AREAS,
-        activePincodes,
-        wholesalePanIndia: true,
+        try {
+          const snap = await getFirestore().collection('deliveryPincodes').get();
+          snap.docs.forEach((d) => {
+            const data = d.data() as any;
+            const base = mergedMap.get(d.id) || {};
+            mergedMap.set(d.id, { ...base, pincode: d.id, ...data });
+          });
+        } catch {
+          // Fallback to DEFAULT_RETAIL_PINCODES when Firestore is offline
+        }
+        const activePincodes = Array.from(mergedMap.values()).filter((p) => p.enabled === true);
+        return {
+          success: true,
+          retailAreas: DEFAULT_RETAIL_AREAS,
+          activePincodes,
+          wholesalePanIndia: true,
+        };
       });
+      res.set('Cache-Control', 'public, max-age=20, stale-while-revalidate=120');
+      res.json(payload);
     } catch (err: any) {
       res.json({
         success: true,
@@ -4126,44 +4251,48 @@ app.use(compression() as unknown as express.RequestHandler);
   });
 
   // -------------------------------------------------------------------------
-  // PUBLIC CATALOG RECOVERY ENDPOINT (RESILIENT AGAINST CLIENT FIRESTORE ERRORS)
+  // PUBLIC CATALOG RECOVERY ENDPOINT (RESILIENT + EDGE CACHED & SINGLEFLIGHT)
   // -------------------------------------------------------------------------
   app.get('/api/catalog/products', async (_req, res) => {
     try {
-      const mergedMap = new Map<string, any>();
-      for (const p of BUNDLED_PRODUCTS) {
-        mergedMap.set(String(p.id), { ...p, id: String(p.id) });
-      }
-      try {
-        const snap = await getFirestore().collection('products').get();
-        snap.docs.forEach((docSnap) => {
-          const data = docSnap.data() as any;
-          const id = String(docSnap.id);
-          if (data?.isDeleted === true) {
-            mergedMap.delete(id);
-            return;
-          }
-          const base = mergedMap.get(id) || {};
-          mergedMap.set(id, {
-            ...base,
-            ...data,
-            id,
-            categoryId: data.categoryId || base.categoryId || 'general',
-            subcategoryId: data.subcategoryId || base.subcategoryId,
-            subSubcategoryId: data.subSubcategoryId || base.subSubcategoryId,
-            unit: data.unit || base.unit || '1 kg',
-            image: data.image || base.image || '',
-            weights: Array.isArray(data.weights) && data.weights.length > 0 ? data.weights : base.weights,
+      const payload = await withServerCache('catalog:products', 20_000, 120_000, async () => {
+        const mergedMap = new Map<string, any>();
+        for (const p of BUNDLED_PRODUCTS) {
+          mergedMap.set(String(p.id), { ...p, id: String(p.id) });
+        }
+        try {
+          const snap = await getFirestore().collection('products').get();
+          snap.docs.forEach((docSnap) => {
+            const data = docSnap.data() as any;
+            const id = String(docSnap.id);
+            if (data?.isDeleted === true) {
+              mergedMap.delete(id);
+              return;
+            }
+            const base = mergedMap.get(id) || {};
+            mergedMap.set(id, {
+              ...base,
+              ...data,
+              id,
+              categoryId: data.categoryId || base.categoryId || 'general',
+              subcategoryId: data.subcategoryId || base.subcategoryId,
+              subSubcategoryId: data.subSubcategoryId || base.subSubcategoryId,
+              unit: data.unit || base.unit || '1 kg',
+              image: data.image || base.image || '',
+              weights: Array.isArray(data.weights) && data.weights.length > 0 ? data.weights : base.weights,
+            });
           });
-        });
-      } catch (dbErr) {
-        console.warn('[/api/catalog/products] Firestore read failed, serving bundled catalog:', (dbErr as any)?.message || dbErr);
-      }
-      return res.json({
-        success: true,
-        products: Array.from(mergedMap.values()),
-        syncedAt: new Date().toISOString(),
+        } catch (dbErr) {
+          console.warn('[/api/catalog/products] Firestore read failed, serving bundled catalog:', (dbErr as any)?.message || dbErr);
+        }
+        return {
+          success: true,
+          products: Array.from(mergedMap.values()),
+          syncedAt: new Date().toISOString(),
+        };
       });
+      res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
+      return res.json(payload);
     } catch (err: any) {
       return res.status(500).json({ success: false, error: 'Failed to load catalog.' });
     }
@@ -4601,23 +4730,26 @@ app.use(compression() as unknown as express.RequestHandler);
   // to customers reading Firestore directly.
   app.get('/api/banners/active', async (req, res) => {
     try {
-      const nowIso = new Date().toISOString();
-      const snap = await getFirestore().collection('banners').where('isPublished', '==', true).get();
-      const active = snap.docs
-        .map((d) => ({ id: d.id, ...(d.data() as any) }))
-        .filter((b) => (!b.startDate || b.startDate <= nowIso) && (!b.endDate || b.endDate >= nowIso))
-        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-        .map((b) => ({
-          id: b.id,
-          campaignName: b.campaignName,
-          heading: b.heading,
-          description: b.description || '',
-          desktopImage: b.desktopImage,
-          mobileImage: b.mobileImage || b.desktopImage,
-          ctaLabel: b.ctaLabel || '',
-          ctaLinkType: b.ctaLinkType || 'none',
-          ctaLinkValue: b.ctaLinkValue || '',
-        }));
+      const active = await withServerCache('banners:active', 25_000, 120_000, async () => {
+        const nowIso = new Date().toISOString();
+        const snap = await getFirestore().collection('banners').where('isPublished', '==', true).get();
+        return snap.docs
+          .map((d) => ({ id: d.id, ...(d.data() as any) }))
+          .filter((b) => (!b.startDate || b.startDate <= nowIso) && (!b.endDate || b.endDate >= nowIso))
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+          .map((b) => ({
+            id: b.id,
+            campaignName: b.campaignName,
+            heading: b.heading,
+            description: b.description || '',
+            desktopImage: b.desktopImage,
+            mobileImage: b.mobileImage || b.desktopImage,
+            ctaLabel: b.ctaLabel || '',
+            ctaLinkType: b.ctaLinkType || 'none',
+            ctaLinkValue: b.ctaLinkValue || '',
+          }));
+      });
+      res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
       res.json({ success: true, banners: active });
     } catch (err: any) {
       console.error('Failed to load active banners:', err);

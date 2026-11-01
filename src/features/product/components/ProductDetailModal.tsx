@@ -20,6 +20,7 @@ import { useModalBackButton } from "../../core/hooks/useModalBackButton";
 import { InstaBlueTickIcon } from "../../core/components/SocialIcons";
 import { PremiumShieldMark } from "../../core/components/PremiumShieldMark";
 import { RealisticDeliveryScooter } from "../../core/components/RealisticDeliveryScooter";
+import { preloadProductCutout } from "../../core/components/FlyingItemsLayer";
 import { VelvetyBalloonButton } from "./VelvetyBalloonButton";
 import { VelvetWhatsAppButton } from "./VelvetWhatsAppButton";
 
@@ -268,6 +269,12 @@ export function ProductDetailModal({
                       transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                       className="w-full h-full object-contain will-change-transform"
                       loading="eager"
+                      onLoad={(e) => {
+                        preloadProductCutout(
+                          e.currentTarget.currentSrc ||
+                            getOptimizedImageUrl(activeImage || product.image, 800, 85)
+                        );
+                      }}
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         if (target.dataset.failed) return;
@@ -522,8 +529,8 @@ export function ProductDetailModal({
                 <div className="pt-6 border-t border-brand-gray-100 space-y-4">
                   <div className="flex items-center justify-between">
                     {/* Delivery Info */}
-                    <div className="flex items-center gap-2 text-xs text-emerald-900 font-bold uppercase tracking-wider bg-emerald-50 border border-emerald-200/80 px-3.5 py-1.5 rounded-full shadow-2xs">
-                      <RealisticDeliveryScooter className="w-8 h-5.5 shrink-0" />
+                    <div className="group flex items-center gap-2 text-xs text-emerald-900 font-bold uppercase tracking-wider bg-emerald-50 border border-emerald-200/80 px-3.5 py-1.5 rounded-full shadow-2xs">
+                      <RealisticDeliveryScooter className="w-9 h-7.5 shrink-0" />
                       <span>Delivery: {product.deliveryEstimate || "60 mins"}</span>
                     </div>
 

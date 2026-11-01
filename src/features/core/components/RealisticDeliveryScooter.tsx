@@ -1,45 +1,61 @@
 import React, { useId } from "react";
 
-interface RealisticDeliveryScooterProps {
+export interface RealisticDeliveryScooterProps {
   className?: string;
   showSmoke?: boolean;
   animated?: boolean;
 }
 
 /**
- * RealisticDeliveryScooter
- * A high-fidelity, realistic delivery scooter featuring:
- * - 3D metallic chassis in deep emerald and chrome accents
- * - Rubber wheels with silver alloy rims and spinning reflections
- * - Rear cargo carrier with an insulated delivery box proudly carrying the JIYOO logo
- * - Realistic exhaust pipe with animated drifting smoke puffs
- * - Subtle engine suspension vibration
+ * RealisticDeliveryScooter (3D Express Delivery Truck with Floating Parcels & Location Pin)
+ * Recreates the signature 3D Orange Express Delivery Truck with:
+ * - Tilted 3D orange cargo box & aerodynamic cab with glossy black side window, 3D grey windshield, hood vents & twin warm headlights
+ * - 4 deep chocolate-brown 3D wheels with spinning rim/hubcap highlights and far-side depth wheels
+ * - 3 vibrant 3D yellow speed bars pulsing off the rear cargo box
+ * - 2 levitating 3D isometric cardboard parcels with cream packing tape, white barcode labels & fragile stamps
+ * - 3 soft 3D puffy clouds with pastel blush-lavender underside shading
+ * - 1 floating 3D mint-turquoise GPS location pin with extruded side depth
+ * - 100% transparent background with multi-layer 60fps keyframe animations
  */
 export function RealisticDeliveryScooter({
-  className = "w-7 h-5 shrink-0",
+  className = "w-8 h-6 shrink-0",
   showSmoke = true,
   animated = true,
 }: RealisticDeliveryScooterProps) {
   const uid = useId().replace(/:/g, "");
 
-  const bodyGradId = `scooter-body-${uid}`;
-  const rimGradId = `scooter-rim-${uid}`;
-  const tireGradId = `scooter-tire-${uid}`;
-  const chromeGradId = `scooter-chrome-${uid}`;
-  const bagGradId = `scooter-bag-${uid}`;
-  const smokeGradId = `scooter-smoke-${uid}`;
-  const headlampGlowId = `scooter-glow-${uid}`;
-  const bagClipId = `scooter-bag-clip-${uid}`;
-  const shadowFilterId = `scooter-shadow-${uid}`;
+  const cargoFrontGrad = `cargo-front-${uid}`;
+  const cargoTopGrad = `cargo-top-${uid}`;
+  const cargoSideGrad = `cargo-side-${uid}`;
+  const cabBodyGrad = `cab-body-${uid}`;
+  const cabRoofGrad = `cab-roof-${uid}`;
+  const speedBarGrad = `speed-bar-${uid}`;
+  const speedBevelGrad = `speed-bevel-${uid}`;
+  const tireFrontGrad = `tire-front-${uid}`;
+  const tireBackGrad = `tire-back-${uid}`;
+  const rimWellGrad = `rim-well-${uid}`;
+  const hubCapGrad = `hub-cap-${uid}`;
+  const windshieldGrad = `windshield-${uid}`;
+  const sideWindowGrad = `side-win-${uid}`;
+  const parcelLitGrad = `parcel-lit-${uid}`;
+  const parcelMidGrad = `parcel-mid-${uid}`;
+  const parcelDarkGrad = `parcel-dark-${uid}`;
+  const tapeGrad = `parcel-tape-${uid}`;
+  const pinFrontGrad = `pin-front-${uid}`;
+  const pinSideGrad = `pin-side-${uid}`;
+  const cloudGrad = `cloud-grad-${uid}`;
+  const headlampGrad = `headlamp-${uid}`;
+  const dropShadowId = `truck-shadow-${uid}`;
+  const softShadowId = `floating-shadow-${uid}`;
 
   return (
     <span
-      className={`inline-flex items-center justify-center align-middle relative select-none ${className}`}
-      aria-label="Express Delivery Scooter"
-      title="Fresh Express Delivery by JIYOO"
+      className={`inline-flex items-center justify-center align-middle relative select-none transition-transform duration-300 group-hover:scale-110 ${className}`}
+      aria-label="Express Delivery Truck"
+      title="Express Fresh Delivery"
     >
       <svg
-        viewBox="0 0 84 46"
+        viewBox="0 0 240 205"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         className="w-full h-full overflow-visible"
@@ -48,432 +64,828 @@ export function RealisticDeliveryScooter({
         <defs>
           <style>
             {`
-              @keyframes scooter-vibe-${uid} {
-                0%, 100% { transform: translateY(0px); }
-                30% { transform: translateY(-0.7px); }
-                70% { transform: translateY(0.4px); }
+              @keyframes truck-surge-${uid} {
+                0%, 100% {
+                  transform: translate(0px, 0px) rotate(0deg);
+                }
+                35% {
+                  transform: translate(1.8px, -3.2px) rotate(-1.1deg);
+                }
+                70% {
+                  transform: translate(-0.8px, 1px) rotate(0.45deg);
+                }
               }
-              @keyframes smoke-drift-1-${uid} {
-                0% {
-                  transform: translate(0px, 0px) scale(0.35);
-                  opacity: 0.85;
+              @keyframes parcel-left-float-${uid} {
+                0%, 100% {
+                  transform: translate(0px, 0px) rotate(0deg);
                 }
                 50% {
-                  opacity: 0.5;
-                }
-                100% {
-                  transform: translate(-18px, -6px) scale(1.4);
-                  opacity: 0;
+                  transform: translate(-3.5px, -7px) rotate(-5.5deg);
                 }
               }
-              @keyframes smoke-drift-2-${uid} {
-                0% {
-                  transform: translate(0px, 0px) scale(0.3);
-                  opacity: 0.8;
-                }
-                40% {
-                  opacity: 0.55;
-                }
-                100% {
-                  transform: translate(-23px, -8px) scale(1.65);
-                  opacity: 0;
-                }
-              }
-              @keyframes smoke-drift-3-${uid} {
-                0% {
-                  transform: translate(0px, 0px) scale(0.25);
-                  opacity: 0.9;
+              @keyframes parcel-top-float-${uid} {
+                0%, 100% {
+                  transform: translate(0px, 0px) rotate(0deg);
                 }
                 45% {
-                  opacity: 0.45;
+                  transform: translate(2.5px, -7.5px) rotate(4.5deg);
                 }
-                100% {
-                  transform: translate(-27px, -5px) scale(1.9);
-                  opacity: 0;
+              }
+              @keyframes pin-hover-${uid} {
+                0%, 100% {
+                  transform: translate(0px, 0px) rotate(0deg) scale(1);
+                }
+                50% {
+                  transform: translate(1.5px, -8px) rotate(4.5deg) scale(1.05);
+                }
+              }
+              @keyframes speed-pulse-1-${uid} {
+                0%, 100% {
+                  transform: translateX(0px) scaleX(1);
+                }
+                50% {
+                  transform: translateX(-6px) scaleX(1.12);
+                }
+              }
+              @keyframes speed-pulse-2-${uid} {
+                0%, 100% {
+                  transform: translateX(0px) scaleX(1);
+                }
+                45% {
+                  transform: translateX(-9px) scaleX(1.16);
+                }
+              }
+              @keyframes speed-pulse-3-${uid} {
+                0%, 100% {
+                  transform: translateX(0px) scaleX(1);
+                }
+                55% {
+                  transform: translateX(-5px) scaleX(1.1);
+                }
+              }
+              @keyframes cloud-drift-a-${uid} {
+                0%, 100% {
+                  transform: translate(0px, 0px);
+                }
+                50% {
+                  transform: translate(-5px, -2.5px);
+                }
+              }
+              @keyframes cloud-drift-b-${uid} {
+                0%, 100% {
+                  transform: translate(0px, 0px);
+                }
+                50% {
+                  transform: translate(4px, -3px);
                 }
               }
               @keyframes wheel-spin-${uid} {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
+                from {
+                  transform: rotate(0deg);
+                }
+                to {
+                  transform: rotate(360deg);
+                }
+              }
+              @media (prefers-reduced-motion: reduce) {
+                .anim-${uid} {
+                  animation: none !important;
+                }
               }
             `}
           </style>
 
-          {/* Scooter Body Metallic Emerald Gradient */}
-          <linearGradient id={bodyGradId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#34D399" />
-            <stop offset="25%" stopColor="#10B981" />
-            <stop offset="65%" stopColor="#047857" />
-            <stop offset="100%" stopColor="#064E3B" />
+          {/* 3D Orange Cargo Box Main Face */}
+          <linearGradient id={cargoFrontGrad} x1="15%" y1="5%" x2="85%" y2="95%">
+            <stop offset="0%" stopColor="#FF9E3D" />
+            <stop offset="45%" stopColor="#FF7A12" />
+            <stop offset="85%" stopColor="#EB5A06" />
+            <stop offset="100%" stopColor="#D44602" />
           </linearGradient>
 
-          {/* Chrome & Silver Alloy Gradient */}
-          <linearGradient id={chromeGradId} x1="0%" y1="0%" x2="100%" y2="100%">
+          {/* 3D Orange Cargo Top / Right Highlight Bevel */}
+          <linearGradient id={cargoTopGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FFD09B" />
+            <stop offset="40%" stopColor="#FFAB52" />
+            <stop offset="100%" stopColor="#FF7E18" />
+          </linearGradient>
+
+          {/* 3D Deep Shaded Orange */}
+          <linearGradient id={cargoSideGrad} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#E05004" />
+            <stop offset="100%" stopColor="#B33600" />
+          </linearGradient>
+
+          {/* 3D Orange Cab Body */}
+          <linearGradient id={cabBodyGrad} x1="10%" y1="0%" x2="90%" y2="100%">
+            <stop offset="0%" stopColor="#FFAA4C" />
+            <stop offset="45%" stopColor="#FF8019" />
+            <stop offset="85%" stopColor="#ED5C07" />
+            <stop offset="100%" stopColor="#CE4402" />
+          </linearGradient>
+
+          {/* 3D Cab Roof Cap Highlight */}
+          <linearGradient id={cabRoofGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FFC988" />
+            <stop offset="55%" stopColor="#FF9838" />
+            <stop offset="100%" stopColor="#F26A0C" />
+          </linearGradient>
+
+          {/* 3D Yellow Speed Bars */}
+          <linearGradient id={speedBarGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FFF07C" />
+            <stop offset="50%" stopColor="#FFD93D" />
+            <stop offset="100%" stopColor="#F5B700" />
+          </linearGradient>
+          <linearGradient id={speedBevelGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#F59F00" />
+            <stop offset="100%" stopColor="#D97706" />
+          </linearGradient>
+
+          {/* 3D Chocolate-Brown Tires */}
+          <radialGradient id={tireFrontGrad} cx="38%" cy="34%" r="65%">
+            <stop offset="0%" stopColor="#693C2A" />
+            <stop offset="40%" stopColor="#462518" />
+            <stop offset="78%" stopColor="#2C150C" />
+            <stop offset="100%" stopColor="#1B0B05" />
+          </radialGradient>
+
+          <radialGradient id={tireBackGrad} cx="45%" cy="45%" r="60%">
+            <stop offset="0%" stopColor="#3B1E13" />
+            <stop offset="70%" stopColor="#241008" />
+            <stop offset="100%" stopColor="#140804" />
+          </radialGradient>
+
+          {/* Recessed Wheel Rim Well */}
+          <linearGradient id={rimWellGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#231008" />
+            <stop offset="65%" stopColor="#3B1F14" />
+            <stop offset="100%" stopColor="#593222" />
+          </linearGradient>
+
+          {/* Center 3D Hubcap */}
+          <radialGradient id={hubCapGrad} cx="35%" cy="30%" r="65%">
+            <stop offset="0%" stopColor="#7C4935" />
+            <stop offset="50%" stopColor="#4A281B" />
+            <stop offset="100%" stopColor="#26120A" />
+          </radialGradient>
+
+          {/* Cab Angled Grey 3D Windshield */}
+          <linearGradient id={windshieldGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#CBD5E1" />
+            <stop offset="55%" stopColor="#94A3B8" />
+            <stop offset="100%" stopColor="#64748B" />
+          </linearGradient>
+
+          {/* Cab Glossy Black Side Window */}
+          <linearGradient id={sideWindowGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#1E2024" />
+            <stop offset="45%" stopColor="#090A0C" />
+            <stop offset="100%" stopColor="#000000" />
+          </linearGradient>
+
+          {/* 3D Floating Parcel Gradients */}
+          <linearGradient id={parcelLitGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FFCA80" />
+            <stop offset="55%" stopColor="#FFA94D" />
+            <stop offset="100%" stopColor="#F7882F" />
+          </linearGradient>
+          <linearGradient id={parcelMidGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FF9736" />
+            <stop offset="60%" stopColor="#F26B13" />
+            <stop offset="100%" stopColor="#D95308" />
+          </linearGradient>
+          <linearGradient id={parcelDarkGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FA8C42" />
+            <stop offset="100%" stopColor="#C84B09" />
+          </linearGradient>
+          <linearGradient id={tapeGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FFF9E6" />
+            <stop offset="100%" stopColor="#F3D69B" />
+          </linearGradient>
+
+          {/* 3D Mint-Turquoise GPS Location Pin */}
+          <linearGradient id={pinFrontGrad} x1="15%" y1="0%" x2="85%" y2="100%">
+            <stop offset="0%" stopColor="#A8F9EC" />
+            <stop offset="45%" stopColor="#72EFDD" />
+            <stop offset="100%" stopColor="#48CAE4" />
+          </linearGradient>
+          <linearGradient id={pinSideGrad} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#74B4A7" />
+            <stop offset="100%" stopColor="#4D8076" />
+          </linearGradient>
+
+          {/* 3D Soft Puffy Clouds with Blush-Lavender Underside */}
+          <linearGradient id={cloudGrad} x1="50%" y1="0%" x2="50%" y2="100%">
             <stop offset="0%" stopColor="#FFFFFF" />
-            <stop offset="35%" stopColor="#E2E8F0" />
-            <stop offset="70%" stopColor="#94A3B8" />
-            <stop offset="100%" stopColor="#475569" />
+            <stop offset="58%" stopColor="#FDF8FF" />
+            <stop offset="85%" stopColor="#F5D8FE" />
+            <stop offset="100%" stopColor="#E9C2F8" />
           </linearGradient>
 
-          {/* Tire Rubber Dark Gradient */}
-          <radialGradient id={tireGradId} cx="50%" cy="50%" r="50%">
-            <stop offset="55%" stopColor="#1E293B" />
-            <stop offset="85%" stopColor="#0F172A" />
-            <stop offset="100%" stopColor="#020617" />
-          </radialGradient>
-
-          {/* Wheel Alloy Rim Radial */}
-          <radialGradient id={rimGradId} cx="40%" cy="35%" r="60%">
-            <stop offset="0%" stopColor="#FFFFFF" />
-            <stop offset="45%" stopColor="#CBD5E1" />
-            <stop offset="80%" stopColor="#64748B" />
-            <stop offset="100%" stopColor="#334155" />
-          </radialGradient>
-
-          {/* Delivery Bag Texture Gradient */}
-          <linearGradient id={bagGradId} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#065F46" />
-            <stop offset="40%" stopColor="#044E39" />
-            <stop offset="100%" stopColor="#022C20" />
+          {/* Warm Cream-Yellow 3D Headlight */}
+          <linearGradient id={headlampGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FFFBEB" />
+            <stop offset="55%" stopColor="#FDE68A" />
+            <stop offset="100%" stopColor="#F59E0B" />
           </linearGradient>
 
-          {/* Realistic Smoke Particle Gradient */}
-          <radialGradient id={smokeGradId} cx="40%" cy="40%" r="55%">
-            <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.9" />
-            <stop offset="35%" stopColor="#E2E8F0" stopOpacity="0.75" />
-            <stop offset="70%" stopColor="#94A3B8" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#64748B" stopOpacity="0" />
-          </radialGradient>
-
-          {/* Headlight Warm Forward Glow */}
-          <linearGradient id={headlampGlowId} x1="0%" y1="50%" x2="100%" y2="50%">
-            <stop offset="0%" stopColor="#FEF08A" stopOpacity="0.7" />
-            <stop offset="50%" stopColor="#FDE047" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#FACC15" stopOpacity="0" />
-          </linearGradient>
-
-          {/* Bag Logo Clip Path */}
-          <clipPath id={bagClipId}>
-            <rect x="20" y="11" width="12" height="12" rx="2.5" />
-          </clipPath>
-
-          {/* Realistic Drop Shadow */}
-          <filter id={shadowFilterId} x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="1.2" stdDeviation="1.2" floodColor="#000000" floodOpacity="0.35" />
+          {/* Studio 3D Drop Shadows */}
+          <filter id={dropShadowId} x="-15%" y="-15%" width="135%" height="135%">
+            <feDropShadow dx="0" dy="5" stdDeviation="4.5" floodColor="#431407" floodOpacity="0.28" />
+          </filter>
+          <filter id={softShadowId} x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="3.5" stdDeviation="3" floodColor="#431407" floodOpacity="0.2" />
           </filter>
         </defs>
 
-        {/* ================= BACKGROUND SHADOW & ROAD REFLECTION ================= */}
-        <ellipse cx="48" cy="42" rx="28" ry="2.2" fill="#000000" fillOpacity="0.18" />
-
-        {/* ================= REALISTIC EXHAUST SMOKE PUFFS ================= */}
+        {/* =================================================================== */}
+        {/* 1. SOFT 3D PUFFY CLOUDS (Atmospheric Depth Layer)                   */}
+        {/* =================================================================== */}
         {showSmoke && (
-          <g className="smoke-trail pointer-events-none" style={{ transformOrigin: "17px 37px" }}>
-            {/* Puff 1: Fast lead puff */}
-            <circle
-              cx="17"
-              cy="36.5"
-              r="4.2"
-              fill={`url(#${smokeGradId})`}
+          <g aria-hidden="true">
+            {/* Top-Left Cloud (between the two floating parcels) */}
+            <g
+              className={`anim-${uid}`}
+              filter={`url(#${softShadowId})`}
               style={
                 animated
-                  ? {
-                      transformOrigin: "17px 36.5px",
-                      animation: `smoke-drift-1-${uid} 1.45s ease-out infinite`,
-                    }
+                  ? { animation: `cloud-drift-a-${uid} 3.2s ease-in-out infinite` }
                   : undefined
               }
-            />
+            >
+              <path
+                d="M60 44 C56 44 53 41 53 37.5 C53 34.2 55.8 31.5 59.2 31.5 C60.8 27.8 64.5 25.2 68.8 25.2 C73.8 25.2 77.8 28.8 78.6 33.5 C81.5 34.2 83.6 36.8 83.6 39.8 C83.6 43.4 80.5 46 76.6 46 L60 44 Z"
+                fill={`url(#${cloudGrad})`}
+              />
+            </g>
 
-            {/* Puff 2: Mid plume puff */}
-            <circle
-              cx="17"
-              cy="37"
-              r="5"
-              fill={`url(#${smokeGradId})`}
+            {/* Center Cloud (above the gap between cargo box and cab) */}
+            <g
+              className={`anim-${uid}`}
+              filter={`url(#${softShadowId})`}
               style={
                 animated
-                  ? {
-                      transformOrigin: "17px 37px",
-                      animation: `smoke-drift-2-${uid} 1.75s ease-out infinite 0.45s`,
-                    }
+                  ? { animation: `cloud-drift-b-${uid} 3.6s ease-in-out infinite 0.4s` }
                   : undefined
               }
-            />
+            >
+              <path
+                d="M126 72 C122.5 72 120 69.5 120 66.4 C120 63.6 122.2 61.4 125 61.2 C126.5 57.8 129.8 55.5 133.8 55.5 C138.2 55.5 141.8 58.6 142.5 62.8 C145 63.4 146.8 65.5 146.8 68.2 C146.8 71.2 144.2 73.4 140.8 73.4 L126 72 Z"
+                fill={`url(#${cloudGrad})`}
+              />
+            </g>
 
-            {/* Puff 3: Wide dispersing puff */}
-            <circle
-              cx="17"
-              cy="36.2"
-              r="6"
-              fill={`url(#${smokeGradId})`}
+            {/* Lower-Left Cloud (behind speed streaks) */}
+            <g
+              className={`anim-${uid}`}
+              filter={`url(#${softShadowId})`}
               style={
                 animated
-                  ? {
-                      transformOrigin: "17px 36.2px",
-                      animation: `smoke-drift-3-${uid} 2.1s ease-out infinite 0.95s`,
-                    }
+                  ? { animation: `cloud-drift-a-${uid} 2.9s ease-in-out infinite 0.8s` }
                   : undefined
               }
-            />
+            >
+              <path
+                d="M12 104 C9 104 6.5 101.8 6.5 99 C6.5 96.4 8.6 94.3 11.2 94.2 C12.6 91 15.8 89 19.4 89 C23.5 89 26.8 91.8 27.5 95.6 C29.8 96.2 31.4 98.1 31.4 100.5 C31.4 103.2 29 105.2 26 105.2 L12 104 Z"
+                fill={`url(#${cloudGrad})`}
+              />
+            </g>
           </g>
         )}
 
-        {/* ================= CHASSIS & SCOOTER BODY (With Engine Vibration) ================= */}
+        {/* =================================================================== */}
+        {/* 2. FLOATING 3D PARCEL #1 (LEFT ISOMETRIC BOX, TILTED -32 DEG)       */}
+        {/* =================================================================== */}
         <g
-          id="scooter-rig"
+          className={`anim-${uid}`}
+          filter={`url(#${softShadowId})`}
           style={
             animated
               ? {
-                  animation: `scooter-vibe-${uid} 0.38s ease-in-out infinite`,
+                  transformOrigin: "38px 68px",
+                  animation: `parcel-left-float-${uid} 2.4s ease-in-out infinite`,
                 }
               : undefined
           }
         >
-          {/* Headlamp Forward Light Beam */}
-          <polygon
-            points="70,17 84,13 84,23 70,19"
-            fill={`url(#${headlampGlowId})`}
-            opacity="0.6"
-          />
-
-          {/* Chrome Exhaust Pipe & Muffler */}
-          <path
-            d="M33 34.5 C28 35.5 22 36.8 17 37"
-            stroke={`url(#${chromeGradId})`}
-            strokeWidth="2.4"
-            strokeLinecap="round"
-          />
-          {/* Muffler Nozzle Tip */}
-          <ellipse cx="16.8" cy="37" rx="1" ry="1.5" fill="#0F172A" />
-
-          {/* Rear Suspension Shock Strut */}
-          <line
-            x1="28"
-            y1="27"
-            x2="30"
-            y2="34"
-            stroke={`url(#${chromeGradId})`}
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-
-          {/* REAR WHEEL */}
-          <g id="rear-wheel">
-            {/* Rubber Tire */}
-            <circle cx="29" cy="34" r="7.5" fill={`url(#${tireGradId})`} />
-            <circle cx="29" cy="34" r="7.2" stroke="#334155" strokeWidth="0.6" fill="none" />
-            {/* Metallic Alloy Rim */}
-            <circle cx="29" cy="34" r="4.6" fill={`url(#${rimGradId})`} />
-            <circle cx="29" cy="34" r="2.2" fill="#1E293B" />
-            {/* Spinning Spoke Accents */}
-            <g
-              style={
-                animated
-                  ? {
-                      transformOrigin: "29px 34px",
-                      animation: `wheel-spin-${uid} 0.75s linear infinite`,
-                    }
-                  : undefined
-              }
-            >
-              <line x1="29" y1="30" x2="29" y2="38" stroke="#FFFFFF" strokeWidth="0.8" opacity="0.8" />
-              <line x1="25" y1="34" x2="33" y2="34" stroke="#FFFFFF" strokeWidth="0.8" opacity="0.8" />
-            </g>
-            <circle cx="29" cy="34" r="1.1" fill="#FFFFFF" />
-          </g>
-
-          {/* FRONT WHEEL */}
-          <g id="front-wheel">
-            {/* Rubber Tire */}
-            <circle cx="64" cy="34" r="7.5" fill={`url(#${tireGradId})`} />
-            <circle cx="64" cy="34" r="7.2" stroke="#334155" strokeWidth="0.6" fill="none" />
-            {/* Metallic Alloy Rim */}
-            <circle cx="64" cy="34" r="4.6" fill={`url(#${rimGradId})`} />
-            <circle cx="64" cy="34" r="2.2" fill="#1E293B" />
-            {/* Spinning Spoke Accents */}
-            <g
-              style={
-                animated
-                  ? {
-                      transformOrigin: "64px 34px",
-                      animation: `wheel-spin-${uid} 0.75s linear infinite`,
-                    }
-                  : undefined
-              }
-            >
-              <line x1="64" y1="30" x2="64" y2="38" stroke="#FFFFFF" strokeWidth="0.8" opacity="0.8" />
-              <line x1="60" y1="34" x2="68" y2="34" stroke="#FFFFFF" strokeWidth="0.8" opacity="0.8" />
-            </g>
-            <circle cx="64" cy="34" r="1.1" fill="#FFFFFF" />
-          </g>
-
-          {/* Front Hydraulic Fork / Suspension Strut */}
-          <line
-            x1="64"
-            y1="34"
-            x2="60"
-            y2="19"
-            stroke={`url(#${chromeGradId})`}
-            strokeWidth="2.2"
-            strokeLinecap="round"
-          />
-
-          {/* Front Mudguard Hugging Wheel */}
-          <path
-            d="M57 32 C57 28 61 26 66 26.5"
-            stroke={`url(#${bodyGradId})`}
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            fill="none"
-          />
-
-          {/* Rear Mudguard / Fender */}
-          <path
-            d="M22 34 C22 28 26 26 31 26"
-            stroke={`url(#${bodyGradId})`}
-            strokeWidth="3.2"
-            strokeLinecap="round"
-            fill="none"
-          />
-
-          {/* Floorboard & Underside Chassis */}
-          <path
-            d="M34 32.5 L55 32.5 C56.5 32.5 57.5 31.5 58 30 L55 24 L36 24 C34 24 33 28 34 32.5 Z"
-            fill="#0F172A"
-          />
-          {/* Textured Footboard Grip */}
-          <line x1="38" y1="31" x2="52" y2="31" stroke="#334155" strokeWidth="1.2" strokeLinecap="round" />
-
-          {/* Main Curved Body Cowl (Emerald Metallic Shell) */}
-          <path
-            d="M30 26 C30 24 34 21 40 21 L51 21 C54 21 57 24 57.5 28 L53 32 L36 32 C32 32 30 29 30 26 Z"
-            fill={`url(#${bodyGradId})`}
-            filter={`url(#${shadowFilterId})`}
-          />
-
-          {/* Front Steering Column & Apron Shield */}
-          <path
-            d="M54 28 L59 16 C59.5 14.5 61 14 62.5 14.2 L66 14.8 C68 15.2 69 16.5 68.5 18.5 L64 30 C63 32 60 32 58 31 Z"
-            fill={`url(#${bodyGradId})`}
-          />
-
-          {/* Front Apron Bevel Highlight */}
-          <path
-            d="M60 16 L65 17.5 C66.5 18 67 19.5 66.5 21 L63.5 29"
-            stroke="#6EE7B7"
-            strokeWidth="0.8"
-            strokeLinecap="round"
-            fill="none"
-            opacity="0.75"
-          />
-
-          {/* Leather Rider Saddle Seat */}
-          <path
-            d="M33 21 C33 19 36 18.5 41 18.5 L48 18.5 C50.5 18.5 51.5 19.5 50.5 21 Z"
-            fill="#1E1B18"
-          />
-          <path
-            d="M34 19.5 C37 19 44 19 49 19.5"
-            stroke="#C5A880"
-            strokeWidth="0.5"
-            strokeDasharray="1.2 0.8"
-            fill="none"
-          />
-
-          {/* Handlebar & Steering Head */}
-          <path
-            d="M59.5 14.5 L58 11.5 L65.5 11.5 L67.5 14"
-            stroke={`url(#${chromeGradId})`}
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-          {/* Black Rubber Grip Handle */}
-          <line x1="56.5" y1="11.5" x2="58.5" y2="11.5" stroke="#0F172A" strokeWidth="2.2" strokeLinecap="round" />
-          {/* Rear View Mirror */}
-          <line x1="59" y1="11.5" x2="57.5" y2="8" stroke={`url(#${chromeGradId})`} strokeWidth="1" strokeLinecap="round" />
-          <circle cx="57" cy="7.5" r="1.5" fill="#E2E8F0" stroke="#475569" strokeWidth="0.6" />
-
-          {/* Front Headlight (Bright Lens with Chrome Rim) */}
-          <ellipse cx="68.2" cy="18" rx="1.6" ry="2.2" fill="#FEF08A" stroke="#FFFFFF" strokeWidth="0.7" />
-          <circle cx="68" cy="17.6" r="0.6" fill="#FFFFFF" />
-
-          {/* Chrome Rear Cargo Rack */}
-          <path
-            d="M20 23 L32 23 L33 26"
-            stroke={`url(#${chromeGradId})`}
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-          <line x1="23" y1="23" x2="25" y2="28" stroke={`url(#${chromeGradId})`} strokeWidth="1.2" strokeLinecap="round" />
-
-          {/* ================= THERMAL DELIVERY BOX WITH INTEGRATED JIYOO LOGO ================= */}
-          <g id="delivery-bag" filter={`url(#${shadowFilterId})`}>
-            {/* Main Insulated Box Body */}
-            <rect
-              x="19"
-              y="10"
-              width="14"
-              height="13.5"
-              rx="2.5"
-              fill={`url(#${bagGradId})`}
-              stroke="#D4AF37"
-              strokeWidth="0.7"
+          {/* Isometric 3D Parcel Group */}
+          <g transform="translate(12, 42)">
+            {/* Top-Left Orange Face */}
+            <polygon
+              points="4,28 24,5 38,13 18,36"
+              fill={`url(#${parcelMidGrad})`}
+            />
+            {/* Front-Right Lit Orange Face */}
+            <polygon
+              points="24,5 48,18 28,42 4,28"
+              fill={`url(#${parcelLitGrad})`}
+            />
+            {/* Bottom Underside Shaded Face */}
+            <polygon
+              points="4,28 28,42 18,47 0,34"
+              fill={`url(#${parcelDarkGrad})`}
             />
 
-            {/* Top Carry Handle & Zipper Seam */}
+            {/* Cream Packing Tape Strip on Left Seam */}
+            <polygon
+              points="9,22 15,15 26,22 20,29"
+              fill={`url(#${tapeGrad})`}
+            />
+            <polygon
+              points="9,22 5,26 10,29 14,25"
+              fill="#E5C483"
+            />
+
+            {/* White Barcode Shipping Label on Right Face */}
+            <g transform="translate(33, 16) rotate(29)">
+              <rect x="0" y="0" width="11" height="8" rx="1.2" fill="#FFFFFF" />
+              <line x1="2" y1="1.6" x2="2" y2="6.4" stroke="#1C1917" strokeWidth="0.9" />
+              <line x1="3.6" y1="1.6" x2="3.6" y2="6.4" stroke="#1C1917" strokeWidth="0.5" />
+              <line x1="5" y1="1.6" x2="5" y2="6.4" stroke="#1C1917" strokeWidth="1" />
+              <line x1="6.8" y1="1.6" x2="6.8" y2="6.4" stroke="#1C1917" strokeWidth="0.6" />
+              <line x1="8.2" y1="1.6" x2="8.2" y2="6.4" stroke="#1C1917" strokeWidth="0.9" />
+              <line x1="9.5" y1="1.6" x2="9.5" y2="6.4" stroke="#1C1917" strokeWidth="0.5" />
+            </g>
+
+            {/* Fragile / Handling Icons Stamp on Bottom Face */}
+            <g transform="translate(11, 34) rotate(29)" opacity="0.82">
+              <rect x="0" y="0" width="11" height="4.2" rx="0.6" stroke="#291509" strokeWidth="0.5" fill="none" />
+              <line x1="2.2" y1="0.8" x2="2.2" y2="3.4" stroke="#291509" strokeWidth="0.7" />
+              <circle cx="5.5" cy="2.1" r="1" fill="#291509" />
+              <line x1="8.8" y1="0.8" x2="8.8" y2="3.4" stroke="#291509" strokeWidth="0.7" />
+            </g>
+          </g>
+        </g>
+
+        {/* =================================================================== */}
+        {/* 3. FLOATING 3D PARCEL #2 (TOP-CENTER ISOMETRIC BOX)                 */}
+        {/* =================================================================== */}
+        <g
+          className={`anim-${uid}`}
+          filter={`url(#${softShadowId})`}
+          style={
+            animated
+              ? {
+                  transformOrigin: "108px 36px",
+                  animation: `parcel-top-float-${uid} 2.65s ease-in-out infinite 0.3s`,
+                }
+              : undefined
+          }
+        >
+          <g transform="translate(86, 14)">
+            {/* Left Shaded Orange Face */}
+            <polygon
+              points="2,14 18,4 24,31 8,39"
+              fill={`url(#${parcelMidGrad})`}
+            />
+            {/* Right Bright Lit Orange Face */}
+            <polygon
+              points="18,4 37,6 41,32 24,31"
+              fill={`url(#${parcelLitGrad})`}
+            />
+            {/* Bottom Underside Face */}
+            <polygon
+              points="8,39 24,31 41,32 25,41"
+              fill={`url(#${parcelDarkGrad})`}
+            />
+
+            {/* Cream Packing Tape on Top-Right Seam */}
+            <polygon
+              points="25,4.8 30.5,5.3 32,13 26.5,12.5"
+              fill={`url(#${tapeGrad})`}
+            />
+
+            {/* White Barcode Label on Right Face */}
+            <g transform="translate(30, 20) rotate(-6)">
+              <rect x="0" y="0" width="10" height="6.8" rx="1" fill="#FFFFFF" />
+              <line x1="1.8" y1="1.5" x2="1.8" y2="5.3" stroke="#1C1917" strokeWidth="0.8" />
+              <line x1="3.2" y1="1.5" x2="3.2" y2="5.3" stroke="#1C1917" strokeWidth="0.5" />
+              <line x1="4.6" y1="1.5" x2="4.6" y2="5.3" stroke="#1C1917" strokeWidth="0.9" />
+              <line x1="6.2" y1="1.5" x2="6.2" y2="5.3" stroke="#1C1917" strokeWidth="0.5" />
+              <line x1="7.8" y1="1.5" x2="7.8" y2="5.3" stroke="#1C1917" strokeWidth="0.8" />
+            </g>
+
+            {/* Black Fragile / Handling Icons Stamp on Left Face */}
+            <g transform="translate(6.5, 29.5) rotate(-27)">
+              <rect x="0" y="0" width="14" height="5.5" rx="0.8" stroke="#1F1209" strokeWidth="0.6" fill="none" />
+              <line x1="4.6" y1="0" x2="4.6" y2="5.5" stroke="#1F1209" strokeWidth="0.5" />
+              <line x1="9.3" y1="0" x2="9.3" y2="5.5" stroke="#1F1209" strokeWidth="0.5" />
+              {/* Up arrows */}
+              <path d="M1.6 4.2 L1.6 1.5 M3 4.2 L3 1.5" stroke="#1F1209" strokeWidth="0.7" strokeLinecap="round" />
+              {/* Umbrella icon */}
+              <path d="M5.6 3 C5.6 1.6 8.4 1.6 8.4 3 Z M7 3 L7 4.4" stroke="#1F1209" strokeWidth="0.6" fill="#1F1209" />
+              {/* Wine glass fragile icon */}
+              <path d="M10.6 1.4 L12.6 1.4 L12.2 3 C12 3.5 11.2 3.5 11 3 Z M11.6 3.3 L11.6 4.5" stroke="#1F1209" strokeWidth="0.6" fill="#1F1209" />
+            </g>
+          </g>
+        </g>
+
+        {/* =================================================================== */}
+        {/* 4. FLOATING 3D MINT-TURQUOISE LOCATION PIN (UPPER RIGHT)            */}
+        {/* =================================================================== */}
+        <g
+          className={`anim-${uid}`}
+          filter={`url(#${softShadowId})`}
+          style={
+            animated
+              ? {
+                  transformOrigin: "198px 74px",
+                  animation: `pin-hover-${uid} 2.3s ease-in-out infinite 0.15s`,
+                }
+              : undefined
+          }
+        >
+          <g transform="translate(182, 46) rotate(14, 18, 24)">
+            {/* 3D Left Extruded Depth Rim of Location Pin */}
             <path
-              d="M23.5 10 C23.5 8.5 28.5 8.5 28.5 10"
-              stroke="#D4AF37"
-              strokeWidth="1.1"
-              strokeLinecap="round"
-              fill="none"
+              d="M15 2 C5.2 2 -1 10 -1 19.5 C-1 30.5 11.5 43.5 14.2 46.2 C15.2 47.2 17 47 18 45.8 L21 43 C14 36 4.5 27.5 4.5 19 C4.5 10 10.5 3.5 18 2.2 Z"
+              fill={`url(#${pinSideGrad})`}
             />
-            <line x1="20" y1="12" x2="32" y2="12" stroke="#043E2E" strokeWidth="0.8" />
+            {/* Front Glossy Mint-Turquoise 3D Pin Body */}
+            <path
+              d="M19 2 C28.4 2 35.5 9.2 35.5 18.5 C35.5 29.2 22.8 42.2 19.8 45.2 C18.8 46.2 17.2 46.2 16.2 45.2 C13.2 42.2 3.5 29.2 3.5 18.5 C3.5 9.2 10.2 2 19 2 Z"
+              fill={`url(#${pinFrontGrad})`}
+            />
+            {/* Inner 3D Recessed Hole Shadow Wall */}
+            <ellipse cx="19.5" cy="18.5" rx="4.4" ry="5.2" fill="#4D8076" />
+            {/* Inner Pin Cutout Highlight */}
+            <ellipse cx="20.4" cy="18.5" rx="3.1" ry="4.1" fill="#E2FBF7" fillOpacity="0.88" />
+          </g>
+        </g>
 
-            {/* Reflective Safety Trim Band Across Box */}
-            <line x1="19.5" y1="21.5" x2="32.5" y2="21.5" stroke="#FDE047" strokeWidth="1" opacity="0.9" />
+        {/* =================================================================== */}
+        {/* 5. MAIN 3D EXPRESS DELIVERY TRUCK + SPEED STREAKS                   */}
+        {/* =================================================================== */}
+        <g
+          className={`anim-${uid}`}
+          filter={`url(#${dropShadowId})`}
+          style={
+            animated
+              ? {
+                  transformOrigin: "132px 136px",
+                  animation: `truck-surge-${uid} 1.35s ease-in-out infinite`,
+                }
+              : undefined
+          }
+        >
+          {/* Entire truck tilted dynamically at -7.5 degrees around its center */}
+          <g transform="rotate(-7.5, 130, 135)">
+            {/* --- FAR-SIDE (BACKGROUND) 3D WHEELS FOR PERSPECTIVE DEPTH --- */}
+            {/* Far Rear Wheel */}
+            <circle cx="91" cy="166" r="17.5" fill={`url(#${tireBackGrad})`} />
+            <circle cx="91" cy="166" r="9" fill="#180A05" />
+            {/* Far Front Wheel */}
+            <circle cx="198" cy="164" r="16.5" fill={`url(#${tireBackGrad})`} />
+            <circle cx="198" cy="164" r="8.5" fill="#180A05" />
 
-            {/* INTEGRATED AUTHENTIC JIYOO LOGO EMBLEM */}
-            <rect
-              x="20.5"
-              y="11.5"
-              width="11"
-              height="9"
-              rx="1.8"
-              fill="#FFFFFF"
-              stroke="#D4AF37"
-              strokeWidth="0.6"
-            />
-            {/* The Actual JIYOO Brand Logo Asset */}
-            <image
-              href="/jiyoo.logo.jpeg"
-              x="20.8"
-              y="11.8"
-              width="10.4"
-              height="8.4"
-              preserveAspectRatio="xMidYMid slice"
-              clipPath={`url(#${bagClipId})`}
-            />
+            {/* --- REAR CARGO BOX (3D ROUNDED ORANGE CONTAINER) --- */}
+            <g>
+              {/* Cargo Box Right 3D Depth Face (facing cab) */}
+              <rect
+                x="114"
+                y="84"
+                width="18"
+                height="66"
+                rx="6"
+                fill={`url(#${cargoTopGrad})`}
+              />
+              {/* Cargo Box Main Side Face */}
+              <rect
+                x="46"
+                y="84"
+                width="77"
+                height="67"
+                rx="7"
+                fill={`url(#${cargoFrontGrad})`}
+              />
+              {/* Top Specular Highlight Bevel on Cargo Box */}
+              <path
+                d="M52 85.5 L118 85.5"
+                stroke="#FFD8A8"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                opacity="0.75"
+              />
+              {/* Cargo Lower Skirt / Chassis Rail */}
+              <rect
+                x="47"
+                y="148"
+                width="77"
+                height="6.5"
+                rx="3"
+                fill={`url(#${cargoTopGrad})`}
+              />
+              <line
+                x1="49"
+                y1="148"
+                x2="122"
+                y2="148"
+                stroke="#B83B00"
+                strokeWidth="1.6"
+              />
+              {/* Lower Cargo Side Panel & Rear Wheel Arch */}
+              <path
+                d="M52 154.5 L124 154.5 L124 169 L96 169 C95 155 62 155 61 169 L52 169 Z"
+                fill={`url(#${cargoFrontGrad})`}
+              />
+              {/* Rear Wheel Fender Rim Lip */}
+              <path
+                d="M57 169 C57 151.5 99 151.5 99 169"
+                stroke={`url(#${cargoTopGrad})`}
+                strokeWidth="4.8"
+                strokeLinecap="round"
+                fill="none"
+              />
+            </g>
 
-            {/* Micro 3D Gloss Sheen over the Logo */}
-            <rect
-              x="20.5"
-              y="11.5"
-              width="11"
-              height="4.5"
-              rx="1.5"
-              fill="#FFFFFF"
-              fillOpacity="0.22"
-              pointerEvents="none"
-            />
+            {/* --- 3 FLOATING 3D YELLOW SPEED BARS (LEFT OF CARGO BOX) --- */}
+            {/* Top Speed Bar */}
+            <g
+              className={`anim-${uid}`}
+              style={
+                animated
+                  ? { animation: `speed-pulse-1-${uid} 0.72s ease-in-out infinite` }
+                  : undefined
+              }
+            >
+              <rect
+                x="26"
+                y="102.5"
+                width="43"
+                height="11.5"
+                rx="5.5"
+                fill={`url(#${speedBevelGrad})`}
+              />
+              <rect
+                x="27.5"
+                y="101"
+                width="43"
+                height="11"
+                rx="5.5"
+                fill={`url(#${speedBarGrad})`}
+              />
+            </g>
+
+            {/* Middle (Longest) Speed Bar */}
+            <g
+              className={`anim-${uid}`}
+              style={
+                animated
+                  ? { animation: `speed-pulse-2-${uid} 0.68s ease-in-out infinite 0.14s` }
+                  : undefined
+              }
+            >
+              <rect
+                x="18"
+                y="118.5"
+                width="59"
+                height="11.5"
+                rx="5.5"
+                fill={`url(#${speedBevelGrad})`}
+              />
+              <rect
+                x="19.5"
+                y="117"
+                width="59"
+                height="11"
+                rx="5.5"
+                fill={`url(#${speedBarGrad})`}
+              />
+            </g>
+
+            {/* Bottom Speed Bar */}
+            <g
+              className={`anim-${uid}`}
+              style={
+                animated
+                  ? { animation: `speed-pulse-3-${uid} 0.76s ease-in-out infinite 0.28s` }
+                  : undefined
+              }
+            >
+              <rect
+                x="26"
+                y="134.5"
+                width="40"
+                height="11.5"
+                rx="5.5"
+                fill={`url(#${speedBevelGrad})`}
+              />
+              <rect
+                x="27.5"
+                y="133"
+                width="40"
+                height="11"
+                rx="5.5"
+                fill={`url(#${speedBarGrad})`}
+              />
+            </g>
+
+            {/* --- FRONT AERODYNAMIC CAB (3D ORANGE CABIN & HOOD) --- */}
+            <g>
+              {/* Recessed Shadow Seam Between Cargo Box and Cab */}
+              <rect x="122.5" y="96" width="4" height="72" rx="2" fill="#8C2A00" opacity="0.7" />
+
+              {/* Cab Top Roof Fairing / Cap */}
+              <rect
+                x="125"
+                y="95"
+                width="58"
+                height="11"
+                rx="5"
+                fill={`url(#${cabRoofGrad})`}
+              />
+              <line
+                x1="127"
+                y1="105.5"
+                x2="182"
+                y2="105.5"
+                stroke="#C2410C"
+                strokeWidth="1.4"
+              />
+
+              {/* Main Cab Upper Body & Sculpted Front Hood */}
+              <path
+                d="M124 105 L178 105 C182 105 184.5 107.5 186 112 L192 136 L213 137 C219 137.5 223 141 224 147 L224 166 C224 168.5 221.5 170 218 170 L124 170 Z"
+                fill={`url(#${cabBodyGrad})`}
+              />
+
+              {/* Hood Top-Right 3D Lit Bevel */}
+              <path
+                d="M190 136.5 L212 136.5 C218 136.5 222.5 139.5 223.5 144.5 L192 144.5 Z"
+                fill={`url(#${cabRoofGrad})`}
+              />
+
+              {/* 3 Horizontal Air Grille Slots on Hood Nose */}
+              <g opacity="0.75">
+                <line x1="210" y1="142" x2="217" y2="142" stroke="#7C2D12" strokeWidth="1.6" strokeLinecap="round" />
+                <line x1="211" y1="145" x2="218" y2="145" stroke="#7C2D12" strokeWidth="1.6" strokeLinecap="round" />
+                <line x1="212" y1="148" x2="219" y2="148" stroke="#7C2D12" strokeWidth="1.6" strokeLinecap="round" />
+              </g>
+
+              {/* Cab Lower Door Panel Seam */}
+              <line
+                x1="125"
+                y1="150"
+                x2="222"
+                y2="150"
+                stroke="#C2410C"
+                strokeWidth="1.5"
+              />
+              <line
+                x1="126"
+                y1="151.5"
+                x2="221"
+                y2="151.5"
+                stroke="#FFBA70"
+                strokeWidth="1.2"
+                opacity="0.7"
+              />
+
+              {/* Cab Glossy Black Side Window with 3D Recessed Orange Frame */}
+              <rect
+                x="138"
+                y="112"
+                width="32"
+                height="21"
+                rx="3.5"
+                fill="#C2410C"
+              />
+              <rect
+                x="139.5"
+                y="113.2"
+                width="29.5"
+                height="18.6"
+                rx="2.8"
+                fill={`url(#${sideWindowGrad})`}
+              />
+              {/* Subtle Glass Specular Reflection */}
+              <polygon
+                points="143,114.5 151,114.5 145,130.5 140.5,130.5"
+                fill="#FFFFFF"
+                fillOpacity="0.12"
+              />
+
+              {/* 3D Angled Grey Windshield on Front of Cab */}
+              <polygon
+                points="177,112 181,111 188,133 183.5,135"
+                fill="#111827"
+              />
+              <polygon
+                points="180.5,111 191,110 198,132 187.5,133.5"
+                fill={`url(#${windshieldGrad})`}
+              />
+              {/* Orange Base Sill Under Windshield */}
+              <path
+                d="M183.5 134.5 L197.5 132.5"
+                stroke={`url(#${cabRoofGrad})`}
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+
+              {/* Twin 3D Warm Cream-Yellow Headlights on Front Bumper */}
+              {/* Outer (Right) Headlight */}
+              <rect
+                x="220"
+                y="150"
+                width="7.5"
+                height="13.5"
+                rx="2.2"
+                fill={`url(#${headlampGrad})`}
+              />
+              {/* Inner (Left) Headlight with 3D Side Bevel */}
+              <rect
+                x="212"
+                y="151.5"
+                width="6.5"
+                height="14"
+                rx="2.2"
+                fill="#F59E0B"
+              />
+              <rect
+                x="213.5"
+                y="151.5"
+                width="6.5"
+                height="14"
+                rx="2.2"
+                fill={`url(#${headlampGrad})`}
+              />
+
+              {/* Front Wheel Fender Arch Lip */}
+              <path
+                d="M161 169 C161 151.5 203 151.5 203 169"
+                stroke={`url(#${cabRoofGrad})`}
+                strokeWidth="4.8"
+                strokeLinecap="round"
+                fill="none"
+              />
+            </g>
+
+            {/* --- FOREGROUND 3D CHOCOLATE-BROWN WHEELS (WITH SPINNING RIMS) --- */}
+            {/* Foreground Rear Wheel (Center: 78, 171) */}
+            <g>
+              <circle cx="78" cy="171" r="18.5" fill={`url(#${tireFrontGrad})`} />
+              <circle cx="78" cy="171" r="10.2" fill={`url(#${rimWellGrad})`} />
+              <g
+                className={`anim-${uid}`}
+                style={
+                  animated
+                    ? {
+                        transformOrigin: "78px 171px",
+                        animation: `wheel-spin-${uid} 0.85s linear infinite`,
+                      }
+                    : undefined
+                }
+              >
+                <circle
+                  cx="78"
+                  cy="171"
+                  r="9.2"
+                  stroke="#7C4A36"
+                  strokeWidth="1.2"
+                  strokeDasharray="8 6"
+                  fill="none"
+                  opacity="0.75"
+                />
+                <circle cx="78" cy="171" r="5.5" fill={`url(#${hubCapGrad})`} />
+                <circle cx="76.5" cy="169.5" r="1.4" fill="#A66E56" opacity="0.75" />
+              </g>
+            </g>
+
+            {/* Foreground Front Wheel (Center: 182, 169) */}
+            <g>
+              <circle cx="182" cy="169" r="18.5" fill={`url(#${tireFrontGrad})`} />
+              <circle cx="182" cy="169" r="10.2" fill={`url(#${rimWellGrad})`} />
+              <g
+                className={`anim-${uid}`}
+                style={
+                  animated
+                    ? {
+                        transformOrigin: "182px 169px",
+                        animation: `wheel-spin-${uid} 0.85s linear infinite`,
+                      }
+                    : undefined
+                }
+              >
+                <circle
+                  cx="182"
+                  cy="169"
+                  r="9.2"
+                  stroke="#7C4A36"
+                  strokeWidth="1.2"
+                  strokeDasharray="8 6"
+                  fill="none"
+                  opacity="0.75"
+                />
+                <circle cx="182" cy="169" r="5.5" fill={`url(#${hubCapGrad})`} />
+                <circle cx="180.5" cy="167.5" r="1.4" fill="#A66E56" opacity="0.75" />
+              </g>
+            </g>
           </g>
         </g>
       </svg>
     </span>
   );
 }
+
+export const ExpressDeliveryTruckIcon = RealisticDeliveryScooter;

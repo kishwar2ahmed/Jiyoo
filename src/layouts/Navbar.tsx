@@ -50,7 +50,7 @@ export function Navbar({
   onWholesaleClick?: () => void;
   onRetailClick?: () => void;
 }) {
-  const { cartCount, user, searchQuery, setSearchQuery, addToCart, triggerFlyingItem } = useCart();
+  const { cartCount, cartTotal, items, user, searchQuery, setSearchQuery, addToCart, triggerFlyingItem } = useCart();
   const { settings } = useSettings();
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -58,6 +58,7 @@ export function Navbar({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cartPulseKey, setCartPulseKey] = useState(0);
   const [isCartUpdating, setIsCartUpdating] = useState(false);
+  const [showMobileCartPreview, setShowMobileCartPreview] = useState(false);
   const [suggestionIdx, setSuggestionIdx] = useState(0);
   const [isDesktopFocused, setIsDesktopFocused] = useState(false);
   const [isMobileFocused, setIsMobileFocused] = useState(false);
@@ -93,12 +94,15 @@ export function Navbar({
     const triggerCartPulse = () => {
       setCartPulseKey((prev) => prev + 1);
       setIsCartUpdating(true);
+      setShowMobileCartPreview(true);
     };
 
     if (prevCartCountRef.current !== cartCount) {
       prevCartCountRef.current = cartCount;
       if (cartCount > 0) {
         triggerCartPulse();
+      } else {
+        setShowMobileCartPreview(false);
       }
     }
 
@@ -111,6 +115,14 @@ export function Navbar({
     const timer = setTimeout(() => setIsCartUpdating(false), 520);
     return () => clearTimeout(timer);
   }, [cartPulseKey, isCartUpdating]);
+
+  useEffect(() => {
+    if (!showMobileCartPreview) return;
+    const timer = setTimeout(() => {
+      setShowMobileCartPreview(false);
+    }, 3200);
+    return () => clearTimeout(timer);
+  }, [cartPulseKey, showMobileCartPreview]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -881,8 +893,8 @@ export function Navbar({
                 </button>
               </div>
 
-              {/* Right Group: User Account & Cart Buttons */}
-              <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+              {/* Right Group: User Account & High-Contrast Luxury Cart Pill */}
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false);
@@ -917,18 +929,22 @@ export function Navbar({
                     setMobileMenuOpen(false);
                     onCartClick();
                   }}
-                  className="p-1.5 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors relative cursor-pointer shrink-0"
-                  aria-label="Cart"
+                  className={`relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-300 cursor-pointer shrink-0 border ${
+                    cartCount > 0
+                      ? "bg-[#1C1917] text-[#FAF9F5] border-[#C5A880] shadow-[0_4px_14px_rgba(28,25,23,0.22)]"
+                      : "bg-[#1C1917] text-[#FAF9F5] border-[#C5A880]/60 shadow-2xs"
+                  }`}
+                  aria-label={`Cart (${cartCount} items)`}
                 >
                   <AnimatePresence>
                     {isCartUpdating && (
                       <motion.span
                         key={`mobile-cart-halo-${cartPulseKey}`}
-                        initial={{ scale: 0.75, opacity: 0.7 }}
-                        animate={{ scale: 1.45, opacity: 0 }}
+                        initial={{ scale: 0.85, opacity: 0.85 }}
+                        animate={{ scale: 1.55, opacity: 0 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                        className="pointer-events-none absolute inset-0 rounded-full border border-[#C5A880]/70"
+                        transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
+                        className="pointer-events-none absolute inset-0 rounded-full border-2 border-[#C5A880]"
                       />
                     )}
                   </AnimatePresence>
@@ -937,51 +953,34 @@ export function Navbar({
                     key={`mobile-bag-${cartPulseKey}`}
                     animate={
                       cartPulseKey > 0
-                        ? { scale: [1, 1.18, 0.94, 1.04, 1], y: [0, -2, 1, -0.5, 0] }
+                        ? { scale: [1, 1.22, 0.92, 1.06, 1], y: [0, -2, 1, -0.5, 0] }
                         : {}
                     }
                     transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex items-center justify-center"
                   >
-                    <ShoppingBag className="w-5 h-5" strokeWidth={1.75} />
+                    <ShoppingBag className="w-4 h-4 text-[#E5C99B]" strokeWidth={2} />
                   </motion.div>
 
-                  <AnimatePresence initial={false}>
-                    {cartCount > 0 && (
+                  <span className="min-w-[16px] text-center font-mono text-[11px] font-bold leading-none tabular-nums text-[#FAF9F5]">
+                    <AnimatePresence mode="popLayout" initial={false}>
                       <motion.span
-                        key="mobile-cart-badge"
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{
-                          scale: isCartUpdating ? [1, 1.18, 1] : 1,
-                          opacity: 1,
+                        key={cartCount}
+                        initial={{ y: 8, opacity: 0, scale: 0.8 }}
+                        animate={{ y: 0, opacity: 1, scale: 1 }}
+                        exit={{ y: -8, opacity: 0, scale: 0.8 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 480,
+                          damping: 28,
+                          mass: 0.6,
                         }}
-                        exit={{ scale: 0, opacity: 0 }}
-                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                        className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center overflow-hidden tabular-nums text-[10px] font-bold tracking-tight transition-colors duration-300 ${
-                          isCartUpdating
-                            ? "bg-[#1C1917] text-[#E5C99B] ring-2 ring-[#C5A880]/70 shadow-[0_2px_10px_rgba(197,168,128,0.45)]"
-                            : "bg-[#1C1917] text-[#FAF9F5] border border-[#C5A880]/60 shadow-xs"
-                        }`}
+                        className="inline-block tabular-nums"
                       >
-                        <AnimatePresence mode="popLayout" initial={false}>
-                          <motion.span
-                            key={cartCount}
-                            initial={{ y: 9, opacity: 0, scale: 0.8 }}
-                            animate={{ y: 0, opacity: 1, scale: 1 }}
-                            exit={{ y: -9, opacity: 0, scale: 0.8 }}
-                            transition={{
-                              type: "spring",
-                              stiffness: 480,
-                              damping: 28,
-                              mass: 0.6,
-                            }}
-                            className="inline-block leading-none font-semibold tabular-nums"
-                          >
-                            {cartCount}
-                          </motion.span>
-                        </AnimatePresence>
+                        {cartCount}
                       </motion.span>
-                    )}
-                  </AnimatePresence>
+                    </AnimatePresence>
+                  </span>
                 </button>
               </div>
             </div>
@@ -1379,6 +1378,68 @@ export function Navbar({
                 ) : null}
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Floating Bottom Cart Bar (Appears for ~3.2 seconds on cart update, then auto-hides) */}
+      <AnimatePresence>
+        {showMobileCartPreview && cartCount > 0 && !searchOpen && !mobileMenuOpen && (
+          <motion.div
+            initial={{ y: 80, opacity: 0, scale: 0.96 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 80, opacity: 0, scale: 0.96 }}
+            transition={{ type: "spring", stiffness: 420, damping: 32 }}
+            className="lg:hidden fixed bottom-0 left-0 right-0 z-30 px-3 pb-[calc(0.65rem+env(safe-area-inset-bottom))] pt-2 pointer-events-none"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setShowMobileCartPreview(false);
+                onCartClick();
+              }}
+              className="pointer-events-auto w-full max-w-md mx-auto flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl bg-[#1C1917]/95 backdrop-blur-md text-[#FAF9F5] border border-[#C5A880]/75 shadow-[0_14px_34px_-6px_rgba(28,25,23,0.55)] active:scale-[0.98] transition-transform cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex -space-x-2 overflow-hidden shrink-0">
+                  {items.slice(0, 3).map((it) => (
+                    <div
+                      key={it.id}
+                      className="w-8 h-8 rounded-full bg-white border border-[#C5A880] p-0.5 flex items-center justify-center overflow-hidden shadow-xs"
+                    >
+                      {it.image ? (
+                        <img
+                          src={getOptimizedImageUrl(it.image, 80, 75)}
+                          alt={it.name}
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <ShoppingBag className="w-3.5 h-3.5 text-[#1C1917]" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="text-left min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold tracking-wide text-[#FAF9F5]">
+                      {cartCount} {cartCount === 1 ? "Item" : "Items"}
+                    </span>
+                    <span className="text-[#C5A880]">•</span>
+                    <span className="text-xs font-extrabold text-[#E5C99B] tabular-nums">
+                      ₹{cartTotal}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-[#D6D1C7] truncate">
+                    Tap to view bag &amp; checkout
+                  </p>
+                </div>
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#E5C99B] text-[#1C1917] text-[11px] font-extrabold uppercase tracking-wider shrink-0 shadow-xs">
+                <span>View Cart</span>
+                <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
+              </div>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

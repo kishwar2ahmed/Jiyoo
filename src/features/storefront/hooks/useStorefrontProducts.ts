@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { collection, query, limit, onSnapshot } from 'firebase/firestore';
+import { useState, useEffect, useCallback } from 'react';
+import { collection, query, limit, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../../../services/firebase';
 import { Product } from '../../../types';
 import { PRODUCTS as defaultProducts } from '../../../constants/data';
@@ -23,11 +23,17 @@ interface PublicCatalogCache {
   products: Product[];
 }
 
-export function isValidProductRecord(raw: unknown): raw is Partial<Product> & { id?: string | number; name: string } {
+export function isValidProductRecord(
+  raw: unknown
+): raw is Partial<Product> & { id?: string | number; name: string } {
   if (!raw || typeof raw !== 'object') return false;
   const candidate = raw as Record<string, unknown>;
   if (typeof candidate.name !== 'string' || candidate.name.trim().length === 0) return false;
-  if (candidate.price !== undefined && typeof candidate.price !== 'string' && typeof candidate.price !== 'number') {
+  if (
+    candidate.price !== undefined &&
+    typeof candidate.price !== 'string' &&
+    typeof candidate.price !== 'number'
+  ) {
     return false;
   }
   return true;
@@ -76,14 +82,18 @@ function sanitizePublicProduct(product: Product): Product {
   } as Product;
 }
 
-function buildAuthoritativeBaseline(): Map<string, Product> {
+// Compute authoritative baseline ONCE per browser session
+let cachedBaselineList: Product[] | null = null;
+function getAuthoritativeBaseline(): Product[] {
+  if (cachedBaselineList) return cachedBaselineList;
   const map = new Map<string, Product>();
   for (const p of defaultProducts) {
     if (isValidProductRecord(p)) {
       map.set(String(p.id), sanitizePublicProduct(p));
     }
   }
-  return map;
+  cachedBaselineList = Array.from(map.values());
+  return cachedBaselineList;
 }
 
 function readPublicCatalogCache(): { products: Product[]; lastSyncedAt: string | null } {
@@ -97,7 +107,9 @@ function readPublicCatalogCache(): { products: Product[]; lastSyncedAt: string |
       Array.isArray(parsed.products) &&
       parsed.products.length > 0
     ) {
-      const valid = parsed.products.filter(isValidProductRecord).map((p) => sanitizePublicProduct(p as Product));
+      const valid = parsed.products
+        .filter(isValidProductRecord)
+        .map((p) => sanitizePublicProduct(p as Product));
       if (valid.length > 0) {
         return {
           products: valid,
@@ -111,18 +123,27 @@ function readPublicCatalogCache(): { products: Product[]; lastSyncedAt: string |
   return { products: [], lastSyncedAt: null };
 }
 
+let pendingCacheWriteTimer: number | null = null;
 function writePublicCatalogCache(products: Product[], syncedAtIso: string) {
   if (!Array.isArray(products) || products.length === 0) return;
-  try {
-    const payload: PublicCatalogCache = {
-      version: 1,
-      lastSyncedAt: syncedAtIso,
-      products: products.map(sanitizePublicProduct),
-    };
-    localStorage.setItem(PUBLIC_CATALOG_CACHE_KEY, JSON.stringify(payload));
-  } catch (err) {
-    console.warn('[Catalog Cache] Failed to write public product cache:', err);
+  if (typeof window === 'undefined') return;
+  if (pendingCacheWriteTimer !== null) {
+    window.clearTimeout(pendingCacheWriteTimer);
   }
+  // Defer heavy JSON serialization off the active animation/scroll frame
+  pendingCacheWriteTimer = window.setTimeout(() => {
+    pendingCacheWriteTimer = null;
+    try {
+      const payload: PublicCatalogCache = {
+        version: 1,
+        lastSyncedAt: syncedAtIso,
+        products: products.map(sanitizePublicProduct),
+      };
+      localStorage.setItem(PUBLIC_CATALOG_CACHE_KEY, JSON.stringify(payload));
+    } catch (err) {
+      console.warn('[Catalog Cache] Failed to write public product cache:', err);
+    }
+  }, 250);
 }
 
 export function classifyCatalogError(err: any): CatalogSyncStatus {
@@ -131,7 +152,11 @@ export function classifyCatalogError(err: any): CatalogSyncStatus {
   }
   const code = String(err?.code || '').toLowerCase();
   const message = String(err?.message || '').toLowerCase();
-  if (code.includes('permission-denied') || message.includes('insufficient permissions') || message.includes('permission_denied')) {
+  if (
+    code.includes('permission-denied') ||
+    message.includes('insufficient permissions') ||
+    message.includes('permission_denied')
+  ) {
     return 'PERMISSION_ERROR';
   }
   if (
@@ -163,7 +188,7 @@ export function classifyCatalogError(err: any): CatalogSyncStatus {
  */
 export function mergeCatalogRecords(
   dbRecords: Array<Record<string, any>>,
-  baselineProducts: Product[] = defaultProducts
+  baselineProducts: Product[] = getAuthoritativeBaseline()
 ): { products: Product[]; explicitlyEmpty: boolean } {
   const mergedMap = new Map<string, Product>();
   for (const base of baselineProducts) {
@@ -193,17 +218,27 @@ export function mergeCatalogRecords(
           ...existingBase,
           ...record,
           id,
-          name: isWholesaleBaseline ? existingBase.name : (record.name || existingBase.name),
+          name: isWholesaleBaseline ? existingBase.name : record.name || existingBase.name,
           origin: isWholesaleBaseline ? existingBase.origin : (record.origin ?? existingBase.origin),
-          freshnessBadge: isWholesaleBaseline ? existingBase.freshnessBadge : (record.freshnessBadge ?? existingBase.freshnessBadge),
-          description: isWholesaleBaseline ? existingBase.description : (record.description || existingBase.description),
+          freshnessBadge: isWholesaleBaseline
+            ? existingBase.freshnessBadge
+            : (record.freshnessBadge ?? existingBase.freshnessBadge),
+          description: isWholesaleBaseline
+            ? existingBase.description
+            : record.description || existingBase.description,
           count: isWholesaleBaseline ? existingBase.count : (record.count ?? existingBase.count),
-          netWeight: isWholesaleBaseline ? existingBase.netWeight : (record.netWeight ?? existingBase.netWeight),
-          wholesaleUnit: isWholesaleBaseline ? existingBase.wholesaleUnit : (record.wholesaleUnit || existingBase.wholesaleUnit),
+          netWeight: isWholesaleBaseline
+            ? existingBase.netWeight
+            : (record.netWeight ?? existingBase.netWeight),
+          wholesaleUnit: isWholesaleBaseline
+            ? existingBase.wholesaleUnit
+            : record.wholesaleUnit || existingBase.wholesaleUnit,
           categoryId: record.categoryId || existingBase.categoryId,
           subcategoryId: record.subcategoryId ?? existingBase.subcategoryId,
           subSubcategoryId: record.subSubcategoryId ?? existingBase.subSubcategoryId,
-          unit: isWholesaleBaseline ? existingBase.unit : (record.unit || existingBase.unit || '1 kg'),
+          unit: isWholesaleBaseline
+            ? existingBase.unit
+            : record.unit || existingBase.unit || '1 kg',
           image: getOptimizedImageUrl(
             resolveProductImage(record.image || existingBase.image),
             500,
@@ -224,31 +259,63 @@ export function mergeCatalogRecords(
   }
 
   const finalProducts = Array.from(mergedMap.values());
-  const explicitlyEmpty = finalProducts.length === 0 && deletedCount > 0 && validRecordCount === 0;
+  const explicitlyEmpty =
+    finalProducts.length === 0 && deletedCount > 0 && validRecordCount === 0;
   return { products: finalProducts, explicitlyEmpty };
 }
 
-export function useStorefrontProducts() {
-  const [initialCache] = useState(() => readPublicCatalogCache());
-  const [baselineCatalog] = useState(() => Array.from(buildAuthoritativeBaseline().values()));
+// ============================================================================
+// SINGLETON SHARED STORE (Deduplicates Firestore listeners & LocalStorage reads
+// across Navbar, Storefront, WholesalePage, AuthModal, and AccountCenter)
+// ============================================================================
+interface CatalogStoreState {
+  dbProducts: Product[];
+  isProductsLoading: boolean;
+  catalogStatus: CatalogSyncStatus;
+  catalogError: string | null;
+  lastSyncedAt: string | null;
+  isUsingCachedCatalog: boolean;
+}
 
-  const [dbProducts, setDbProducts] = useState<Product[]>(() => {
-    const cached = initialCache?.products;
-    return cached && cached.length > 0 ? cached : baselineCatalog;
-  });
-  // Start with false so baseline products (all 169 items) display on frame 0 without waiting for database
-  const [isProductsLoading, setIsProductsLoading] = useState<boolean>(false);
-  const [catalogStatus, setCatalogStatus] = useState<CatalogSyncStatus>('LOADING');
-  const [catalogError, setCatalogError] = useState<string | null>(null);
-  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(
-    () => initialCache?.lastSyncedAt || null
-  );
-  const [isUsingCachedCatalog, setIsUsingCachedCatalog] = useState<boolean>(false);
-  const [retryTrigger, setRetryTrigger] = useState<number>(0);
-  const retryAttemptRef = useRef<number>(0);
-  const retryTimerRef = useRef<number | null>(null);
+let storeInitialized = false;
+let storeState: CatalogStoreState = {
+  dbProducts: [],
+  isProductsLoading: false,
+  catalogStatus: 'LOADING',
+  catalogError: null,
+  lastSyncedAt: null,
+  isUsingCachedCatalog: false,
+};
 
-  const fetchBackendCatalogFallback = useCallback(async (): Promise<boolean> => {
+const subscribers = new Set<() => void>();
+let activeFirestoreUnsub: Unsubscribe | null = null;
+let retryAttempt = 0;
+let retryTimer: number | null = null;
+let fallbackInFlight: Promise<boolean> | null = null;
+
+function ensureStoreInitialized() {
+  if (storeInitialized) return;
+  storeInitialized = true;
+  const baseline = getAuthoritativeBaseline();
+  const initialCache = typeof window !== 'undefined' ? readPublicCatalogCache() : { products: [], lastSyncedAt: null };
+  storeState = {
+    dbProducts: initialCache.products.length > 0 ? initialCache.products : baseline,
+    isProductsLoading: false,
+    catalogStatus: 'LOADING',
+    catalogError: null,
+    lastSyncedAt: initialCache.lastSyncedAt,
+    isUsingCachedCatalog: false,
+  };
+}
+
+function updateStore(partial: Partial<CatalogStoreState>) {
+  storeState = { ...storeState, ...partial };
+  subscribers.forEach((listener) => listener());
+}
+
+async function fetchBackendCatalogFallbackShared(): Promise<boolean> {
+  if (fallbackInFlight) return fallbackInFlight;
+  fallbackInFlight = (async () => {
     try {
       const controller = new AbortController();
       const timeoutId = window.setTimeout(() => controller.abort(), 4500);
@@ -258,191 +325,213 @@ export function useStorefrontProducts() {
       const data = await res.json().catch(() => null);
       if (!data || !Array.isArray(data.products)) return false;
 
-      const { products, explicitlyEmpty } = mergeCatalogRecords(data.products, baselineCatalog);
+      const baseline = getAuthoritativeBaseline();
+      const { products, explicitlyEmpty } = mergeCatalogRecords(data.products, baseline);
       if (explicitlyEmpty) {
-        setDbProducts([]);
-        setCatalogStatus('SUCCESS_EMPTY');
-        setCatalogError(null);
-        setIsUsingCachedCatalog(false);
+        updateStore({
+          dbProducts: [],
+          catalogStatus: 'SUCCESS_EMPTY',
+          catalogError: null,
+          isUsingCachedCatalog: false,
+          isProductsLoading: false,
+        });
         return true;
       }
       if (products.length > 0) {
         const nowIso = new Date().toISOString();
-        setDbProducts(products);
         writePublicCatalogCache(products, nowIso);
-        setLastSyncedAt(nowIso);
-        setCatalogStatus('SUCCESS_WITH_PRODUCTS');
-        setCatalogError(null);
-        setIsUsingCachedCatalog(false);
+        updateStore({
+          dbProducts: products,
+          lastSyncedAt: nowIso,
+          catalogStatus: 'SUCCESS_WITH_PRODUCTS',
+          catalogError: null,
+          isUsingCachedCatalog: false,
+          isProductsLoading: false,
+        });
         return true;
       }
     } catch {
-      // Backend fallback also unreachable; caller preserves cached/baseline catalog
+      // Backend fallback unreachable; caller retains cached/baseline catalog
+    } finally {
+      fallbackInFlight = null;
     }
     return false;
-  }, []);
+  })();
+  return fallbackInFlight;
+}
 
-  const retrySync = useCallback(() => {
-    if (retryTimerRef.current) {
-      window.clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = null;
-    }
-    retryAttemptRef.current = 0;
-    setCatalogStatus('LOADING');
-    setCatalogError(null);
-    setRetryTrigger((prev) => prev + 1);
-  }, []);
+function startSharedCatalogSubscription() {
+  ensureStoreInitialized();
+  if (activeFirestoreUnsub) return;
 
-  // Automatically recover when browser connectivity returns
-  useEffect(() => {
-    const handleOnline = () => {
-      retrySync();
-    };
-    const handleOffline = () => {
-      setCatalogStatus('OFFLINE');
-      setIsUsingCachedCatalog(true);
-    };
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [retrySync]);
+  const baseline = getAuthoritativeBaseline();
 
-  // Bounded loading timeout so UI never stays stuck on skeleton loader
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setIsProductsLoading(false);
-    }, 1500);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    if (!isFirebaseConfigured) {
-      // Attempt backend catalog endpoint first, otherwise retain cached/baseline products
-      fetchBackendCatalogFallback().then((recovered) => {
-        if (!isMounted) return;
-        if (!recovered) {
-          setCatalogStatus('CONFIGURATION_ERROR');
-          setCatalogError('Live database configuration unavailable. Showing verified store catalog.');
-          setIsUsingCachedCatalog(true);
-          setDbProducts((prev) => (prev.length > 0 ? prev : baselineCatalog));
-        }
-        setIsProductsLoading(false);
-      });
-      return () => {
-        isMounted = false;
-      };
-    }
-
-    const q = query(collection(db, 'products'), limit(500));
-
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        if (!isMounted) return;
-        retryAttemptRef.current = 0;
-
-        const rawDocs: Array<Record<string, any>> = [];
-        snap.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (data && typeof data === 'object') {
-            rawDocs.push({ id: docSnap.id, ...data });
-          }
+  if (!isFirebaseConfigured) {
+    fetchBackendCatalogFallbackShared().then((recovered) => {
+      if (!recovered) {
+        updateStore({
+          catalogStatus: 'CONFIGURATION_ERROR',
+          catalogError: 'Live database configuration unavailable. Showing verified store catalog.',
+          isUsingCachedCatalog: true,
+          dbProducts: storeState.dbProducts.length > 0 ? storeState.dbProducts : baseline,
+          isProductsLoading: false,
         });
+      }
+    });
+    return;
+  }
 
-        const { products, explicitlyEmpty } = mergeCatalogRecords(rawDocs, baselineCatalog);
-
-        if (explicitlyEmpty) {
-          setDbProducts([]);
-          setCatalogStatus('SUCCESS_EMPTY');
-          setCatalogError(null);
-          setIsUsingCachedCatalog(false);
-          setIsProductsLoading(false);
-          return;
+  const q = query(collection(db, 'products'), limit(500));
+  activeFirestoreUnsub = onSnapshot(
+    q,
+    (snap) => {
+      retryAttempt = 0;
+      const rawDocs: Array<Record<string, any>> = [];
+      snap.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data && typeof data === 'object') {
+          rawDocs.push({ id: docSnap.id, ...data });
         }
+      });
 
-        if (products.length > 0) {
-          const syncedAt = new Date().toISOString();
-          setDbProducts(products);
-          writePublicCatalogCache(products, syncedAt);
-          setLastSyncedAt(syncedAt);
-          setCatalogStatus('SUCCESS_WITH_PRODUCTS');
-          setCatalogError(null);
-          setIsUsingCachedCatalog(false);
-        }
-        setIsProductsLoading(false);
-      },
-      async (err) => {
-        if (!isMounted) return;
-        console.warn('Firestore snapshot error in storefront catalog:', err);
-        setIsProductsLoading(false);
+      const { products, explicitlyEmpty } = mergeCatalogRecords(rawDocs, baseline);
 
-        // Try authoritative backend endpoint before falling back to local cache
-        const recoveredViaApi = await fetchBackendCatalogFallback();
-        if (!isMounted || recoveredViaApi) return;
+      if (explicitlyEmpty) {
+        updateStore({
+          dbProducts: [],
+          catalogStatus: 'SUCCESS_EMPTY',
+          catalogError: null,
+          isUsingCachedCatalog: false,
+          isProductsLoading: false,
+        });
+        return;
+      }
 
-        const status = classifyCatalogError(err);
-        setCatalogStatus(status);
-        setIsUsingCachedCatalog(true);
-        setCatalogError(
+      if (products.length > 0) {
+        const syncedAt = new Date().toISOString();
+        writePublicCatalogCache(products, syncedAt);
+        updateStore({
+          dbProducts: products,
+          lastSyncedAt: syncedAt,
+          catalogStatus: 'SUCCESS_WITH_PRODUCTS',
+          catalogError: null,
+          isUsingCachedCatalog: false,
+          isProductsLoading: false,
+        });
+      } else {
+        updateStore({ isProductsLoading: false });
+      }
+    },
+    async (err) => {
+      console.warn('Firestore snapshot error in storefront catalog:', err);
+      const recoveredViaApi = await fetchBackendCatalogFallbackShared();
+      if (recoveredViaApi) return;
+
+      const status = classifyCatalogError(err);
+      const cached = readPublicCatalogCache().products;
+      updateStore({
+        isProductsLoading: false,
+        catalogStatus: status,
+        isUsingCachedCatalog: true,
+        catalogError:
           status === 'OFFLINE'
             ? 'Network connection interrupted. Displaying last synchronized catalog.'
             : status === 'PERMISSION_ERROR'
             ? 'Live catalog sync restricted. Displaying verified cached catalog.'
-            : 'Live catalog refresh temporarily unavailable. Displaying last synchronized catalog.'
-        );
+            : 'Live catalog refresh temporarily unavailable. Displaying last synchronized catalog.',
+        dbProducts:
+          storeState.dbProducts.length > 0
+            ? storeState.dbProducts
+            : cached.length > 0
+            ? cached
+            : baseline,
+      });
 
-        // Never overwrite a valid product catalog with an empty array on error
-        setDbProducts((prev) => {
-          if (prev.length > 0) return prev;
-          const cached = readPublicCatalogCache().products;
-          return cached.length > 0 ? cached : baselineCatalog;
-        });
-
-        // Bounded exponential backoff with jitter
-        if (retryAttemptRef.current < MAX_RETRY_ATTEMPTS) {
-          const attempt = retryAttemptRef.current++;
-          const baseDelay = Math.min(16000, 1500 * Math.pow(2, attempt));
-          const jitter = Math.floor(Math.random() * 600);
-          retryTimerRef.current = window.setTimeout(() => {
-            if (isMounted) {
-              setRetryTrigger((prev) => prev + 1);
-            }
-          }, baseDelay + jitter);
-        }
+      if (retryAttempt < MAX_RETRY_ATTEMPTS) {
+        const attempt = retryAttempt++;
+        const baseDelay = Math.min(16000, 1500 * Math.pow(2, attempt));
+        const jitter = Math.floor(Math.random() * 600);
+        if (retryTimer) window.clearTimeout(retryTimer);
+        retryTimer = window.setTimeout(() => {
+          if (activeFirestoreUnsub) {
+            activeFirestoreUnsub();
+            activeFirestoreUnsub = null;
+          }
+          if (subscribers.size > 0) {
+            startSharedCatalogSubscription();
+          }
+        }, baseDelay + jitter);
       }
-    );
+    }
+  );
+}
+
+function restartSharedCatalogSubscription() {
+  if (retryTimer) {
+    window.clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+  if (activeFirestoreUnsub) {
+    activeFirestoreUnsub();
+    activeFirestoreUnsub = null;
+  }
+  retryAttempt = 0;
+  updateStore({
+    catalogStatus: 'LOADING',
+    catalogError: null,
+  });
+  startSharedCatalogSubscription();
+}
+
+export function useStorefrontProducts() {
+  ensureStoreInitialized();
+  const [snapshot, setSnapshot] = useState<CatalogStoreState>(() => storeState);
+
+  useEffect(() => {
+    const handleStoreUpdate = () => {
+      setSnapshot(storeState);
+    };
+    subscribers.add(handleStoreUpdate);
+    startSharedCatalogSubscription();
+
+    const handleOnline = () => restartSharedCatalogSubscription();
+    const handleOffline = () =>
+      updateStore({ catalogStatus: 'OFFLINE', isUsingCachedCatalog: true });
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
     return () => {
-      isMounted = false;
-      if (retryTimerRef.current) {
-        window.clearTimeout(retryTimerRef.current);
-        retryTimerRef.current = null;
+      subscribers.delete(handleStoreUpdate);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      if (subscribers.size === 0 && activeFirestoreUnsub) {
+        activeFirestoreUnsub();
+        activeFirestoreUnsub = null;
       }
-      unsub();
     };
-  }, [retryTrigger, fetchBackendCatalogFallback]);
+  }, []);
 
+  const retrySync = useCallback(() => {
+    restartSharedCatalogSubscription();
+  }, []);
+
+  const baselineCatalog = getAuthoritativeBaseline();
   const currentProducts =
-    catalogStatus === 'SUCCESS_EMPTY'
+    snapshot.catalogStatus === 'SUCCESS_EMPTY'
       ? []
-      : dbProducts.length > 0
-      ? dbProducts
+      : snapshot.dbProducts.length > 0
+      ? snapshot.dbProducts
       : baselineCatalog;
 
   return {
     currentProducts,
-    dbProducts,
-    isProductsLoading,
-    catalogStatus,
-    catalogError,
-    lastSyncedAt,
-    isUsingCachedCatalog,
+    dbProducts: snapshot.dbProducts,
+    isProductsLoading: snapshot.isProductsLoading,
+    catalogStatus: snapshot.catalogStatus,
+    catalogError: snapshot.catalogError,
+    lastSyncedAt: snapshot.lastSyncedAt,
+    isUsingCachedCatalog: snapshot.isUsingCachedCatalog,
     retrySync,
   };
 }
-
