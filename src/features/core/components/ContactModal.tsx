@@ -43,9 +43,10 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
           className="absolute inset-0 bg-[#1C1917]/80 backdrop-blur-sm"
         />
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          initial={{ opacity: 0, scale: 0.96, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          exit={{ opacity: 0, scale: 0.96, y: 16 }}
+          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           className="relative w-full max-w-2xl bg-[#FAF9F5] rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
         >
           {/* Header */}
@@ -77,7 +78,7 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
               
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* WhatsApp Support (Primary) */}
-                <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm flex flex-col h-full">
+                <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col h-full">
                   <div className="w-10 h-10 rounded-full bg-emerald-50 text-[#25D366] flex items-center justify-center mb-4">
                     <WhatsAppIcon className="w-5 h-5" />
                   </div>

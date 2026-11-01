@@ -53,56 +53,69 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#FAF8F5] via-[#F3EFE6] to-[#E8E2D5] pointer-events-none" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,_rgba(217,119,6,0.08)_0%,_transparent_60%)] pointer-events-none" />
 
-          {/* Ambient gold particles */}
-          <div className="absolute inset-0 pointer-events-none z-0">
-            {[...Array(15)].map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute w-1 h-1 bg-amber-600/20 rounded-full"
-                initial={{
-                  x:
-                    1 *
-                    (typeof window !== "undefined" ? window.innerWidth : 800),
-                  y:
-                    1 *
-                    (typeof window !== "undefined" ? window.innerHeight : 800),
-                  opacity: 0.2,
-                }}
-                animate={{
-                  y: [null, 1 * -60 - 20],
-                  opacity: [0.2, 0.6, 0],
-                }}
-                transition={{
-                  duration: 1 * 4 + 3,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              />
-            ))}
+          {/* Ambient champagne-gold luminescence particles */}
+          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+            {[...Array(14)].map((_, i) => {
+              const leftPct = (i * 17 + 9) % 90 + 5;
+              const topPct = (i * 23 + 11) % 84 + 8;
+              const durationSec = 3.2 + (i % 4) * 0.65;
+              const delaySec = (i % 5) * 0.22;
+              return (
+                <motion.div
+                  key={i}
+                  style={{ left: `${leftPct}%`, top: `${topPct}%` }}
+                  className="absolute w-1.5 h-1.5 bg-[#C5A880]/35 rounded-full blur-[0.5px] will-change-transform"
+                  initial={{ y: 0, scale: 0.7, opacity: 0 }}
+                  animate={{
+                    y: [-4, -44],
+                    scale: [0.7, 1.15, 0.8],
+                    opacity: [0, 0.65, 0],
+                  }}
+                  transition={{
+                    duration: durationSec,
+                    delay: delaySec,
+                    repeat: Infinity,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                />
+              );
+            })}
           </div>
 
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
             className="relative z-10 flex flex-col items-center justify-center max-w-sm w-full text-center"
           >
-            {/* Premium Image Logo with Blinking Animation */}
-            <div className="relative mb-8">
-              <div className="relative flex items-center justify-center">
+            {/* Premium Image Logo with Concentric Architectural Halo */}
+            <div className="relative mb-8 flex items-center justify-center">
+              <motion.div
+                aria-hidden="true"
+                initial={{ scale: 0.82, opacity: 0 }}
+                animate={{ scale: [0.94, 1.06, 0.98], opacity: [0.2, 0.5, 0.25] }}
+                transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+                className="pointer-events-none absolute -inset-4 rounded-2xl border border-[#C5A880]/35"
+              />
+              <motion.div
+                initial={{ scale: 0.92, opacity: 0, filter: "blur(6px)" }}
+                animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+                transition={{ duration: 0.78, ease: [0.16, 1, 0.3, 1] }}
+                className="relative flex items-center justify-center p-1.5 rounded-2xl bg-white/70 shadow-[0_20px_50px_-12px_rgba(28,25,23,0.14)] border border-[#E7E3DA]"
+              >
                 <img
                   src="/jiyoo.logo.jpeg"
                   alt="JIYOO Logo"
                   className="h-28 md:h-36 w-auto max-w-[80vw] object-contain rounded-xl"
                 />
-              </div>
+              </motion.div>
             </div>
 
             {/* Personalized Greeting or Luxury Curation Title */}
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
+              transition={{ duration: 0.75, delay: 0.16, ease: [0.16, 1, 0.3, 1] }}
               className="mb-8"
             >
               <span className="text-[10px] md:text-xs tracking-[0.35em] uppercase text-stone-500 font-medium block mb-2">
@@ -114,37 +127,46 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
                 {settings.storeName?.split(' ')[0] || "JIYOO"}
               </h1>
               <p className="text-xs text-[#78716C] font-normal mt-1 tracking-widest uppercase">
-                Fine Living & Artisanal Pantry
+                Fine Living &amp; Artisanal Pantry
               </p>
             </motion.div>
 
-            {/* Animated Progress Bar (Signature JIYOO Glowing Blue Morpho Butterfly) */}
-            <div className="w-full max-w-[220px] mb-3.5">
-              <div className="h-1.5 w-full bg-[#0EA5E9]/15 rounded-full overflow-hidden shadow-inner">
+            {/* Animated Progress Bar (Ultra-slim Luxury Hairline) */}
+            <div className="w-full max-w-[210px] mb-3.5 px-2">
+              <div className="h-[2px] w-full bg-stone-300/40 rounded-full overflow-hidden relative">
                 <motion.div
-                  className="h-full bg-gradient-to-r from-[#00D2FF] via-[#0EA5E9] to-[#0284C7] rounded-full shadow-[0_0_12px_rgba(14,165,233,0.95),0_0_5px_rgba(56,189,248,1)]"
+                  className="h-full bg-gradient-to-r from-[#00D2FF] via-[#0EA5E9] to-[#0284C7] rounded-full relative shadow-[0_0_8px_rgba(14,165,233,0.85),0_0_3px_rgba(56,189,248,1)]"
                   initial={{ width: "0%" }}
                   animate={{ width: "100%" }}
-                  transition={{ duration: 1.8, ease: "easeInOut" }}
-                />
+                  transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {/* Subtle leading light glint */}
+                  <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_#00D2FF] opacity-90 pointer-events-none" />
+                </motion.div>
               </div>
             </div>
 
-            {/* Loading Status Text */}
-            <motion.div
-              key={loadingText}
-              initial={{ opacity: 0, y: 3 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-[11px] tracking-wider text-stone-500 font-light h-4"
-            >
-              {loadingText}
-            </motion.div>
+            {/* Loading Status Text with Silky Vertical Crossfade */}
+            <div className="h-5 flex items-center justify-center overflow-hidden">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={loadingText}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+                  className="text-[11px] tracking-wider text-stone-500 font-light"
+                >
+                  {loadingText}
+                </motion.div>
+              </AnimatePresence>
+            </div>
 
             {/* Personal Curation Signature */}
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.8, delay: 0.6 }}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
               className="mt-10 pt-6 border-t border-stone-200/60 w-full flex flex-col items-center justify-center gap-1"
             >
               <span className="text-[9px] tracking-[0.3em] uppercase text-stone-400 font-medium">

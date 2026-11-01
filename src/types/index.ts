@@ -74,6 +74,9 @@ export interface Product {
   wholesalePrice?: number;
   wholesaleUnit?: string;
   wholesaleMinQty?: number;
+  brand?: string;
+  count?: number | string;
+  netWeight?: string;
 }
 
 // A single retail-deliverable PIN code, admin-managed. Document id in
@@ -233,8 +236,24 @@ export interface Order {
   trackingUrl?: string;
   statusHistory?: Array<{
     status: string;
-    at: { seconds: number; nanoseconds: number } | string | number | Date;
+    toStatus?: string;
+    fromStatus?: string;
+    changedAt?: { seconds: number; nanoseconds: number } | string | number | Date;
+    at?: { seconds: number; nanoseconds: number } | string | number | Date;
+    actor?: string;
+    actorRole?: string;
+    eventType?: string;
+    reason?: string | null;
+    integrityHash?: string;
   }>;
+  auditSequence?: number;
+  lastAuditHash?: string;
+  lastAuditAt?: string;
+  lastAuditedStatus?: string;
+  lastAuditedPaymentStatus?: string;
+  lastAuditedAmount?: number;
+  auditTrail?: OrderAuditLogEntry[];
+  adminNotes?: string;
   // 'retail' (default when absent, for backward compatibility with orders
   // created before this field existed) or 'wholesale'. Determines which
   // pricing/shipping/eligibility rules were applied server-side.
@@ -242,3 +261,56 @@ export interface Order {
   wholesaleZoneId?: string;
   wholesaleZoneLabel?: string;
 }
+
+export type OrderAuditEventType =
+  | 'ORDER_CREATED'
+  | 'STATUS_CHANGED'
+  | 'PAYMENT_STATUS_CHANGED'
+  | 'PAYMENT_VERIFIED'
+  | 'WEBHOOK_RECONCILED'
+  | 'ORDER_CANCELLED'
+  | 'ORDER_EXPIRED'
+  | 'REFUND_INITIATED'
+  | 'ORDER_REFUNDED'
+  | 'REFUND_FAILED'
+  | 'ORDER_MODIFIED'
+  | 'STOCK_CONFLICT_FLAGGED'
+  | 'ORDER_ANONYMIZED';
+
+export interface OrderAuditLogEntry {
+  id: string;
+  orderId: string;
+  sequence: number;
+  eventType: OrderAuditEventType | string;
+  action: string;
+  category?: string;
+  previousStatus?: string | null;
+  newStatus?: string | null;
+  previousPaymentStatus?: string | null;
+  newPaymentStatus?: string | null;
+  amount?: number;
+  actor: string;
+  actorUid?: string | null;
+  actorRole: 'customer' | 'admin' | 'system' | 'webhook' | string;
+  source: string;
+  reason?: string | null;
+  changes?: Record<string, { from: any; to: any }>;
+  details: string;
+  previousHash: string;
+  integrityHash: string;
+  createdAt: string | { seconds: number; nanoseconds: number };
+}
+
+export interface OrderAuditIntegrityReport {
+  verified: boolean;
+  chainValid: boolean;
+  stateMatchesLastAudit: boolean;
+  totalEvents: number;
+  entryCount?: number;
+  lastAuditHash: string | null;
+  headHash?: string | null;
+  lastAuditAt: string | null;
+  tamperReason?: string | null;
+  mismatchDetails: string[];
+}
+

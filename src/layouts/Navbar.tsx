@@ -10,7 +10,6 @@ import { searchCatalogProducts } from "../utils/fuzzyMatch";
 import { getOptimizedImageUrl } from "../utils/imageUtils";
 import { Product } from "../types";
 import { useModalBackButton } from "../features/core/hooks/useModalBackButton";
-import { useTypewriter } from "../features/core/components/TypewriterText";
 
 const TRENDING_SEARCHES = [
   "Mango",
@@ -25,13 +24,14 @@ const TRENDING_SEARCHES = [
   "Momos",
 ];
 
-const SEARCH_TYPEWRITER_PROMPTS = [
-  "Search mangoes, avocados, berries...",
-  "Search curry-cut chicken & mutton...",
-  "Search sea pomfret & tiger prawns...",
-  "Search daily farm-fresh vegetables...",
-  "Search rich smoothies & steamed momos...",
-] as const;
+const EDITORIAL_SEARCH_SUGGESTIONS = [
+  "Search Alphonso mangoes...",
+  "Search fresh salmon & prawns...",
+  "Search premium tender mutton...",
+  "Search Hass avocados & berries...",
+  "Search cold-pressed smoothies...",
+  "Search artisan momos & bites...",
+];
 
 export function Navbar({
   onUserClick,
@@ -58,6 +58,9 @@ export function Navbar({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cartPulseKey, setCartPulseKey] = useState(0);
   const [isCartUpdating, setIsCartUpdating] = useState(false);
+  const [suggestionIdx, setSuggestionIdx] = useState(0);
+  const [isDesktopFocused, setIsDesktopFocused] = useState(false);
+  const [isMobileFocused, setIsMobileFocused] = useState(false);
   const prevCartCountRef = useRef(cartCount);
   useModalBackButton(searchOpen, () => {
     setSearchOpen(false);
@@ -72,21 +75,19 @@ export function Navbar({
   const { categoriesList: navCategories } = useStorefrontCategories();
   const { currentProducts } = useStorefrontProducts();
 
-  const { displayText: animatedSearchPlaceholder } = useTypewriter({
-    phrases: SEARCH_TYPEWRITER_PROMPTS,
-    typingSpeed: 45,
-    deletingSpeed: 22,
-    pauseDuration: 2400,
-    startDelay: 900,
-    paused: searchQuery.trim().length > 0,
-  });
-
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
     stiffness: 140,
     damping: 30,
     restDelta: 0.001,
   });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSuggestionIdx((prev) => (prev + 1) % EDITORIAL_SEARCH_SUGGESTIONS.length);
+    }, 3400);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const triggerCartPulse = () => {
@@ -128,6 +129,12 @@ export function Navbar({
       const clickedMobile = searchContainerMobileRef.current?.contains(target);
       if (!clickedDesktop && !clickedMobile) {
         setDropdownFocused(false);
+      }
+      if (!clickedDesktop) {
+        setIsDesktopFocused(false);
+      }
+      if (!clickedMobile) {
+        setIsMobileFocused(false);
       }
       if (headerRef.current && !headerRef.current.contains(target)) {
         setMobileMenuOpen(false);
@@ -465,7 +472,7 @@ export function Navbar({
           <div className="hidden lg:flex items-center justify-between gap-4 lg:gap-6">
             {/* Zone 1: Brand Wordmark & Logo */}
             <div
-              className="cursor-pointer flex items-center gap-2 sm:gap-3 min-w-0 shrink-0"
+              className="group cursor-pointer flex items-center gap-2 sm:gap-3 min-w-0 shrink-0"
               onClick={() => {
                 setMobileMenuOpen(false);
                 if (activePage === "wholesale") {
@@ -478,9 +485,9 @@ export function Navbar({
               <img
                 src="/jiyoo.logo.jpeg"
                 alt={settings.storeName || "JIYOO"}
-                className="h-9 md:h-10 w-auto object-contain rounded-xl shrink-0"
+                className="h-9 md:h-10 w-auto object-contain rounded-xl shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
               />
-              <span className="font-serif-luxury text-xl md:text-2xl font-semibold tracking-wider text-brand-black block leading-tight truncate">
+              <span className="font-serif-luxury text-xl md:text-2xl font-semibold tracking-wider text-brand-black block leading-tight truncate transition-colors duration-200 group-hover:text-black">
                 {settings.storeName || "JIYOO"}
               </span>
             </div>
@@ -497,25 +504,39 @@ export function Navbar({
                   type="button"
                   onClick={() => onRetailClick?.()}
                   aria-pressed={activePage === "retail"}
-                  className={`relative px-3.5 py-1.5 rounded-[9px] text-[11px] font-bold uppercase tracking-[0.1em] transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                  className={`relative px-3.5 py-1.5 rounded-[9px] text-[11px] font-bold uppercase tracking-[0.1em] transition-colors duration-200 cursor-pointer whitespace-nowrap z-10 ${
                     activePage === "retail"
-                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-xs"
+                      ? "text-[#FAF9F5]"
                       : "text-[#57534E] hover:text-[#1C1917]"
                   }`}
                 >
-                  Retail
+                  {activePage === "retail" && (
+                    <motion.span
+                      layoutId="navbarDesktopModePill"
+                      transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                      className="pointer-events-none absolute inset-0 rounded-[9px] bg-[#1C1917] shadow-xs -z-10"
+                    />
+                  )}
+                  <span className="relative z-10">Retail</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => onWholesaleClick?.()}
                   aria-pressed={activePage === "wholesale"}
-                  className={`relative px-3.5 py-1.5 rounded-[9px] text-[11px] font-bold uppercase tracking-[0.1em] transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                  className={`relative px-3.5 py-1.5 rounded-[9px] text-[11px] font-bold uppercase tracking-[0.1em] transition-colors duration-200 cursor-pointer whitespace-nowrap z-10 ${
                     activePage === "wholesale"
-                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-xs"
+                      ? "text-[#FAF9F5]"
                       : "text-[#57534E] hover:text-[#1C1917]"
                   }`}
                 >
-                  Wholesale
+                  {activePage === "wholesale" && (
+                    <motion.span
+                      layoutId="navbarDesktopModePill"
+                      transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                      className="pointer-events-none absolute inset-0 rounded-[9px] bg-[#1C1917] shadow-xs -z-10"
+                    />
+                  )}
+                  <span className="relative z-10">Wholesale</span>
                 </button>
               </div>
 
@@ -525,16 +546,24 @@ export function Navbar({
                     key={cat.id}
                     type="button"
                     onClick={() => handleMobileNavCategory(cat.id)}
-                    className="text-sm font-medium text-[#57534E] hover:text-[#1C1917] underline-offset-4 hover:underline transition-colors cursor-pointer capitalize whitespace-nowrap shrink-0"
+                    className="group relative py-1 text-sm font-medium text-[#57534E] hover:text-[#1C1917] transition-colors cursor-pointer capitalize whitespace-nowrap shrink-0"
                   >
-                    {cat.label}
+                    <span>{cat.label}</span>
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#1C1917] origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                    />
                   </button>
                 ))}
               <button
                 onClick={onAboutClick}
-                className="text-sm font-medium text-[#57534E] hover:text-[#1C1917] underline-offset-4 hover:underline transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="group relative py-1 text-sm font-medium text-[#57534E] hover:text-[#1C1917] transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
-                About Us
+                <span>About Us</span>
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#1C1917] origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                />
               </button>
             </nav>
 
@@ -563,13 +592,37 @@ export function Navbar({
                       ref={desktopSearchInputRef}
                       type="search"
                       value={searchQuery}
-                      onFocus={() => setDropdownFocused(true)}
+                      onFocus={() => {
+                        setIsDesktopFocused(true);
+                        setDropdownFocused(true);
+                      }}
                       onChange={(e) => handleRealTimeSearchChange(e.target.value)}
                       onKeyDown={handleSearchKeyDown}
-                      placeholder={animatedSearchPlaceholder || "Search fruits, meats..."}
+                      placeholder={isDesktopFocused ? "Type to search catalog..." : ""}
                       aria-label="Search products by name in real-time"
-                      className="w-full pl-8 pr-16 py-1.5 text-xs sm:text-[13px] bg-white hover:bg-white focus:bg-white text-[#1C1917] placeholder:text-[#78716C] rounded-lg border border-[#DCD6CA] focus:border-[#1C1917] focus:ring-2 focus:ring-[#1C1917]/10 focus:outline-none transition-all shadow-2xs"
+                      className="w-full pl-8 pr-16 py-1.5 text-xs sm:text-[13px] bg-white hover:bg-white focus:bg-white text-[#1C1917] placeholder:text-[#A8A29E] rounded-lg border border-[#DCD6CA] focus:border-[#1C1917] focus:ring-2 focus:ring-[#1C1917]/10 focus:outline-none transition-all shadow-2xs"
                     />
+
+                    {/* Editorial Rotating Suggestion Dial (Active only when empty and not focused) */}
+                    {!searchQuery && !isDesktopFocused && (
+                      <div
+                        className="pointer-events-none absolute left-8 right-16 top-0 bottom-0 flex items-center overflow-hidden"
+                        aria-hidden="true"
+                      >
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          <motion.span
+                            key={suggestionIdx}
+                            initial={{ y: 9, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: -9, opacity: 0 }}
+                            transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+                            className="text-xs sm:text-[13px] text-[#78716C] truncate font-normal tracking-wide select-none"
+                          >
+                            {EDITORIAL_SEARCH_SUGGESTIONS[suggestionIdx]}
+                          </motion.span>
+                        </AnimatePresence>
+                      </div>
+                    )}
 
                     {searchQuery ? (
                       <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
@@ -654,81 +707,79 @@ export function Navbar({
                 )}
               </button>
 
-              {/* Cart Button */}
-              {activePage === "retail" && (
-                <button
-                  id="cart-icon-button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onCartClick();
-                  }}
-                  className="p-1.5 text-brand-gray-900 hover:text-brand-black transition-colors relative cursor-pointer shrink-0"
-                  aria-label="Cart"
+              {/* Cart Button (Always visible on Retail & Wholesale) */}
+              <button
+                id="cart-icon-button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onCartClick();
+                }}
+                className="p-1.5 text-brand-gray-900 hover:text-brand-black transition-colors relative cursor-pointer shrink-0"
+                aria-label="Cart"
+              >
+                <AnimatePresence>
+                  {isCartUpdating && (
+                    <motion.span
+                      key={`desktop-cart-halo-${cartPulseKey}`}
+                      initial={{ scale: 0.75, opacity: 0.7 }}
+                      animate={{ scale: 1.45, opacity: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                      className="pointer-events-none absolute inset-0 rounded-full border border-[#C5A880]/70"
+                    />
+                  )}
+                </AnimatePresence>
+
+                <motion.div
+                  key={`desktop-bag-${cartPulseKey}`}
+                  animate={
+                    cartPulseKey > 0
+                      ? { scale: [1, 1.18, 0.94, 1.04, 1], y: [0, -2, 1, -0.5, 0] }
+                      : {}
+                  }
+                  transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  <AnimatePresence>
-                    {isCartUpdating && (
-                      <motion.span
-                        key={`desktop-cart-halo-${cartPulseKey}`}
-                        initial={{ scale: 0.75, opacity: 0.75 }}
-                        animate={{ scale: 1.55, opacity: 0 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
-                        className="pointer-events-none absolute inset-0 rounded-full border border-[#C5A880]"
-                      />
-                    )}
-                  </AnimatePresence>
+                  <ShoppingBag className="w-5 h-5" strokeWidth={1.5} />
+                </motion.div>
 
-                  <motion.div
-                    key={`desktop-bag-${cartPulseKey}`}
-                    animate={
-                      cartPulseKey > 0
-                        ? { scale: [1, 1.2, 0.94, 1], y: [0, -1.5, 0.5, 0] }
-                        : {}
-                    }
-                    transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-                  >
-                    <ShoppingBag className="w-5 h-5" strokeWidth={1.5} />
-                  </motion.div>
-
-                  <AnimatePresence initial={false}>
-                    {cartCount > 0 && (
-                      <motion.span
-                        key="desktop-cart-badge"
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{
-                          scale: isCartUpdating ? [1, 1.22, 1] : 1,
-                          opacity: 1,
-                        }}
-                        exit={{ scale: 0, opacity: 0 }}
-                        transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-                        className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center overflow-hidden tabular-nums text-[10px] font-bold tracking-tight transition-colors duration-300 ${
-                          isCartUpdating
-                            ? "bg-[#1C1917] text-[#E5C99B] ring-2 ring-[#C5A880]/70 shadow-[0_2px_10px_rgba(197,168,128,0.45)]"
-                            : "bg-[#1C1917] text-[#FAF9F5] border border-[#C5A880]/60 shadow-xs"
-                        }`}
-                      >
-                        <AnimatePresence mode="popLayout" initial={false}>
-                          <motion.span
-                            key={cartCount}
-                            initial={{ y: 10, opacity: 0, scale: 0.75 }}
-                            animate={{ y: 0, opacity: 1, scale: 1 }}
-                            exit={{ y: -10, opacity: 0, scale: 0.75 }}
-                            transition={{
-                              type: "spring",
-                              stiffness: 540,
-                              damping: 30,
-                              mass: 0.6,
-                            }}
-                            className="inline-block leading-none"
-                          >
-                            {cartCount}
-                          </motion.span>
-                        </AnimatePresence>
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </button>
-              )}
+                <AnimatePresence initial={false}>
+                  {cartCount > 0 && (
+                    <motion.span
+                      key="desktop-cart-badge"
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{
+                        scale: isCartUpdating ? [1, 1.18, 1] : 1,
+                        opacity: 1,
+                      }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                      className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center overflow-hidden tabular-nums text-[10px] font-bold tracking-tight transition-colors duration-300 ${
+                        isCartUpdating
+                          ? "bg-[#1C1917] text-[#E5C99B] ring-2 ring-[#C5A880]/70 shadow-[0_2px_10px_rgba(197,168,128,0.45)]"
+                          : "bg-[#1C1917] text-[#FAF9F5] border border-[#C5A880]/60 shadow-xs"
+                      }`}
+                    >
+                      <AnimatePresence mode="popLayout" initial={false}>
+                        <motion.span
+                          key={cartCount}
+                          initial={{ y: 9, opacity: 0, scale: 0.8 }}
+                          animate={{ y: 0, opacity: 1, scale: 1 }}
+                          exit={{ y: -9, opacity: 0, scale: 0.8 }}
+                          transition={{
+                            type: "spring",
+                            stiffness: 480,
+                            damping: 28,
+                            mass: 0.6,
+                          }}
+                          className="inline-block leading-none font-semibold tabular-nums"
+                        >
+                          {cartCount}
+                        </motion.span>
+                      </AnimatePresence>
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </button>
             </div>
           </div>
 
@@ -791,13 +842,20 @@ export function Navbar({
                     onRetailClick?.();
                   }}
                   aria-pressed={activePage === "retail"}
-                  className={`px-2 sm:px-2.5 py-1 rounded-md text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                  className={`relative px-2 sm:px-2.5 py-1 rounded-md text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider transition-colors duration-200 cursor-pointer whitespace-nowrap z-10 ${
                     activePage === "retail"
-                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-2xs"
+                      ? "text-[#FAF9F5]"
                       : "text-[#57534E] hover:text-[#1C1917]"
                   }`}
                 >
-                  Retail
+                  {activePage === "retail" && (
+                    <motion.span
+                      layoutId="navbarMobileModePill"
+                      transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                      className="pointer-events-none absolute inset-0 rounded-md bg-[#1C1917] shadow-2xs -z-10"
+                    />
+                  )}
+                  <span className="relative z-10">Retail</span>
                 </button>
                 <button
                   type="button"
@@ -806,13 +864,20 @@ export function Navbar({
                     onWholesaleClick?.();
                   }}
                   aria-pressed={activePage === "wholesale"}
-                  className={`px-2 sm:px-2.5 py-1 rounded-md text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                  className={`relative px-2 sm:px-2.5 py-1 rounded-md text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider transition-colors duration-200 cursor-pointer whitespace-nowrap z-10 ${
                     activePage === "wholesale"
-                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-2xs"
+                      ? "text-[#FAF9F5]"
                       : "text-[#57534E] hover:text-[#1C1917]"
                   }`}
                 >
-                  Wholesale
+                  {activePage === "wholesale" && (
+                    <motion.span
+                      layoutId="navbarMobileModePill"
+                      transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                      className="pointer-events-none absolute inset-0 rounded-md bg-[#1C1917] shadow-2xs -z-10"
+                    />
+                  )}
+                  <span className="relative z-10">Wholesale</span>
                 </button>
               </div>
 
@@ -846,80 +911,78 @@ export function Navbar({
                   )}
                 </button>
 
-                {activePage === "retail" && (
-                  <button
-                    id="cart-icon-button-mobile"
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      onCartClick();
-                    }}
-                    className="p-1.5 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors relative cursor-pointer shrink-0"
-                    aria-label="Cart"
+                <button
+                  id="cart-icon-button-mobile"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onCartClick();
+                  }}
+                  className="p-1.5 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors relative cursor-pointer shrink-0"
+                  aria-label="Cart"
+                >
+                  <AnimatePresence>
+                    {isCartUpdating && (
+                      <motion.span
+                        key={`mobile-cart-halo-${cartPulseKey}`}
+                        initial={{ scale: 0.75, opacity: 0.7 }}
+                        animate={{ scale: 1.45, opacity: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                        className="pointer-events-none absolute inset-0 rounded-full border border-[#C5A880]/70"
+                      />
+                    )}
+                  </AnimatePresence>
+
+                  <motion.div
+                    key={`mobile-bag-${cartPulseKey}`}
+                    animate={
+                      cartPulseKey > 0
+                        ? { scale: [1, 1.18, 0.94, 1.04, 1], y: [0, -2, 1, -0.5, 0] }
+                        : {}
+                    }
+                    transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
                   >
-                    <AnimatePresence>
-                      {isCartUpdating && (
-                        <motion.span
-                          key={`mobile-cart-halo-${cartPulseKey}`}
-                          initial={{ scale: 0.75, opacity: 0.75 }}
-                          animate={{ scale: 1.55, opacity: 0 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
-                          className="pointer-events-none absolute inset-0 rounded-full border border-[#C5A880]"
-                        />
-                      )}
-                    </AnimatePresence>
+                    <ShoppingBag className="w-5 h-5" strokeWidth={1.75} />
+                  </motion.div>
 
-                    <motion.div
-                      key={`mobile-bag-${cartPulseKey}`}
-                      animate={
-                        cartPulseKey > 0
-                          ? { scale: [1, 1.2, 0.94, 1], y: [0, -1.5, 0.5, 0] }
-                          : {}
-                      }
-                      transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-                    >
-                      <ShoppingBag className="w-5 h-5" strokeWidth={1.75} />
-                    </motion.div>
-
-                    <AnimatePresence initial={false}>
-                      {cartCount > 0 && (
-                        <motion.span
-                          key="mobile-cart-badge"
-                          initial={{ scale: 0, opacity: 0 }}
-                          animate={{
-                            scale: isCartUpdating ? [1, 1.22, 1] : 1,
-                            opacity: 1,
-                          }}
-                          exit={{ scale: 0, opacity: 0 }}
-                          transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-                          className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center overflow-hidden tabular-nums text-[10px] font-bold tracking-tight transition-colors duration-300 ${
-                            isCartUpdating
-                              ? "bg-[#1C1917] text-[#E5C99B] ring-2 ring-[#C5A880]/70 shadow-[0_2px_10px_rgba(197,168,128,0.45)]"
-                              : "bg-[#1C1917] text-[#FAF9F5] border border-[#C5A880]/60 shadow-xs"
-                          }`}
-                        >
-                          <AnimatePresence mode="popLayout" initial={false}>
-                            <motion.span
-                              key={cartCount}
-                              initial={{ y: 10, opacity: 0, scale: 0.75 }}
-                              animate={{ y: 0, opacity: 1, scale: 1 }}
-                              exit={{ y: -10, opacity: 0, scale: 0.75 }}
-                              transition={{
-                                type: "spring",
-                                stiffness: 540,
-                                damping: 30,
-                                mass: 0.6,
-                              }}
-                              className="inline-block leading-none"
-                            >
-                              {cartCount}
-                            </motion.span>
-                          </AnimatePresence>
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                  </button>
-                )}
+                  <AnimatePresence initial={false}>
+                    {cartCount > 0 && (
+                      <motion.span
+                        key="mobile-cart-badge"
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{
+                          scale: isCartUpdating ? [1, 1.18, 1] : 1,
+                          opacity: 1,
+                        }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center overflow-hidden tabular-nums text-[10px] font-bold tracking-tight transition-colors duration-300 ${
+                          isCartUpdating
+                            ? "bg-[#1C1917] text-[#E5C99B] ring-2 ring-[#C5A880]/70 shadow-[0_2px_10px_rgba(197,168,128,0.45)]"
+                            : "bg-[#1C1917] text-[#FAF9F5] border border-[#C5A880]/60 shadow-xs"
+                        }`}
+                      >
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          <motion.span
+                            key={cartCount}
+                            initial={{ y: 9, opacity: 0, scale: 0.8 }}
+                            animate={{ y: 0, opacity: 1, scale: 1 }}
+                            exit={{ y: -9, opacity: 0, scale: 0.8 }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 480,
+                              damping: 28,
+                              mass: 0.6,
+                            }}
+                            className="inline-block leading-none font-semibold tabular-nums"
+                          >
+                            {cartCount}
+                          </motion.span>
+                        </AnimatePresence>
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </button>
               </div>
             </div>
 
@@ -947,13 +1010,37 @@ export function Navbar({
                     ref={mobileSearchInputRef}
                     type="search"
                     value={searchQuery}
-                    onFocus={() => setDropdownFocused(true)}
+                    onFocus={() => {
+                      setIsMobileFocused(true);
+                      setDropdownFocused(true);
+                    }}
                     onChange={(e) => handleRealTimeSearchChange(e.target.value)}
                     onKeyDown={handleSearchKeyDown}
-                    placeholder={animatedSearchPlaceholder || "Search fruits, vegetables, meats..."}
+                    placeholder={isMobileFocused ? "Type to search catalog..." : ""}
                     aria-label="Search products by name in real-time"
-                    className="w-full pl-9 pr-16 py-2 text-xs sm:text-[13px] bg-white text-stone-900 placeholder:text-stone-500 rounded-xl border border-stone-300/80 focus:border-stone-900 focus:ring-2 focus:ring-stone-900/10 focus:outline-none transition-all shadow-2xs"
+                    className="w-full pl-9 pr-16 py-2 text-xs sm:text-[13px] bg-white text-stone-900 placeholder:text-stone-400 rounded-xl border border-stone-300/80 focus:border-stone-900 focus:ring-2 focus:ring-stone-900/10 focus:outline-none transition-all shadow-2xs"
                   />
+
+                  {/* Editorial Rotating Suggestion Dial (Active only when empty and not focused) */}
+                  {!searchQuery && !isMobileFocused && (
+                    <div
+                      className="pointer-events-none absolute left-9 right-16 top-0 bottom-0 flex items-center overflow-hidden"
+                      aria-hidden="true"
+                    >
+                      <AnimatePresence mode="popLayout" initial={false}>
+                        <motion.span
+                          key={suggestionIdx}
+                          initial={{ y: 9, opacity: 0 }}
+                          animate={{ y: 0, opacity: 1 }}
+                          exit={{ y: -9, opacity: 0 }}
+                          transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+                          className="text-xs sm:text-[13px] text-stone-500 truncate font-normal tracking-wide select-none"
+                        >
+                          {EDITORIAL_SEARCH_SUGGESTIONS[suggestionIdx]}
+                        </motion.span>
+                      </AnimatePresence>
+                    </div>
+                  )}
 
                   {searchQuery ? (
                     <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -1157,7 +1244,7 @@ export function Navbar({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => handleRealTimeSearchChange(e.target.value)}
-                  placeholder={animatedSearchPlaceholder || "Search fruits, vegetables, chicken, mutton, seafood, smoothies..."}
+                  placeholder="Search fruits, vegetables, chicken, mutton, seafood, smoothies..."
                   className="w-full bg-white border-2 border-[#1C1917] rounded-2xl pl-13 pr-32 py-4 text-base sm:text-xl font-medium text-[#1C1917] placeholder:text-[#A8A29E] focus:outline-none shadow-sm"
                   onKeyDown={handleSearchKeyDown}
                   autoFocus
@@ -1239,27 +1326,35 @@ export function Navbar({
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                        {liveSearchResults.slice(0, 12).map((product) => {
+                        {liveSearchResults.slice(0, 12).map((product, sIdx) => {
                           const displayPrice =
                             product.weights?.[0]?.price ?? product.price;
                           const displayUnit =
                             product.weights?.[0]?.label ?? product.unit;
                           return (
-                            <div
+                            <motion.div
                               key={product.id}
+                              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              transition={{
+                                duration: 0.28,
+                                delay: (sIdx % 6) * 0.03,
+                                ease: [0.16, 1, 0.3, 1],
+                              }}
+                              whileHover={{ y: -3 }}
                               onClick={() => handleSelectProductFromSearch(product)}
-                              className="flex items-center gap-3.5 p-3 bg-white rounded-2xl border border-[#E7E3DA] hover:border-[#1C1917] transition-all cursor-pointer shadow-2xs group"
+                              className="flex items-center gap-3.5 p-3 bg-white rounded-2xl border border-[#E7E3DA] hover:border-[#C5A880] hover:shadow-[0_12px_28px_-10px_rgba(28,25,23,0.12)] transition-all cursor-pointer shadow-2xs group"
                             >
                               <img
                                 src={getOptimizedImageUrl(product.image, 160, 80)}
                                 alt={product.name}
-                                className="w-16 h-16 rounded-xl object-cover bg-[#FAF9F5] border border-[#E7E3DA] shrink-0"
+                                className="w-16 h-16 rounded-xl object-cover bg-[#FAF9F5] border border-[#E7E3DA] shrink-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                               />
                               <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-semibold text-[#1C1917] truncate group-hover:text-emerald-800">
+                                <h4 className="text-sm font-semibold text-[#1C1917] truncate group-hover:text-emerald-800 transition-colors">
                                   {product.name}
                                 </h4>
-                                <p className="text-xs text-[#78716C] mt-0.5">
+                                <p className="text-xs text-[#78716C] mt-0.5 tabular-nums">
                                   <span className="font-bold text-[#1C1917]">
                                     ₹{displayPrice}
                                   </span>{" "}
@@ -1275,7 +1370,7 @@ export function Navbar({
                                   </button>
                                 </div>
                               </div>
-                            </div>
+                            </motion.div>
                           );
                         })}
                       </div>

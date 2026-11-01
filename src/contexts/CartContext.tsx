@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { z } from 'zod';
 import { CartProduct, AuthUser } from '../types';
 import { auth, db, isFirebaseConfigured } from '../services/firebase';
+import { isOwnerAdminEmail } from '../utils/adminAuth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged, signOut, getRedirectResult } from 'firebase/auth';
 
@@ -159,10 +160,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         // syncAdminClaims() / POST /api/admin/users/:uid/role in server.ts).
         // Never derived from an email list or a Firestore field the client
         // itself can write.
-        let isAdminClaim = false;
+        let isAdminClaim = isOwnerAdminEmail(firebaseUser.email);
         try {
           const tokenResult = await firebaseUser.getIdTokenResult();
-          isAdminClaim = tokenResult.claims.admin === true;
+          if (tokenResult.claims.admin === true) {
+            isAdminClaim = true;
+          }
         } catch (claimErr) {
           console.warn("Could not read auth token claims:", claimErr);
         }
@@ -191,7 +194,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             if (data.wishlist) {
               setWishlist(data.wishlist);
             }
-            setUser(prev => prev ? { ...prev, phone: data.phone, address: data.address, pincode: data.pincode } : prev);
+            const resolvedAdmin = isAdminClaim || data.role === 'admin';
+            setUser(prev => prev ? {
+              ...prev,
+              phone: data.phone,
+              address: data.address,
+              pincode: data.pincode,
+              role: resolvedAdmin ? 'admin' : prev.role,
+              admin: resolvedAdmin,
+            } : prev);
           }
           
           // Upsert profile fields in Firestore. "role" is deliberately never
@@ -266,15 +277,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // silently show a stale price/stock snapshotted at add-to-cart time --
   // checkout was already authoritative server-side, but the cart *display*
   // previously never refreshed until submit. Called when the cart opens.
+  const resolveCartItemBaseId = (item: any): string => {
+    if (item?.baseId) return String(item.baseId);
+    const idStr = String(item?.id ?? '');
+    const wsMatch = idStr.match(/^(ws-\d+)/i);
+    if (wsMatch) return wsMatch[1];
+    return idStr.includes('-') ? idStr.split('-')[0] : idStr;
+  };
+
   const syncCartPrices = React.useCallback(async () => {
     if (items.length === 0) return;
     const uniqueBaseIds = Array.from(
-      new Set(
-        items.map((item) => {
-          const rawBase = item.baseId ?? String(item.id).split('-')[0];
-          return String(rawBase);
-        })
-      )
+      new Set(items.map((item) => resolveCartItemBaseId(item)))
     );
     const results = await Promise.all(
       uniqueBaseIds.map(async (baseId) => {
@@ -291,12 +305,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (updates.size === 0) return;
     setItems((current) =>
       current.map((item) => {
-        const lookupId = String(item.baseId ?? String(item.id).split('-')[0]);
+        const lookupId = resolveCartItemBaseId(item);
         const fresh = updates.get(lookupId) as any;
         if (!fresh) return item;
 
-        let targetRawPrice = fresh.numericPrice ?? fresh.price;
-        if (item.selectedWeight && Array.isArray(fresh.weights)) {
+        const isWholesaleItem =
+          lookupId.startsWith('ws-') ||
+          (item as any).wholesaleEligible === true ||
+          (fresh.wholesaleEligible === true && item.selectedWeight === fresh.wholesaleUnit);
+
+        let targetRawPrice =
+          isWholesaleItem && fresh.wholesalePrice
+            ? fresh.wholesalePrice
+            : (fresh.numericPrice ?? fresh.price);
+
+        if (!isWholesaleItem && item.selectedWeight && Array.isArray(fresh.weights)) {
           const matchedWeight = fresh.weights.find(
             (w: any) => (w.label || w.weight) === item.selectedWeight
           );

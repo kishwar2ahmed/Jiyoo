@@ -1,19 +1,11 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, limit } from 'firebase/firestore';
-import { db } from '../../../services/firebase';
 import { Order } from '../../../types';
 import { format, subDays, isSameDay } from 'date-fns';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { FileSpreadsheet, FileCode } from 'lucide-react';
 import { logAuditEvent } from '../../../services/auditService';
+import { getAdminAuthHeaders } from '../../../utils/adminAuth';
 
-/**
- * Orders' `createdAt` may be a Firestore Timestamp (has `.seconds`) or an
- * ISO date string, depending on which server code path wrote it - both are
- * in active use. Only checking for `.seconds` silently drops every
- * string-dated order, which is every order created via /api/orders/create
- * (COD, WhatsApp, UPI) - i.e. most of them.
- */
 function getOrderDate(createdAt: any): Date | null {
   if (!createdAt) return null;
   if (typeof createdAt === 'string') {
@@ -32,17 +24,16 @@ export function AnalyticsTab() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(500));
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const orders: Order[] = [];
-        snap.forEach(docSnap => {
-          orders.push({ id: docSnap.id, ...docSnap.data() } as Order);
-        });
+    let isMounted = true;
+    async function loadAnalytics() {
+      try {
+        const headers = await getAdminAuthHeaders();
+        const res = await fetch('/api/admin/orders?status=all&pageSize=50', { headers });
+        const body = await res.json().catch(() => ({}));
+        const orders: Order[] = res.ok && body.success && Array.isArray(body.orders) ? body.orders : [];
+        if (!isMounted) return;
         setRawOrders(orders);
 
-        // Generate last 7 days data
         const chartData = [];
         for (let i = 6; i >= 0; i--) {
           const date = subDays(new Date(), i);
@@ -52,8 +43,8 @@ export function AnalyticsTab() {
           });
           
           const revenue = dayOrders
-            .filter(o => o.paymentStatus === 'paid')
-            .reduce((sum, o) => sum + (o.amount || 0), 0);
+            .filter(o => o.paymentStatus === 'paid' || ['delivered', 'completed'].includes(String(o.orderStatus || o.status || '').toLowerCase()))
+            .reduce((sum, o) => sum + Number(o.grandTotal ?? o.amount ?? 0), 0);
             
           chartData.push({
             date: format(date, 'MMM dd'),
@@ -63,14 +54,14 @@ export function AnalyticsTab() {
         }
         
         setData(chartData);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Error listening to analytics orders:', err);
-        setLoading(false);
+      } catch (err) {
+        console.error('Error loading analytics orders:', err);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-    );
-    return () => unsub();
+    }
+    loadAnalytics();
+    return () => { isMounted = false; };
   }, []);
 
   const exportCSV = () => {

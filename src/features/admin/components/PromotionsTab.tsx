@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Tag, Plus, Trash2, Search, CheckCircle2 } from 'lucide-react';
-import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
-import { db } from '../../../services/firebase';
 import { useToast } from '../../core/contexts/ToastContext';
 import { useConfirm } from '../../core/contexts/ConfirmContext';
+import { adminSaveDoc, adminDeleteDoc, adminFetchCollection } from '../../../utils/adminAuth';
 
 interface Coupon {
   id: string;
@@ -34,21 +33,20 @@ export function PromotionsTab() {
   const [maxUses, setMaxUses] = useState<string>('');
   const [perUserLimit, setPerUserLimit] = useState<string>('');
 
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'coupons'), (snap) => {
-      const list: Coupon[] = [];
-      snap.forEach(d => {
-        list.push({ id: d.id, ...d.data() } as Coupon);
-      });
+  const loadCoupons = useCallback(async () => {
+    try {
+      const list = await adminFetchCollection<Coupon>('coupons');
       setCoupons(list);
+    } catch (err) {
+      console.warn("Coupons load error:", err);
+    } finally {
       setLoading(false);
-    }, (err) => {
-      console.warn("Coupons snapshot error:", err);
-      setLoading(false);
-    });
-
-    return () => unsub();
+    }
   }, []);
+
+  useEffect(() => {
+    loadCoupons();
+  }, [loadCoupons]);
 
   const handleCreateCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +71,8 @@ export function PromotionsTab() {
     }
 
     try {
-      await setDoc(doc(db, 'coupons', cleanCode), newCoupon);
+      await adminSaveDoc('coupons', cleanCode, newCoupon);
+      setCoupons(prev => [newCoupon, ...prev.filter(c => c.id !== cleanCode)]);
       setIsModalOpen(false);
       setCode('');
       setDescription('');
@@ -81,6 +80,7 @@ export function PromotionsTab() {
       setMinOrderValue(0);
       setMaxUses('');
       setPerUserLimit('');
+      showToast(`Coupon ${cleanCode} created!`, 'success');
     } catch (err) {
       console.error("Error creating coupon:", err);
       showToast("Failed to save promotion coupon.", "error");
@@ -90,7 +90,9 @@ export function PromotionsTab() {
   const handleDeleteCoupon = async (id: string) => {
     if (await confirm({ title: "Delete coupon?", message: `Delete coupon code ${id}?` })) {
       try {
-        await deleteDoc(doc(db, 'coupons', id));
+        await adminDeleteDoc('coupons', id);
+        setCoupons(prev => prev.filter(c => c.id !== id));
+        showToast(`Coupon ${id} deleted.`, 'success');
       } catch (err) {
         console.error("Error deleting coupon:", err);
       }
@@ -99,7 +101,10 @@ export function PromotionsTab() {
 
   const handleToggleActive = async (c: Coupon) => {
     try {
-      await setDoc(doc(db, 'coupons', c.id), { ...c, isActive: !c.isActive });
+      const updated = { ...c, isActive: !c.isActive };
+      await adminSaveDoc('coupons', c.id, updated);
+      setCoupons(prev => prev.map(item => item.id === c.id ? updated : item));
+      showToast(`Coupon ${c.code} ${updated.isActive ? 'activated' : 'deactivated'}.`, 'success');
     } catch (err) {
       console.error("Error toggling coupon status:", err);
       showToast("Failed to update coupon status.", "error");

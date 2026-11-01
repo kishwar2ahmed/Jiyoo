@@ -14,7 +14,7 @@ export type CatalogSyncStatus =
   | 'CONFIGURATION_ERROR'
   | 'OFFLINE';
 
-const PUBLIC_CATALOG_CACHE_KEY = 'jiyoo_public_catalog_cache_v1';
+const PUBLIC_CATALOG_CACHE_KEY = 'jiyoo_public_catalog_cache_v2';
 const MAX_RETRY_ATTEMPTS = 4;
 
 interface PublicCatalogCache {
@@ -70,6 +70,9 @@ function sanitizePublicProduct(product: Product): Product {
     weights: Array.isArray(product.weights) ? product.weights : undefined,
     fishCuts: Array.isArray(rawCuts) ? rawCuts : undefined,
     cleaningOptions: Array.isArray(product.cleaningOptions) ? product.cleaningOptions : undefined,
+    brand: product.brand,
+    count: product.count,
+    netWeight: product.netWeight,
   } as Product;
 }
 
@@ -184,15 +187,23 @@ export function mergeCatalogRecords(
     }
 
     const existingBase = mergedMap.get(id);
+    const isWholesaleBaseline = Boolean(existingBase && id.startsWith('w_'));
     const combined = existingBase
       ? {
           ...existingBase,
           ...record,
           id,
+          name: isWholesaleBaseline ? existingBase.name : (record.name || existingBase.name),
+          origin: isWholesaleBaseline ? existingBase.origin : (record.origin ?? existingBase.origin),
+          freshnessBadge: isWholesaleBaseline ? existingBase.freshnessBadge : (record.freshnessBadge ?? existingBase.freshnessBadge),
+          description: isWholesaleBaseline ? existingBase.description : (record.description || existingBase.description),
+          count: isWholesaleBaseline ? existingBase.count : (record.count ?? existingBase.count),
+          netWeight: isWholesaleBaseline ? existingBase.netWeight : (record.netWeight ?? existingBase.netWeight),
+          wholesaleUnit: isWholesaleBaseline ? existingBase.wholesaleUnit : (record.wholesaleUnit || existingBase.wholesaleUnit),
           categoryId: record.categoryId || existingBase.categoryId,
           subcategoryId: record.subcategoryId ?? existingBase.subcategoryId,
           subSubcategoryId: record.subSubcategoryId ?? existingBase.subSubcategoryId,
-          unit: record.unit || existingBase.unit || '1 kg',
+          unit: isWholesaleBaseline ? existingBase.unit : (record.unit || existingBase.unit || '1 kg'),
           image: getOptimizedImageUrl(
             resolveProductImage(record.image || existingBase.image),
             500,
@@ -225,10 +236,8 @@ export function useStorefrontProducts() {
     const cached = initialCache?.products;
     return cached && cached.length > 0 ? cached : baselineCatalog;
   });
-  const [isProductsLoading, setIsProductsLoading] = useState<boolean>(() => {
-    const cached = initialCache?.products;
-    return !(cached && cached.length > 0);
-  });
+  // Start with false so baseline products (all 169 items) display on frame 0 without waiting for database
+  const [isProductsLoading, setIsProductsLoading] = useState<boolean>(false);
   const [catalogStatus, setCatalogStatus] = useState<CatalogSyncStatus>('LOADING');
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(

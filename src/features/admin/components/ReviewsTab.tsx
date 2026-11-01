@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
-import { db } from '../../../services/firebase';
+import { useState, useEffect, useCallback } from 'react';
 import { Star, Search, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '../../core/contexts/ToastContext';
 import { useConfirm } from '../../core/contexts/ConfirmContext';
+import { adminFetchCollection, adminDeleteDoc } from '../../../utils/adminAuth';
 
 export function ReviewsTab() {
   const { showToast } = useToast();
@@ -13,30 +12,27 @@ export function ReviewsTab() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    const q = query(collection(db, 'reviews'), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const loaded: any[] = [];
-        snap.forEach(d => {
-          loaded.push({ id: d.id, ...d.data() });
-        });
-        setReviews(loaded);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Error listening to reviews:', err);
-        setLoading(false);
-      }
-    );
-    return () => unsub();
+  const loadReviews = useCallback(async () => {
+    try {
+      const loaded = await adminFetchCollection('reviews');
+      setReviews(loaded);
+    } catch (err) {
+      console.error('Error loading reviews:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadReviews();
+  }, [loadReviews]);
 
   const handleDelete = async (id: string) => {
     if (!(await confirm({ title: "Delete review?", message: "Are you sure you want to delete this review?" }))) return;
     try {
-      await deleteDoc(doc(db, 'reviews', id));
+      await adminDeleteDoc('reviews', id);
+      setReviews(prev => prev.filter(r => r.id !== id));
+      showToast('Review deleted', 'success');
     } catch (err) {
       showToast('Error deleting review', 'error');
     }

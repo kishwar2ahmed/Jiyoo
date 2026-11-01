@@ -20,6 +20,8 @@ import { useModalBackButton } from "../../core/hooks/useModalBackButton";
 import { InstaBlueTickIcon } from "../../core/components/SocialIcons";
 import { PremiumShieldMark } from "../../core/components/PremiumShieldMark";
 import { RealisticDeliveryScooter } from "../../core/components/RealisticDeliveryScooter";
+import { VelvetyBalloonButton } from "./VelvetyBalloonButton";
+import { VelvetWhatsAppButton } from "./VelvetWhatsAppButton";
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -253,56 +255,62 @@ export function ProductDetailModal({
             <div className="flex flex-col md:flex-row">
               {/* Left Column: Premium Image Area */}
               <div className="w-full md:w-1/2 shrink-0 flex flex-col">
-                <div className="relative w-full aspect-[4/3] md:aspect-auto md:min-h-[500px] bg-white flex items-center justify-center overflow-hidden">
-                  <img
-                    ref={modalImgRef}
-                    src={getOptimizedImageUrl(activeImage || product.image, 800, 85)}
-                    alt={product.name}
-                    className="w-full h-full object-contain"
-                    loading="eager"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      if (target.dataset.failed) return;
+                <div className="luxury-sheen-sweep relative w-full aspect-[4/3] md:aspect-auto md:min-h-[500px] bg-white flex items-center justify-center overflow-hidden">
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.img
+                      key={activeImage || product.image}
+                      ref={modalImgRef}
+                      src={getOptimizedImageUrl(activeImage || product.image, 800, 85)}
+                      alt={product.name}
+                      initial={{ opacity: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 1.015 }}
+                      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                      className="w-full h-full object-contain will-change-transform"
+                      loading="eager"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (target.dataset.failed) return;
 
-                      const rawFallbackSequence = [
-                        product.image,
-                        '', 
-                        settings?.logoUrl || "/logo.jpg",
-                        "/logo.jpg",
-                      ].filter(Boolean) as string[];
+                        const rawFallbackSequence = [
+                          product.image,
+                          '', 
+                          settings?.logoUrl || "/logo.jpg",
+                          "/logo.jpg",
+                        ].filter(Boolean) as string[];
 
-                      const fallbackSequence = Array.from(
-                        new Set(rawFallbackSequence),
-                      );
-                      const currentAttempt = parseInt(
-                        target.dataset.attempt || "0",
-                        10,
-                      );
+                        const fallbackSequence = Array.from(
+                          new Set(rawFallbackSequence),
+                        );
+                        const currentAttempt = parseInt(
+                          target.dataset.attempt || "0",
+                          10,
+                        );
 
-                      if (currentAttempt < fallbackSequence.length) {
-                        target.dataset.attempt = String(currentAttempt + 1);
-                        if (
-                          target.src.endsWith(fallbackSequence[currentAttempt]) ||
-                          target.src === fallbackSequence[currentAttempt]
-                        ) {
-                          target.src =
-                            fallbackSequence[
-                              Math.min(
-                                currentAttempt + 1,
-                                fallbackSequence.length - 1,
-                              )
-                            ];
+                        if (currentAttempt < fallbackSequence.length) {
                           target.dataset.attempt = String(currentAttempt + 1);
+                          if (
+                            target.src.endsWith(fallbackSequence[currentAttempt]) ||
+                            target.src === fallbackSequence[currentAttempt]
+                          ) {
+                            target.src =
+                              fallbackSequence[
+                                Math.min(
+                                  currentAttempt + 1,
+                                  fallbackSequence.length - 1,
+                                )
+                              ];
+                            target.dataset.attempt = String(currentAttempt + 1);
+                          } else {
+                            target.src = fallbackSequence[currentAttempt];
+                          }
                         } else {
-                          target.src = fallbackSequence[currentAttempt];
+                          target.dataset.failed = "true";
                         }
-                      } else {
-                        target.dataset.failed = "true";
-                      }
-                    }}
-                  />
-
-              </div>
+                      }}
+                    />
+                  </AnimatePresence>
+                </div>
 
               {/* Gallery thumbnails -- only shown when the admin has added extra photos */}
               {[product.image, ...(product.images || [])].filter(Boolean).length > 1 && (
@@ -524,10 +532,19 @@ export function ProductDetailModal({
                       <span className="text-[10px] uppercase tracking-wider text-brand-gray-400 font-semibold block">
                         Total Price
                       </span>
-                      <div className="flex items-baseline justify-end gap-2 mt-0.5">
-                        <span className="text-2xl sm:text-3xl font-bold text-brand-black tracking-tight">
-                          ₹{Number(currentPrice) * quantity}
-                        </span>
+                      <div className="flex items-baseline justify-end gap-2 mt-0.5 overflow-hidden tabular-nums">
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          <motion.span
+                            key={`modal-total-${Number(currentPrice) * quantity}`}
+                            initial={{ y: 12, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: -12, opacity: 0 }}
+                            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                            className="inline-block text-2xl sm:text-3xl font-bold text-brand-black tracking-tight"
+                          >
+                            ₹{Number(currentPrice) * quantity}
+                          </motion.span>
+                        </AnimatePresence>
                         {product.discount && (
                           <span className="text-sm text-brand-gray-400 line-through">
                             ₹
@@ -547,17 +564,28 @@ export function ProductDetailModal({
                       <button
                         onClick={handleDecrease}
                         disabled={quantity <= 1 || isOutOfStock}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-brand-black hover:bg-brand-white disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-brand-black hover:bg-brand-white active:scale-90 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
                       >
                         <Minus className="w-4 h-4" />
                       </button>
-                      <span className="w-10 text-center font-semibold text-brand-black text-sm">
-                        {quantity}
+                      <span className="w-10 text-center font-semibold text-brand-black text-sm overflow-hidden inline-flex items-center justify-center tabular-nums">
+                        <AnimatePresence mode="popLayout" initial={false}>
+                          <motion.span
+                            key={`modal-qty-${quantity}`}
+                            initial={{ y: 8, opacity: 0, scale: 0.85 }}
+                            animate={{ y: 0, opacity: 1, scale: 1 }}
+                            exit={{ y: -8, opacity: 0, scale: 0.85 }}
+                            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                            className="inline-block"
+                          >
+                            {quantity}
+                          </motion.span>
+                        </AnimatePresence>
                       </span>
                       <button
                         onClick={handleIncrease}
                         disabled={isOutOfStock}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-brand-black hover:bg-brand-white disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-brand-black hover:bg-brand-white active:scale-90 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -584,48 +612,22 @@ export function ProductDetailModal({
                     </button>
 
                     {/* Add to Bag CTA */}
-                    <button
+                    <VelvetyBalloonButton
                       onClick={handleAddToCart}
                       disabled={isOutOfStock}
-                      className={`group relative flex-1 h-[52px] text-[11px] font-bold uppercase tracking-[0.15em] text-[#FAF9F5] transition-all duration-300 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(28,25,23,0.3)] hover:shadow-[0_8px_20px_-5px_rgba(28,25,23,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] disabled:opacity-50 disabled:cursor-not-allowed ${
-                        justAdded ? "bg-emerald-700" : "bg-[#1C1917]"
-                      }`}
-                    >
-                      <span className="absolute inset-0 w-full h-full bg-[#292524] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      <span className="relative z-10 flex items-center justify-center gap-2">
-                        {justAdded ? (
-                          <>
-                            <Check className="w-4 h-4" />
-                            <span>Added to Bag</span>
-                          </>
-                        ) : (
-                          <>
-                            <ShoppingBag className="w-4 h-4" />
-                            <span>{isOutOfStock ? "Sold Out" : "Add to Bag"}</span>
-                          </>
-                        )}
-                      </span>
-                    </button>
+                      justAdded={justAdded}
+                      label={isOutOfStock ? "Sold Out" : "Add to Bag"}
+                      size="modal"
+                      className="flex-1 max-w-[240px]"
+                    />
 
-                    {/* WhatsApp Direct Order CTA */}
-                    <button
+                    {/* WhatsApp Direct Order CTA in Imperial Maroon Velvet */}
+                    <VelvetWhatsAppButton
                       onClick={handleWhatsAppOrder}
                       disabled={isOutOfStock}
-                      className={`group relative h-[52px] px-6 text-[11px] font-bold uppercase tracking-[0.15em] transition-all duration-500 rounded-full overflow-hidden shrink-0 ${
-                        isOutOfStock
-                          ? "bg-brand-gray-100 text-brand-gray-400 cursor-not-allowed"
-                          : "text-white bg-emerald-600 cursor-pointer shadow-[0_5px_15px_-5px_rgba(5,150,105,0.3)] hover:shadow-[0_8px_20px_-5px_rgba(5,150,105,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96]"
-                      }`}
-                      title={isOutOfStock ? "Out of stock" : "Order directly via WhatsApp"}
-                    >
-                      {!isOutOfStock && (
-                        <span className="absolute inset-0 w-full h-full bg-emerald-700 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                      )}
-                      <span className="relative z-10 flex items-center justify-center gap-2">
-                        <MessageCircle className="w-5 h-5" />
-                        <span className="hidden sm:inline">WhatsApp</span>
-                      </span>
-                    </button>
+                      label={isOutOfStock ? "Out of Stock" : "Order via WhatsApp"}
+                      size="modal"
+                    />
                   </div>
                 </div>
               </div>
@@ -645,13 +647,17 @@ export function ProductDetailModal({
                         p.categoryId === product.categoryId,
                     )
                     .slice(0, 4)
-                    .map((relatedProduct) => (
-                      <div
+                    .map((relatedProduct, rIdx) => (
+                      <motion.div
                         key={relatedProduct.id}
-                        className="bg-brand-white rounded-xl overflow-hidden border border-brand-gray-100 shadow-xs flex flex-col group cursor-pointer"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.32, delay: rIdx * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                        whileHover={{ y: -4 }}
+                        className="bg-brand-white rounded-xl overflow-hidden border border-brand-gray-100 hover:border-[#C5A880] shadow-xs hover:shadow-[0_14px_28px_-10px_rgba(28,25,23,0.12)] transition-all flex flex-col group cursor-pointer"
                         onClick={() => onProductClick?.(relatedProduct)}
                       >
-                        <div className="aspect-square bg-brand-gray-50 overflow-hidden">
+                        <div className="luxury-sheen-sweep aspect-square bg-brand-gray-50 overflow-hidden p-2">
                           <img
                             src={getOptimizedImageUrl(
                               relatedProduct.image,
@@ -659,7 +665,7 @@ export function ProductDetailModal({
                               80,
                             )}
                             alt={relatedProduct.name}
-                            className="w-full h-full object-contain"
+                            className="w-full h-full object-contain transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                             loading="lazy"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
@@ -711,14 +717,14 @@ export function ProductDetailModal({
                           />
                         </div>
                         <div className="p-3">
-                          <h4 className="text-xs font-semibold text-brand-black line-clamp-1 mb-1">
+                          <h4 className="text-xs font-semibold text-brand-black line-clamp-1 mb-1 group-hover:text-emerald-800 transition-colors">
                             {relatedProduct.name}
                           </h4>
-                          <p className="text-xs text-brand-gray-500">
+                          <p className="text-xs font-semibold text-brand-gray-500 tabular-nums">
                             ₹{relatedProduct.price}
                           </p>
                         </div>
-                      </div>
+                      </motion.div>
                     ))}
                 </div>
               </div>

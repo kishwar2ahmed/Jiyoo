@@ -131,3 +131,86 @@ body {
 @utility min-h-safe {
   min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
 }
+
+:root {
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-luxury: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-silk: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes jiyooLuxurySheen {
+  0% {
+    transform: translate3d(-120%, 0, 0) skewX(-18deg);
+  }
+  100% {
+    transform: translate3d(220%, 0, 0) skewX(-18deg);
+  }
+}
+
+@keyframes jiyooSubtleFloat {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
+@keyframes jiyooGoldPulse {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.18);
+  }
+}
+
+.luxury-sheen-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.luxury-sheen-sweep::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 250, 240, 0.32) 50%,
+    transparent 100%
+  );
+  transform: translate3d(-140%, 0, 0) skewX(-18deg);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.group:hover .luxury-sheen-sweep::after,
+.luxury-sheen-sweep:hover::after {
+  animation: jiyooLuxurySheen 0.85s var(--ease-luxury) forwards;
+}
+
+.luxury-card-surface {
+  transition:
+    transform 0.38s var(--ease-out-expo),
+    box-shadow 0.38s var(--ease-out-expo),
+    border-color 0.38s var(--ease-out-expo);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

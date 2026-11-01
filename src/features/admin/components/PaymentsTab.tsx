@@ -1,6 +1,4 @@
-import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
-import { auth, db } from '../../../services/firebase';
+import { useState, useEffect, useCallback } from 'react';
 import { Order } from '../../../types';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { CreditCard, ExternalLink, Search, RefreshCw, ArrowUpRight, DollarSign, QrCode } from 'lucide-react';
@@ -8,11 +6,8 @@ import { format } from 'date-fns';
 import { useToast } from '../../core/contexts/ToastContext';
 import { logAuditEvent } from '../../../services/auditService';
 import { PhonePeIcon, PaytmIcon, UpiOfficialIcon } from '../../core/components/UpiIcons';
+import { getAdminAuthHeaders } from '../../../utils/adminAuth';
 
-// Orders' `createdAt` may be a Firestore Timestamp (has `.seconds`) or an
-// ISO date string - both are in active use depending on which server path
-// wrote the order. Only checking `.seconds` shows "Recent" for every
-// string-dated order, which is most of them.
 function getOrderDate(createdAt: any): Date | null {
   if (!createdAt) return null;
   if (typeof createdAt === 'string') {
@@ -43,25 +38,26 @@ export function PaymentsTab() {
     setUpiId2(settings.upiId2 || '9739391891@paytm');
   }, [settings]);
 
-  useEffect(() => {
-    const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(100));
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const loaded: Order[] = [];
-        snap.forEach(d => {
-          loaded.push({ id: d.id, ...d.data() } as Order);
-        });
-        setOrders(loaded);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Error listening to orders in PaymentsTab:', err);
-        setLoading(false);
+  const fetchOrders = useCallback(async () => {
+    try {
+      const headers = await getAdminAuthHeaders();
+      const res = await fetch('/api/admin/orders?status=all&pageSize=50', { headers });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && Array.isArray(data.orders)) {
+        setOrders(data.orders);
       }
-    );
-    return () => unsub();
+    } catch (err) {
+      console.error('Error loading orders in PaymentsTab:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchOrders();
+    const timer = window.setInterval(fetchOrders, 10000);
+    return () => window.clearInterval(timer);
+  }, [fetchOrders]);
 
   const handleSaveKeys = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,11 +70,7 @@ export function PaymentsTab() {
       logAuditEvent('UPDATE_PAYOUT_UPI', 'BILLING', `UPI IDs changed to ${upiId} / ${upiId2}`);
       showToast('Payment settings updated successfully!', 'success');
     } catch (err: any) {
-      if (err.message && err.message.includes('offline')) {
-        showToast('Settings saved locally! Your Firebase Database is not created yet — go to Firebase Console and create it in Firestore.', 'error');
-      } else {
-        showToast('Error updating payment settings to Cloud: ' + err.message, 'error');
-      }
+      showToast('Error updating payment settings: ' + err.message, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -102,26 +94,13 @@ export function PaymentsTab() {
   };
 
   const updatePaymentStatus = async (order: Order, newStatus: string) => {
-    // Refunds must go through the real Razorpay refund API (Orders tab), not a
-    // plain status flip here -- this tab has no refund endpoint wired up, so
-    // "refunded" is intentionally not a reachable value from this control.
-    if (newStatus === 'refunded') {
-      showToast('Process refunds from the Orders tab so the money is actually returned via Razorpay.', 'error');
-      return;
-    }
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) {
-        showToast('Your admin session has expired. Please sign in again.', 'error');
-        return;
-      }
-      const res = await fetch(`/api/admin/orders/${order.id}/payment-status`, {
+      const headers = await getAdminAuthHeaders(true);
+      const endpoint = newStatus === 'refunded' ? `/api/admin/orders/${order.id}/refund` : `/api/admin/orders/${order.id}/payment-status`;
+      const res = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status: newStatus }),
+        headers,
+        body: newStatus === 'refunded' ? undefined : JSON.stringify({ status: newStatus }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
@@ -136,8 +115,7 @@ export function PaymentsTab() {
       setOrders(prev => prev.map(o => (
         o.id === order.id ? { ...o, ...updatePayload } : o
       )));
-      logAuditEvent('UPDATE_PAYMENT_STATUS', 'BILLING', `Order ${order.id} payment status set to ${updatePayload.paymentStatus}`);
-      showToast('Payment status updated', 'success');
+      showToast('Payment status updated & logged in server audit trail', 'success');
     } catch (err) {
       console.error('Failed to update status:', err);
       showToast('Could not update payment status', 'error');
@@ -328,7 +306,7 @@ export function PaymentsTab() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-gray-400" />
             <input 
               type="text"
-              placeholder="Search by Order ID, Customer, UTR, or Payment ID..."
+              placeholder="Search by Order ID, Customer, or Razorpay Payment ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-white border border-brand-gray-200 rounded-lg outline-none focus:border-emerald-600 text-sm"
@@ -350,16 +328,10 @@ export function PaymentsTab() {
               Razorpay ({razorpayOrders.length})
             </button>
             <button 
-              onClick={() => setMethodFilter('upi')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${methodFilter === 'upi' ? 'bg-emerald-600 text-white' : 'bg-white text-brand-gray-600 border border-brand-gray-200'}`}
-            >
-              UPI QR ({upiOrders.length})
-            </button>
-            <button 
               onClick={() => setMethodFilter('cod')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${methodFilter === 'cod' ? 'bg-amber-600 text-white' : 'bg-white text-brand-gray-600 border border-brand-gray-200'}`}
             >
-              COD ({codOrders.length})
+              COD / Doorstep ({codOrders.length})
             </button>
           </div>
         </div>
@@ -381,7 +353,7 @@ export function PaymentsTab() {
                   <th className="px-4 py-3">Order ID / Date</th>
                   <th className="px-4 py-3">Customer</th>
                   <th className="px-4 py-3">Payment Method</th>
-                  <th className="px-4 py-3">Reference / UTR</th>
+                  <th className="px-4 py-3">Gateway Payment ID</th>
                   <th className="px-4 py-3">Amount</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>

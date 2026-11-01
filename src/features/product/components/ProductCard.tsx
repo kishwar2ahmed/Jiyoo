@@ -1,11 +1,13 @@
 import React from "react";
 import { useState } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Heart,
   ShoppingBag,
   Check,
   Star,
+  Plus,
+  Minus,
 } from "lucide-react";
 import { useCart } from "../../../contexts/CartContext";
 import { Product } from "../../../types";
@@ -15,6 +17,7 @@ import { InstaBlueTickIcon } from "../../core/components/SocialIcons";
 import { PremiumShieldMark } from "../../core/components/PremiumShieldMark";
 import { RealisticDeliveryScooter } from "../../core/components/RealisticDeliveryScooter";
 import { useToast } from "../../core/contexts/ToastContext";
+import { VelvetyBalloonButton } from "./VelvetyBalloonButton";
 
 function ProductCardRating({
   product,
@@ -66,7 +69,7 @@ export const ProductCard = React.memo(function ProductCard({
   toggleWishlist: (id: string) => void;
   onProductClick?: (product: Product, tab?: "details" | "reviews") => void;
 }) {
-  const { addToCart, triggerFlyingItem } = useCart();
+  const { addToCart, triggerFlyingItem, items, updateQuantity, removeFromCart } = useCart();
   const { showToast } = useToast();
   const { settings } = useSettings();
   const [selectedWeight, setSelectedWeight] = useState(product.weights?.[0]);
@@ -82,6 +85,10 @@ export const ProductCard = React.memo(function ProductCard({
   const currentPrice = selectedWeight ? selectedWeight.price : product.price;
   const currentUnit = selectedWeight ? selectedWeight.label : product.unit;
   const isOutOfStock = product.stock === 0 || product.stockStatus === 'out_of_stock';
+
+  const activeCartItemId = `${product.id}-${currentUnit || ""}-${selectedCut || ""}-${selectedCleaning || ""}`;
+  const existingCartItem = items.find((item) => item.id === activeCartItemId);
+  const currentQtyInCart = existingCartItem ? existingCartItem.quantity : 0;
 
   const isAboveFold = index < 8;
   const optimizedImage = getOptimizedImageUrl(product.image, 420, 78);
@@ -153,14 +160,14 @@ export const ProductCard = React.memo(function ProductCard({
 
   return (
     <motion.div
-      initial={{ opacity: isAboveFold ? 1 : 0, y: isAboveFold ? 0 : 18, scale: isAboveFold ? 1 : 0.98 }}
+      initial={{ opacity: isAboveFold ? 1 : 0, y: isAboveFold ? 0 : 14, scale: isAboveFold ? 1 : 0.985 }}
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true, margin: "120px", amount: 0.05 }}
+      viewport={{ once: true, margin: "100px", amount: 0.05 }}
       exit={{ opacity: 0, scale: 0.96 }}
       whileHover={{ y: -4, transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } }}
-      whileTap={{ scale: 0.985 }}
+      whileTap={{ scale: 0.99 }}
       transition={{
-        duration: 0.32,
+        duration: 0.36,
         delay: isAboveFold ? 0 : (index % 4) * 0.03,
         ease: [0.16, 1, 0.3, 1],
       }}
@@ -178,7 +185,7 @@ export const ProductCard = React.memo(function ProductCard({
       />
 
       {/* Product Image Area (Full uncropped product view) */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-white p-2 sm:p-3 flex items-center justify-center">
+      <div className="luxury-sheen-sweep relative aspect-[4/3] overflow-hidden bg-white p-2 sm:p-3 flex items-center justify-center">
         {!isImgLoaded && (
           <div className="absolute inset-0 z-0 bg-brand-gray-100 animate-pulse" />
         )}
@@ -187,7 +194,7 @@ export const ProductCard = React.memo(function ProductCard({
           src={optimizedImage}
           alt={product.name}
           onLoad={() => setIsImgLoaded(true)}
-          className={`w-full h-full object-contain transition-all duration-200 ease-out sm:group-hover:scale-[1.06] ${isImgLoaded ? "opacity-100 scale-100" : "opacity-0 scale-98"}`}
+          className={`w-full h-full object-contain transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] sm:group-hover:scale-[1.045] ${isImgLoaded ? "opacity-100 scale-100" : "opacity-0 scale-98"}`}
           referrerPolicy="no-referrer"
           loading={isAboveFold ? "eager" : "lazy"}
           fetchPriority={index < 4 ? "high" : "auto"}
@@ -229,6 +236,7 @@ export const ProductCard = React.memo(function ProductCard({
         {/* Wishlist Button */}
         <motion.button
           type="button"
+          whileHover={{ scale: 1.08 }}
           whileTap={{ scale: 0.82 }}
           onClick={(e) => {
             e.stopPropagation();
@@ -247,11 +255,31 @@ export const ProductCard = React.memo(function ProductCard({
           aria-label={isWishlisted ? "Remove from wishlist" : "Save to wishlist"}
           title={isWishlisted ? "Remove from wishlist" : "Save to wishlist"}
         >
-          <Heart
-            className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform"
-            fill={isWishlisted ? "#DC2626" : "none"}
-            stroke={isWishlisted ? "#DC2626" : "currentColor"}
-          />
+          <AnimatePresence>
+            {isWishlisted && (
+              <motion.span
+                key="wishlist-halo"
+                initial={{ scale: 0.6, opacity: 0.85 }}
+                animate={{ scale: 1.65, opacity: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                className="pointer-events-none absolute inset-0 rounded-full border border-red-400"
+              />
+            )}
+          </AnimatePresence>
+          <motion.span
+            key={isWishlisted ? "liked" : "unliked"}
+            initial={{ scale: 0.75 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 520, damping: 18 }}
+            className="inline-flex items-center justify-center"
+          >
+            <Heart
+              className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform"
+              fill={isWishlisted ? "#DC2626" : "none"}
+              stroke={isWishlisted ? "#DC2626" : "currentColor"}
+            />
+          </motion.span>
         </motion.button>
       </div>
 
@@ -397,10 +425,19 @@ export const ProductCard = React.memo(function ProductCard({
                 <RealisticDeliveryScooter className="w-5 h-3.5 shrink-0" />
                 <span className="tabular-nums">{product.deliveryEstimate || "60m"}</span>
               </span>
-              <div className="flex items-baseline gap-1.5 tabular-nums order-1 sm:order-2">
-                <span className="text-base sm:text-lg font-serif-luxury font-bold text-[#1C1917]">
-                  ₹{Number(currentPrice)}
-                </span>
+              <div className="flex items-baseline gap-1.5 tabular-nums order-1 sm:order-2 overflow-hidden">
+                <AnimatePresence mode="popLayout" initial={false}>
+                  <motion.span
+                    key={`price-${currentPrice}`}
+                    initial={{ y: 10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -10, opacity: 0 }}
+                    transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                    className="inline-block text-base sm:text-lg font-serif-luxury font-bold text-[#1C1917]"
+                  >
+                    ₹{Number(currentPrice)}
+                  </motion.span>
+                </AnimatePresence>
                 {product.discount && (
                   <span className="text-[10px] sm:text-xs text-[#A8A29E] line-through">
                     ₹{Math.round(Number(currentPrice) / (1 - product.discount / 100))}
@@ -409,31 +446,65 @@ export const ProductCard = React.memo(function ProductCard({
               </div>
             </div>
 
-            <motion.button
-              type="button"
-              onClick={handleAddToCart}
-              disabled={isOutOfStock}
-              whileTap={isOutOfStock ? undefined : { scale: 0.95 }}
-              className={`group relative inline-flex items-center justify-center w-full sm:w-auto h-9 sm:h-10 px-3.5 sm:px-5 text-[10px] font-bold uppercase tracking-[0.12em] rounded-lg transition-colors duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 whitespace-nowrap ${
-                justAdded
-                  ? "bg-emerald-700 text-white"
-                  : "bg-[#1C1917] hover:bg-[#292524] text-[#FAF9F5]"
-              }`}
+            {/* Pill Action Button & In-Cart Quantity Controls */}
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="relative flex items-center justify-end gap-1.5 w-full sm:w-auto"
             >
-              <span className="relative z-10 flex items-center gap-1.5">
-                {justAdded ? (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Added</span>
-                  </>
-                ) : (
-                  <>
-                    <ShoppingBag className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    <span>{isOutOfStock ? "Sold Out" : "Add"}</span>
-                  </>
+              {/* Discrete Luxury Decrement Button when In Cart */}
+              <AnimatePresence>
+                {currentQtyInCart > 0 && (
+                  <motion.button
+                    type="button"
+                    initial={{ scale: 0, opacity: 0, x: 8 }}
+                    animate={{ scale: 1, opacity: 1, x: 0 }}
+                    exit={{ scale: 0, opacity: 0, x: 8 }}
+                    transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                    whileTap={{ scale: 0.85 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (currentQtyInCart <= 1) {
+                        removeFromCart(activeCartItemId);
+                      } else {
+                        updateQuantity(activeCartItemId, currentQtyInCart - 1);
+                      }
+                    }}
+                    aria-label="Decrease quantity"
+                    className="w-[34px] h-[34px] sm:w-[32px] sm:h-[32px] rounded-full flex items-center justify-center bg-[#1C1917] hover:bg-[#292524] text-[#FAF2E1] hover:text-[#E5C99B] border border-[#C5A880]/70 shadow-[0_3px_10px_rgba(0,0,0,0.25)] cursor-pointer transition-colors shrink-0"
+                  >
+                    <Minus className="w-3.5 h-3.5" strokeWidth={2.6} />
+                  </motion.button>
                 )}
-              </span>
-            </motion.button>
+              </AnimatePresence>
+
+              {/* Velvet Butterfly Pill Button - Permanent, Crisp & Authentic */}
+              <div className="relative inline-flex items-center">
+                <VelvetyBalloonButton
+                  onClick={handleAddToCart}
+                  disabled={isOutOfStock}
+                  justAdded={justAdded}
+                  label={isOutOfStock ? "Sold Out" : "Add to Cart"}
+                  size="card"
+                  className="w-full sm:w-auto flex items-center justify-center sm:justify-end"
+                />
+
+                {/* Floating Velvet & Gold Quantity Badge */}
+                <AnimatePresence>
+                  {currentQtyInCart > 0 && (
+                    <motion.span
+                      initial={{ scale: 0, y: 4 }}
+                      animate={{ scale: 1, y: 0 }}
+                      exit={{ scale: 0, y: 4 }}
+                      key={currentQtyInCart}
+                      transition={{ type: "spring", stiffness: 500, damping: 22 }}
+                      className="pointer-events-none absolute -top-1.5 -right-1.5 min-w-[21px] h-[21px] px-1 rounded-full bg-[#1C1917] text-[#FAF2E1] border-2 border-[#C5A880] text-[10.5px] font-bold font-mono flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.4)] z-30"
+                    >
+                      {currentQtyInCart}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
           </div>
         </div>
       </div>

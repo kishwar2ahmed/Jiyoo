@@ -243,7 +243,7 @@ export function HeroSlideshow() {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className={`relative w-full overflow-hidden rounded-xl sm:rounded-2xl border transition-all duration-700 select-none ${
+      className={`group relative w-full overflow-hidden rounded-xl sm:rounded-2xl border transition-all duration-700 select-none ${
         isDiwaliSlide
           ? 'border-amber-400/90 shadow-[0_0_35px_-4px_rgba(245,158,11,0.55)] ring-2 ring-amber-400/80 bg-gradient-to-br from-amber-950/20 via-stone-900 to-black'
           : isWhatsAppSlide
@@ -255,7 +255,7 @@ export function HeroSlideshow() {
       <div className={`relative w-full aspect-[2048/768] overflow-hidden transition-colors duration-700 ${
         isWhatsAppSlide ? 'bg-[#F6EFE6]' : 'bg-stone-900'
       }`}>
-        {/* Silky Overlapping Crossfade: Zero flash, continuous smooth blend */}
+        {/* Silky Overlapping Crossfade + Subtle Cinema Ken-Burns Drift */}
         <AnimatePresence initial={false}>
           <motion.div
             key={currentSlide.id}
@@ -264,19 +264,33 @@ export function HeroSlideshow() {
             exit={{ opacity: 0 }}
             transition={{
               duration: prefersReducedMotion ? 0.1 : 0.65,
-              ease: [0.25, 0.1, 0.25, 1],
+              ease: [0.22, 1, 0.36, 1],
             }}
             className={`absolute inset-0 w-full h-full flex items-center justify-center will-change-[opacity] ${
               isWhatsAppSlide ? 'bg-[#F6EFE6]' : 'bg-stone-900'
             }`}
           >
-            <img
+            <motion.img
               src={currentSlide.image}
               alt={currentSlide.alt}
               loading="eager"
               fetchPriority="high"
               decoding="async"
-              className={`w-full h-full pointer-events-none select-none ${
+              initial={
+                prefersReducedMotion
+                  ? { scale: 1 }
+                  : { scale: isWhatsAppSlide ? 0.985 : 1.045 }
+              }
+              animate={{ scale: 1 }}
+              transition={{
+                duration: prefersReducedMotion
+                  ? 0.1
+                  : isWhatsAppSlide
+                  ? 0.85
+                  : Math.max(2.6, currentDuration / 1000),
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              className={`w-full h-full pointer-events-none select-none will-change-transform ${
                 isWhatsAppSlide
                   ? 'object-contain object-center'
                   : 'object-cover object-center'

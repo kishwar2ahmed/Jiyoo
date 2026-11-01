@@ -815,12 +815,10 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="p-4 border-t border-stone-200 space-y-2">
-          {user.admin === true && (
-            <button onClick={() => { window.location.hash = '#admin'; onClose(); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors font-semibold">
-              <Shield className="w-4 h-4" />
-              <span className="text-sm font-medium">Admin Panel</span>
-            </button>
-          )}
+          <button onClick={() => { document.dispatchEvent(new CustomEvent('open-admin')); onClose(); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors font-semibold cursor-pointer">
+            <Shield className="w-4 h-4 text-emerald-700" />
+            <span className="text-sm font-medium">Admin Panel</span>
+          </button>
           <button onClick={() => { document.dispatchEvent(new CustomEvent('open-contact')); onClose(); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors font-semibold">
             <HelpCircle className="w-4 h-4 text-emerald-600" />
             <span className="text-sm font-medium">Help &amp; Support</span>
@@ -1760,17 +1758,117 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                   </div>
                 )}
 
-                {/* Catch-all for other tabs */}
-                {['qa', 'language', 'devices', 'privacy'].includes(activeTab) && (
-                  <div className="bg-white rounded-2xl p-12 border border-stone-200 shadow-sm text-center">
-                    <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                      {activeTab === 'privacy' && <Shield className="w-8 h-8 text-stone-400" />}
-                      {activeTab === 'language' && <Globe className="w-8 h-8 text-stone-400" />}
-                      {activeTab === 'devices' && <User className="w-8 h-8 text-stone-400" />}
-                      {activeTab === 'qa' && <HelpCircle className="w-8 h-8 text-stone-400" />}
+                {/* Privacy, Legal Policies, Q&A, Language & Active Session Tabs */}
+                {activeTab === 'privacy' && (
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-2xl p-6 sm:p-8 border border-stone-200 shadow-sm space-y-6">
+                      <div className="flex items-start justify-between gap-4 border-b border-stone-100 pb-5">
+                        <div>
+                          <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-700 font-semibold">
+                            DPDP Act 2023 · Consumer Data Protection
+                          </span>
+                          <h3 className="text-xl font-serif font-bold text-stone-900 mt-1">
+                            Privacy, Legal &amp; Refund Policies
+                          </h3>
+                          <p className="text-sm text-stone-500 mt-1">
+                            Review how JIYOO protects your personal data, governs retail &amp; wholesale orders, and guarantees 100% freshness replacements.
+                          </p>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+                          <Shield className="w-6 h-6 text-emerald-700" />
+                        </div>
+                      </div>
+
+                      <div className="grid sm:grid-cols-3 gap-4">
+                        <button
+                          type="button"
+                          onClick={() => document.dispatchEvent(new CustomEvent('open-legal-policy', { detail: { tab: 'privacy' } }))}
+                          className="text-left p-5 rounded-xl border border-stone-200 hover:border-stone-900 bg-stone-50/60 hover:bg-white transition-all cursor-pointer group"
+                        >
+                          <div className="text-xs font-mono uppercase tracking-wider text-emerald-700 font-semibold mb-1">
+                            Data Charter
+                          </div>
+                          <div className="text-base font-serif font-bold text-stone-900 group-hover:text-emerald-800">
+                            Privacy Policy &rarr;
+                          </div>
+                          <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">
+                            Information we collect, zero third-party data selling, and encrypted payment processing.
+                          </p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => document.dispatchEvent(new CustomEvent('open-legal-policy', { detail: { tab: 'terms' } }))}
+                          className="text-left p-5 rounded-xl border border-stone-200 hover:border-stone-900 bg-stone-50/60 hover:bg-white transition-all cursor-pointer group"
+                        >
+                          <div className="text-xs font-mono uppercase tracking-wider text-amber-800 font-semibold mb-1">
+                            Store Governance
+                          </div>
+                          <div className="text-base font-serif font-bold text-stone-900 group-hover:text-amber-900">
+                            Terms of Service &rarr;
+                          </div>
+                          <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">
+                            FSSAI &amp; MSME compliance, Bangalore express retail delivery &amp; pan-India wholesale trade terms.
+                          </p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => document.dispatchEvent(new CustomEvent('open-legal-policy', { detail: { tab: 'refund' } }))}
+                          className="text-left p-5 rounded-xl border border-stone-200 hover:border-stone-900 bg-stone-50/60 hover:bg-white transition-all cursor-pointer group"
+                        >
+                          <div className="text-xs font-mono uppercase tracking-wider text-purple-700 font-semibold mb-1">
+                            Freshness Promise
+                          </div>
+                          <div className="text-base font-serif font-bold text-stone-900 group-hover:text-purple-800">
+                            Refund Policy &rarr;
+                          </div>
+                          <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">
+                            Open-box doorstep inspection, 2-hour perishable replacement &amp; automated Razorpay/UPI refunds.
+                          </p>
+                        </button>
+                      </div>
+
+                      <div className="pt-4 border-t border-stone-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                          <h4 className="text-sm font-semibold text-stone-900">Account Data &amp; Right to Erasure</h4>
+                          <p className="text-xs text-stone-500 mt-0.5">
+                            You can permanently delete your account and personal profile data at any time.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleDeleteAccount}
+                          className="px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-xs font-semibold transition-colors cursor-pointer"
+                        >
+                          Delete My Account
+                        </button>
+                      </div>
                     </div>
-                    <h3 className="text-lg font-medium text-stone-900 mb-2">Section Under Construction</h3>
-                    <p className="text-stone-500 text-sm max-w-sm mx-auto">This feature is being rolled out globally and will be available for your account soon.</p>
+                  </div>
+                )}
+
+                {['qa', 'language', 'devices'].includes(activeTab) && (
+                  <div className="bg-white rounded-2xl p-8 border border-stone-200 shadow-sm space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center">
+                        {activeTab === 'language' && <Globe className="w-6 h-6 text-stone-700" />}
+                        {activeTab === 'devices' && <User className="w-6 h-6 text-stone-700" />}
+                        {activeTab === 'qa' && <HelpCircle className="w-6 h-6 text-stone-700" />}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-serif font-bold text-stone-900">
+                          {activeTab === 'language' ? 'Language & Regional Preferences' : activeTab === 'devices' ? 'Active Authenticated Session' : 'Customer Support & Q&A'}
+                        </h3>
+                        <p className="text-xs text-stone-500">
+                          {activeTab === 'language'
+                            ? 'English (India) · INR (₹) · Indian Standard Time (IST)'
+                            : activeTab === 'devices'
+                              ? `Signed in securely as ${user.email || user.name}`
+                              : 'Have a question about an order, custom meat cut, or wholesale crate? Reach our support desk directly.'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
                 

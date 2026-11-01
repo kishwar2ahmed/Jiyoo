@@ -1,22 +1,37 @@
 import { useState, useEffect } from 'react';
-import { collection, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
 import { Category } from '../../../types';
 import { CATEGORIES } from '../../../constants/data';
 import { Plus, Trash2, Snowflake, Sun } from 'lucide-react';
 import { useToast } from '../../core/contexts/ToastContext';
 import { useConfirm } from '../../core/contexts/ConfirmContext';
+import { adminSaveDoc, adminFetchCollection } from '../../../utils/adminAuth';
 
 export function CategoriesTab() {
   const { showToast } = useToast();
   const confirm = useConfirm();
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>(CATEGORIES);
   const [loading, setLoading] = useState(true);
   const [newCatId, setNewCatId] = useState('');
   const [newCatLabel, setNewCatLabel] = useState('');
 
   useEffect(() => {
+    adminFetchCollection<Category>('categories').then((serverCats) => {
+      if (serverCats.length > 0) {
+        const catMap = new Map<string, Category>();
+        CATEGORIES.forEach(c => catMap.set(c.id, c));
+        serverCats.forEach(c => {
+          if ((c as any).isDeleted) catMap.delete(c.id);
+          else catMap.set(c.id, { ...(catMap.get(c.id) || {}), ...c });
+        });
+        setCategories(Array.from(catMap.values()));
+      }
+      setLoading(false);
+    });
+
     const unsub = onSnapshot(collection(db, 'categories'), (snap) => {
+      if (snap.empty) return;
       const loaded: Category[] = [];
       snap.forEach(doc => {
         loaded.push({ id: doc.id, ...doc.data() } as Category);
@@ -28,14 +43,13 @@ export function CategoriesTab() {
         if ((c as any).isDeleted) {
           catMap.delete(c.id);
         } else {
-          catMap.set(c.id, c);
+          catMap.set(c.id, { ...(catMap.get(c.id) || {}), ...c });
         }
       });
       setCategories(Array.from(catMap.values()));
       setLoading(false);
     }, (err) => {
       console.error(err);
-      setCategories(CATEGORIES);
       setLoading(false);
     });
 
@@ -51,10 +65,8 @@ export function CategoriesTab() {
     setNewCatId('');
     setNewCatLabel('');
     try {
-      await Promise.race([
-        setDoc(doc(db, 'categories', cat.id), { ...cat, isDeleted: false }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 3000))
-      ]);
+      await adminSaveDoc('categories', cat.id, { ...cat, isDeleted: false });
+      showToast(`Category "${cat.label}" added.`, 'success');
     } catch (err) {
       console.error(err);
       setCategories(previousCats);
@@ -67,10 +79,8 @@ export function CategoriesTab() {
       const previousCats = [...categories];
       setCategories(categories.filter(c => c.id !== id));
       try {
-        await Promise.race([
-        setDoc(doc(db, 'categories', id), { isDeleted: true }, { merge: true }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 3000))
-      ]);
+        await adminSaveDoc('categories', id, { isDeleted: true });
+        showToast('Category removed.', 'success');
       } catch (err) {
         console.error("Error deleting category:", err);
         setCategories(previousCats);
@@ -84,10 +94,7 @@ export function CategoriesTab() {
     const previousCats = [...categories];
     setCategories(categories.map(c => c.id === cat.id ? { ...c, isFrozen: nextFrozen } : c));
     try {
-      await Promise.race([
-        setDoc(doc(db, 'categories', cat.id), { isFrozen: nextFrozen }, { merge: true }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 3000))
-      ]);
+      await adminSaveDoc('categories', cat.id, { ...cat, isFrozen: nextFrozen });
       showToast(nextFrozen ? `"${cat.label}" is now frozen and hidden from shoppers.` : `"${cat.label}" is unfrozen and visible again.`, 'success');
     } catch (err) {
       console.error('Error toggling category freeze:', err);

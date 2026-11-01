@@ -185,7 +185,7 @@
     },
     "AuditLog": {
       "title": "System Audit Log",
-      "description": "Immutable server-logged administrative action",
+      "description": "Immutable server-logged administrative and order lifecycle action",
       "type": "object",
       "properties": {
         "action": {
@@ -198,7 +198,47 @@
         },
         "actor": {
           "type": "string",
-          "description": "Admin user email or identifier"
+          "description": "Actor email, UID, or system identifier"
+        },
+        "actorRole": {
+          "type": "string",
+          "description": "Role of the actor (admin, customer, system, webhook)"
+        },
+        "orderId": {
+          "type": "string",
+          "description": "Order ID when the audit entry records an order lifecycle event"
+        },
+        "eventType": {
+          "type": "string",
+          "description": "Canonical order lifecycle event type"
+        },
+        "previousStatus": {
+          "type": "string",
+          "description": "Previous fulfillment status of the order"
+        },
+        "newStatus": {
+          "type": "string",
+          "description": "New fulfillment status of the order"
+        },
+        "previousPaymentStatus": {
+          "type": "string",
+          "description": "Previous payment status of the order"
+        },
+        "newPaymentStatus": {
+          "type": "string",
+          "description": "New payment status of the order"
+        },
+        "source": {
+          "type": "string",
+          "description": "Server endpoint or job that recorded the change"
+        },
+        "previousHash": {
+          "type": "string",
+          "description": "Previous SHA-256 chain hash for this order"
+        },
+        "integrityHash": {
+          "type": "string",
+          "description": "Tamper-evident SHA-256 HMAC chain hash"
         },
         "details": {
           "type": "string",
@@ -211,6 +251,200 @@
         }
       },
       "required": ["action", "category", "actor", "createdAt"]
+    },
+    "OrderAuditLog": {
+      "title": "Order Audit Log Entry",
+      "description": "Append-only server-side audit record tracking every order creation, status transition, payment update, refund, cancellation, and modification with SHA-256 chain integrity",
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "description": "Target order ID"
+        },
+        "sequence": {
+          "type": "number",
+          "description": "Monotonically increasing sequence number for this order's audit chain"
+        },
+        "eventType": {
+          "type": "string",
+          "enum": [
+            "ORDER_CREATED",
+            "STATUS_CHANGED",
+            "PAYMENT_STATUS_CHANGED",
+            "PAYMENT_VERIFIED",
+            "WEBHOOK_RECONCILED",
+            "ORDER_CANCELLED",
+            "ORDER_EXPIRED",
+            "REFUND_INITIATED",
+            "ORDER_REFUNDED",
+            "REFUND_FAILED",
+            "ORDER_MODIFIED",
+            "STOCK_CONFLICT_FLAGGED",
+            "ORDER_ANONYMIZED"
+          ],
+          "description": "Type of order lifecycle event"
+        },
+        "action": {
+          "type": "string",
+          "description": "Action code"
+        },
+        "previousStatus": {
+          "type": "string",
+          "description": "Order status prior to modification"
+        },
+        "newStatus": {
+          "type": "string",
+          "description": "Order status after modification"
+        },
+        "previousPaymentStatus": {
+          "type": "string",
+          "description": "Payment status prior to modification"
+        },
+        "newPaymentStatus": {
+          "type": "string",
+          "description": "Payment status after modification"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Authoritative order grand total at the time of the event"
+        },
+        "actor": {
+          "type": "string",
+          "description": "Identifier (email or UID) of the actor who initiated the change"
+        },
+        "actorUid": {
+          "type": "string",
+          "description": "Authenticated UID or system actor ID"
+        },
+        "actorRole": {
+          "type": "string",
+          "enum": ["customer", "admin", "system", "webhook"],
+          "description": "Role of the actor"
+        },
+        "source": {
+          "type": "string",
+          "description": "Server route or background worker that executed the transition"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Optional reason or note attached to the transition"
+        },
+        "details": {
+          "type": "string",
+          "description": "Human-readable summary of the state transition"
+        },
+        "previousHash": {
+          "type": "string",
+          "description": "Previous SHA-256 chain hash for this order (GENESIS for sequence 1)"
+        },
+        "integrityHash": {
+          "type": "string",
+          "description": "SHA-256 HMAC digest chaining previousHash and current transition payload"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 server timestamp"
+        }
+      },
+      "required": [
+        "orderId",
+        "sequence",
+        "eventType",
+        "action",
+        "actor",
+        "actorRole",
+        "source",
+        "previousHash",
+        "integrityHash",
+        "createdAt"
+      ]
+    },
+    "AdminSecurity": {
+      "title": "Admin 2FA & Brute-Force Security Record",
+      "description": "Server-only administrator TOTP 2FA enrollment, recovery code hashes, replay protection, and brute-force lockout state",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Administrator email address"
+        },
+        "totpEnabled": {
+          "type": "boolean",
+          "description": "Whether RFC 6238 TOTP 2FA is active for this administrator"
+        },
+        "totpSecretEncrypted": {
+          "type": "string",
+          "description": "AES-256-GCM encrypted Base32 TOTP secret"
+        },
+        "recoveryCodeHashes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "SHA-256 HMAC hashes of remaining single-use backup recovery codes"
+        },
+        "lastUsedTotpStep": {
+          "type": "number",
+          "description": "Last accepted 30-second TOTP counter step to prevent replay attacks"
+        },
+        "failedAttempts": {
+          "type": "number",
+          "description": "Consecutive failed authentication or 2FA verification attempts"
+        },
+        "lockedUntil": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp until which the account/IP is locked due to brute-force protection"
+        },
+        "enrolledAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when 2FA was enrolled"
+        },
+        "lastVerifiedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of last successful 2FA verification"
+        }
+      },
+      "required": ["email", "totpEnabled"]
+    },
+    "AdminSession": {
+      "title": "Admin Authenticated Session",
+      "description": "Server-tracked 2FA-verified administrator session record supporting instant revocation",
+      "type": "object",
+      "properties": {
+        "jti": {
+          "type": "string",
+          "description": "Unique cryptographic session token ID"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Authenticated administrator email"
+        },
+        "mfaVerified": {
+          "type": "boolean",
+          "description": "Whether second-factor TOTP/recovery verification was completed"
+        },
+        "revoked": {
+          "type": "boolean",
+          "description": "Whether the session has been explicitly logged out or revoked"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Session creation timestamp"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Session expiration timestamp"
+        }
+      },
+      "required": ["jti", "email", "mfaVerified", "createdAt", "expiresAt"]
     }
   },
   "firestore": {
@@ -236,7 +470,13 @@
       "schema": {
         "$ref": "#/entities/Order"
       },
-      "description": "Customer order records"
+      "description": "Customer order records (server-write only)"
+    },
+    "/orders/{orderId}/audit_logs/{logId}": {
+      "schema": {
+        "$ref": "#/entities/OrderAuditLog"
+      },
+      "description": "Immutable per-order server-side audit log and cryptographic hash chain"
     },
     "/coupons/{couponId}": {
       "schema": {
@@ -254,7 +494,19 @@
       "schema": {
         "$ref": "#/entities/AuditLog"
       },
-      "description": "Administrative audit trail"
+      "description": "Administrative and order lifecycle audit trail"
+    },
+    "/admin_security/{emailKey}": {
+      "schema": {
+        "$ref": "#/entities/AdminSecurity"
+      },
+      "description": "Server-only administrator 2FA secrets, recovery hashes, and brute-force lockout records"
+    },
+    "/admin_sessions/{jti}": {
+      "schema": {
+        "$ref": "#/entities/AdminSession"
+      },
+      "description": "Server-only 2FA-verified admin session registry"
     }
   }
 }

@@ -1,7 +1,8 @@
 import { storage, auth } from '../../../services/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { getAdminAuthHeaders } from '../../../utils/adminAuth';
 
-export async function validateAndProcessFile(file: File, circular: boolean): Promise<{ blob: Blob }> {
+export async function validateAndProcessFile(file: File, circular: boolean): Promise<{ blob: Blob; dataUrl: string }> {
   const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
   if (!validTypes.includes(file.type)) {
     throw new Error('Please upload a valid image (PNG, JPG, JPEG, or WebP)');
@@ -59,13 +60,14 @@ export async function validateAndProcessFile(file: File, circular: boolean): Pro
 
         const outputType = 'image/jpeg';
         const quality = 0.85;
+        const compressedDataUrl = canvas.toDataURL(outputType, quality);
 
         try {
           canvas.toBlob((blob) => {
-            resolve({ blob: blob || file });
+            resolve({ blob: blob || file, dataUrl: compressedDataUrl });
           }, outputType, quality);
-        } catch (e) {
-          resolve({ blob: file });
+        } catch {
+          resolve({ blob: file, dataUrl: compressedDataUrl });
         }
       };
       img.onerror = () => reject(new Error('Invalid image file'));
@@ -76,72 +78,88 @@ export async function validateAndProcessFile(file: File, circular: boolean): Pro
   });
 }
 
-/**
- * Uploads a single (already-processed) file to Firebase Storage under uploads/,
- * reporting progress via onProgress (20-99) and resolving with the download URL.
- * Times out after 30s so a stalled/CORS-blocked request surfaces a clear error
- * instead of spinning forever.
- */
 export async function uploadImageFile(
   file: File,
   storagePath: string,
   circular: boolean,
   onProgress: (pct: number) => void
 ): Promise<string> {
-  const { blob } = await validateAndProcessFile(file, circular);
-  onProgress(20);
+  const { blob, dataUrl } = await validateAndProcessFile(file, circular);
+  onProgress(35);
 
-  if (!auth.currentUser) {
-    throw new Error('You must be signed in as an admin to upload images.');
+  // 1. Primary: Upload to server's /api/admin/upload (which writes to /public/uploads and works without Firebase Storage CORS/rules issues)
+  try {
+    const headers = await getAdminAuthHeaders(true);
+    onProgress(65);
+    const res = await fetch('/api/admin/upload', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        base64: dataUrl,
+        mimeType: 'image/jpeg',
+        storagePath,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success && data.url) {
+      onProgress(100);
+      return data.url;
+    }
+  } catch (serverErr) {
+    console.warn('Server upload fallback triggered:', serverErr);
   }
 
-  const fileExt = 'jpg';
-  const safeStoragePath = storagePath.replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 80) || 'image';
-  const randomId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-  const objectPath = `uploads/${safeStoragePath}_${randomId}.${fileExt}`;
-  const storageRef = ref(storage, objectPath);
+  // 2. Secondary: Try Firebase Storage if signed in
+  if (auth.currentUser) {
+    try {
+      const fileExt = 'jpg';
+      const safeStoragePath = storagePath.replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 80) || 'image';
+      const randomId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      const objectPath = `uploads/${safeStoragePath}_${randomId}.${fileExt}`;
+      const storageRef = ref(storage, objectPath);
 
-  return new Promise((resolve, reject) => {
-    const task = uploadBytesResumable(storageRef, blob, { contentType: blob.type || 'image/jpeg' });
+      const url = await new Promise<string>((resolve, reject) => {
+        const task = uploadBytesResumable(storageRef, blob, { contentType: blob.type || 'image/jpeg' });
+        const timeoutId = setTimeout(() => {
+          task.cancel();
+          reject(new Error('Storage upload timed out'));
+        }, 12000);
 
-    const timeoutId = setTimeout(() => {
-      task.cancel();
-      reject(new Error('Upload timed out after 30s. This usually means Firebase Storage is rejecting the request from this domain (CORS) -- check the browser console for a CORS error, and that this domain is allowed in your Storage CORS config.'));
-    }, 30000);
+        task.on(
+          'state_changed',
+          (snapshot) => {
+            const pct = snapshot.totalBytes
+              ? Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 80) + 20
+              : 50;
+            onProgress(Math.min(pct, 99));
+          },
+          (err) => {
+            clearTimeout(timeoutId);
+            reject(err);
+          },
+          async () => {
+            clearTimeout(timeoutId);
+            try {
+              const downloadUrl = await getDownloadURL(task.snapshot.ref);
+              resolve(downloadUrl);
+            } catch (e) {
+              reject(e);
+            }
+          }
+        );
+      });
+      return url;
+    } catch (storageErr) {
+      console.warn('Firebase Storage fallback to dataUrl:', storageErr);
+    }
+  }
 
-    task.on(
-      'state_changed',
-      (snapshot) => {
-        const pct = snapshot.totalBytes
-          ? Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 80) + 20
-          : 50;
-        onProgress(Math.min(pct, 99));
-      },
-      (err) => {
-        clearTimeout(timeoutId);
-        reject(err);
-      },
-      async () => {
-        clearTimeout(timeoutId);
-        try {
-          const url = await getDownloadURL(task.snapshot.ref);
-          resolve(url);
-        } catch (e) {
-          reject(e);
-        }
-      }
-    );
-  });
+  onProgress(100);
+  return dataUrl;
 }
 
 export function describeUploadError(uploadError: any): string {
-  let message = uploadError.message || 'Failed to upload image. Please check your connection and try again.';
-  if (uploadError.code === 'storage/unauthorized') {
-    message = 'Permission denied by Firebase Storage rules. Make sure you are logged in as an admin and that storage.rules has actually been deployed (firebase deploy --only storage).';
-  } else if (uploadError.code === 'storage/unknown' || uploadError.message?.includes('CORS')) {
-    message = 'Upload blocked, likely by CORS. If you recently changed domains, add the new domain to your Firebase Storage bucket CORS config.';
-  }
-  return message;
+  return uploadError?.message || 'Failed to upload image. Please check your connection and try again.';
 }

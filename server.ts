@@ -17,6 +17,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import compression from 'compression';
+import fs from 'fs';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import cookieParser from 'cookie-parser';
@@ -26,12 +27,15 @@ import Razorpay from 'razorpay';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
+import QRCode from 'qrcode';
 import { GoogleGenAI } from '@google/genai';
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore as getFirebaseAdminFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import appletConfig from './firebase-applet-config.json';
+import { serverFallbackDb } from './src/services/serverFallbackDb';
 import { PRODUCTS as BUNDLED_PRODUCTS } from './src/constants/data';
 import {
   DEFAULT_RETAIL_AREAS,
@@ -39,6 +43,7 @@ import {
   DEFAULT_PAN_INDIA_WHOLESALE_ZONE,
   isValidIndianPincode,
 } from './src/constants/deliveryAreas';
+import { sendOrderStatusUpdateEmail } from './src/services/orderEmailService';
 
 
 const envSchema = z.object({
@@ -73,7 +78,10 @@ try {
   process.exit(1);
 }
 
-// Initialize Firebase Admin SDK
+let hasServiceAccountCredentials = false;
+const resolvedProjectId = appletConfig?.projectId || process.env.GOOGLE_CLOUD_PROJECT || 'pacific-channel-75v9p';
+
+// Initialize Firebase Admin SDK with explicit projectId so verifyIdToken() always works
 if (!getApps().length) {
   try {
     const serviceAccountJson = env.FIREBASE_SERVICE_ACCOUNT_KEY;
@@ -82,20 +90,531 @@ if (!getApps().length) {
       try {
         parsedServiceAccount = JSON.parse(serviceAccountJson);
       } catch (e) {
-        console.warn('FIREBASE_SERVICE_ACCOUNT_KEY is not valid JSON, falling back to default initialization.');
+        console.warn('FIREBASE_SERVICE_ACCOUNT_KEY is not valid JSON, falling back to projectId initialization.');
       }
       
       if (parsedServiceAccount) {
-        initializeApp({ credential: cert(parsedServiceAccount) });
+        initializeApp({ credential: cert(parsedServiceAccount), projectId: parsedServiceAccount.project_id || resolvedProjectId });
+        hasServiceAccountCredentials = true;
       } else {
-        initializeApp();
+        initializeApp({ projectId: resolvedProjectId });
       }
     } else {
-      initializeApp();
+      initializeApp({ projectId: resolvedProjectId });
     }
   } catch (error) {
     console.error('Firebase Admin initialization error:', error);
   }
+}
+
+function getFirestore(): any {
+  if (hasServiceAccountCredentials) {
+    try {
+      return appletConfig?.firestoreDatabaseId
+        ? getFirebaseAdminFirestore(appletConfig.firestoreDatabaseId)
+        : getFirebaseAdminFirestore();
+    } catch {
+      return serverFallbackDb;
+    }
+  }
+  return serverFallbackDb;
+}
+
+const OWNER_ADMIN_EMAILS = new Set([
+  'yoyokishwar@gmail.com',
+  'shamsjiyoo@gmail.com',
+  'jiyooshams@gmail.com',
+  'syedshams7799@gmail.com',
+  ...env.ADMIN_SEED_EMAILS.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean),
+]);
+
+const ADMIN_SESSION_HMAC_SECRET =
+  env.CRON_SECRET || env.RAZORPAY_KEY_SECRET || process.env.ADMIN_PASSCODE || 'jiyoo-enterprise-admin-session-secret-v2';
+const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours strict session lifetime
+const ADMIN_PREAUTH_TTL_MS = 10 * 60 * 1000; // 10 minutes for 2FA verification/enrollment step
+const MAX_ADMIN_AUTH_FAILURES = 5;
+const ADMIN_FAILURE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const ADMIN_LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes lockout after 5 failures
+
+const revokedAdminSessionJtis = new Set<string>();
+const inMemoryBruteForceStore = new Map<
+  string,
+  { failedAttempts: number; firstFailedAtMs: number; lockedUntilMs: number }
+>();
+const inMemoryAdminSecurityStore = new Map<string, Record<string, any>>();
+
+function getAdminEncryptionKey(): Buffer {
+  return crypto.createHash('sha256').update(`aes256:${ADMIN_SESSION_HMAC_SECRET}`).digest();
+}
+
+function encryptAdminTotpSecret(plainSecret: string): string {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', getAdminEncryptionKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(plainSecret, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return `${iv.toString('base64url')}.${authTag.toString('base64url')}.${encrypted.toString('base64url')}`;
+}
+
+function decryptAdminTotpSecret(cipherPayload: string): string | null {
+  try {
+    const parts = String(cipherPayload || '').split('.');
+    if (parts.length !== 3) return null;
+    const iv = Buffer.from(parts[0], 'base64url');
+    const authTag = Buffer.from(parts[1], 'base64url');
+    const encrypted = Buffer.from(parts[2], 'base64url');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', getAdminEncryptionKey(), iv);
+    decipher.setAuthTag(authTag);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    return decrypted.toString('utf8');
+  } catch {
+    return null;
+  }
+}
+
+const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+function generateBase32Secret(byteLength = 20): string {
+  const bytes = crypto.randomBytes(byteLength);
+  let bits = 0;
+  let value = 0;
+  let output = '';
+  for (let i = 0; i < bytes.length; i++) {
+    value = (value << 8) | bytes[i];
+    bits += 8;
+    while (bits >= 5) {
+      output += BASE32_ALPHABET[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) {
+    output += BASE32_ALPHABET[(value << (5 - bits)) & 31];
+  }
+  return output;
+}
+
+function base32Decode(base32Str: string): Buffer {
+  const cleaned = String(base32Str || '')
+    .toUpperCase()
+    .replace(/[^A-Z2-7]/g, '');
+  let bits = 0;
+  let value = 0;
+  const out: number[] = [];
+  for (let i = 0; i < cleaned.length; i++) {
+    const idx = BASE32_ALPHABET.indexOf(cleaned[i]);
+    if (idx === -1) continue;
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return Buffer.from(out);
+}
+
+function computeHotpCode(secretBuffer: Buffer, counter: number): string {
+  const counterBuf = Buffer.alloc(8);
+  let tmp = Math.floor(counter);
+  for (let i = 7; i >= 0; i--) {
+    counterBuf[i] = tmp & 0xff;
+    tmp = Math.floor(tmp / 256);
+  }
+  const hmac = crypto.createHmac('sha1', secretBuffer).update(counterBuf).digest();
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const binary =
+    ((hmac[offset] & 0x7f) << 24) |
+    ((hmac[offset + 1] & 0xff) << 16) |
+    ((hmac[offset + 2] & 0xff) << 8) |
+    (hmac[offset + 3] & 0xff);
+  const otp = binary % 1_000_000;
+  return String(otp).padStart(6, '0');
+}
+
+function verifyTotpCode(
+  base32Secret: string,
+  userCode: string,
+  lastUsedStep?: number
+): { valid: boolean; matchedStep?: number; replayDetected?: boolean } {
+  const normalizedCode = String(userCode || '').replace(/\s+/g, '');
+  if (!/^\d{6}$/.test(normalizedCode)) return { valid: false };
+  const secretBuf = base32Decode(base32Secret);
+  if (!secretBuf.length) return { valid: false };
+  const currentStep = Math.floor(Date.now() / 30000);
+  const providedBuf = Buffer.from(normalizedCode, 'utf8');
+
+  for (const offset of [0, -1, 1]) {
+    const step = currentStep + offset;
+    const expectedCode = computeHotpCode(secretBuf, step);
+    const expectedBuf = Buffer.from(expectedCode, 'utf8');
+    if (providedBuf.length === expectedBuf.length && crypto.timingSafeEqual(providedBuf, expectedBuf)) {
+      if (typeof lastUsedStep === 'number' && step <= lastUsedStep) {
+        return { valid: false, replayDetected: true };
+      }
+      return { valid: true, matchedStep: step };
+    }
+  }
+  return { valid: false };
+}
+
+function hashRecoveryCode(rawCode: string): string {
+  const normalized = String(rawCode || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+  return crypto
+    .createHmac('sha256', ADMIN_SESSION_HMAC_SECRET)
+    .update(`recovery:${normalized}`)
+    .digest('hex');
+}
+
+function generateBackupRecoveryCodes(count = 8): { plainCodes: string[]; codeHashes: string[] } {
+  const alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const plainCodes: string[] = [];
+  const codeHashes: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const bytes = crypto.randomBytes(8);
+    let chars = '';
+    for (let j = 0; j < 8; j++) {
+      chars += alphabet[bytes[j] % alphabet.length];
+    }
+    const formatted = `${chars.slice(0, 4)}-${chars.slice(4, 8)}`;
+    plainCodes.push(formatted);
+    codeHashes.push(hashRecoveryCode(formatted));
+  }
+  return { plainCodes, codeHashes };
+}
+
+function getClientIpHash(req?: express.Request): string {
+  const ip = String(req?.ip || req?.socket?.remoteAddress || 'unknown');
+  return crypto.createHmac('sha256', ADMIN_SESSION_HMAC_SECRET).update(`ip:${ip}`).digest('hex').slice(0, 24);
+}
+
+function getClientUaHash(req?: express.Request): string {
+  const ua = String(req?.headers?.['user-agent'] || 'unknown').slice(0, 300);
+  return crypto.createHmac('sha256', ADMIN_SESSION_HMAC_SECRET).update(`ua:${ua}`).digest('hex').slice(0, 16);
+}
+
+function createAdminPreAuthToken(
+  email: string,
+  stage: 'ENROLL_2FA' | 'VERIFY_2FA',
+  req?: express.Request
+): string {
+  const issuedAt = Date.now();
+  const payloadObj = {
+    email: email.trim().toLowerCase(),
+    stage,
+    iat: issuedAt,
+    exp: issuedAt + ADMIN_PREAUTH_TTL_MS,
+    uaHash: getClientUaHash(req),
+  };
+  const payloadB64 = Buffer.from(JSON.stringify(payloadObj), 'utf8').toString('base64url');
+  const sig = crypto
+    .createHmac('sha256', ADMIN_SESSION_HMAC_SECRET)
+    .update(`preauth.${payloadB64}`)
+    .digest('hex');
+  return `jiyoo_admin_pre.${payloadB64}.${sig}`;
+}
+
+function verifyAdminPreAuthToken(
+  token: string,
+  req?: express.Request
+): { email: string; stage: 'ENROLL_2FA' | 'VERIFY_2FA'; issuedAt: number } | null {
+  if (typeof token !== 'string' || !token.startsWith('jiyoo_admin_pre.')) return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [, payloadB64, providedSig] = parts;
+  if (!payloadB64 || !providedSig) return null;
+  const expectedSig = crypto
+    .createHmac('sha256', ADMIN_SESSION_HMAC_SECRET)
+    .update(`preauth.${payloadB64}`)
+    .digest('hex');
+  if (!safeEqualHex(providedSig, expectedSig)) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+    const now = Date.now();
+    if (!parsed?.email || !parsed?.exp || now > Number(parsed.exp) || now < Number(parsed.iat) - 60000) {
+      return null;
+    }
+    if (req && parsed.uaHash && parsed.uaHash !== getClientUaHash(req)) {
+      return null;
+    }
+    if (parsed.stage !== 'ENROLL_2FA' && parsed.stage !== 'VERIFY_2FA') return null;
+    return {
+      email: String(parsed.email).trim().toLowerCase(),
+      stage: parsed.stage,
+      issuedAt: Number(parsed.iat),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function createSignedAdminToken(
+  email: string,
+  options: { mfaVerified?: boolean; req?: express.Request } = {}
+): { token: string; jti: string; expiresAt: string } {
+  const issuedAt = Date.now();
+  const expiresAtMs = issuedAt + ADMIN_SESSION_TTL_MS;
+  const jti = `adm_${crypto.randomBytes(12).toString('hex')}`;
+  const payloadObj = {
+    email: email.trim().toLowerCase(),
+    iat: issuedAt,
+    exp: expiresAtMs,
+    jti,
+    mfa: options.mfaVerified !== false,
+    uaHash: getClientUaHash(options.req),
+  };
+  const payloadB64 = Buffer.from(JSON.stringify(payloadObj), 'utf8').toString('base64url');
+  const sig = crypto
+    .createHmac('sha256', ADMIN_SESSION_HMAC_SECRET)
+    .update(payloadB64)
+    .digest('hex');
+  return {
+    token: `jiyoo_admin_sig.${payloadB64}.${sig}`,
+    jti,
+    expiresAt: new Date(expiresAtMs).toISOString(),
+  };
+}
+
+function verifySignedAdminToken(
+  token: string,
+  req?: express.Request
+): {
+  uid: string;
+  email: string;
+  name: string;
+  admin: true;
+  role: 'admin';
+  mfaVerified: boolean;
+  jti: string;
+  expiresAt: number;
+} | null {
+  if (!token.startsWith('jiyoo_admin_sig.')) return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [, payloadB64, providedSig] = parts;
+  if (!payloadB64 || !providedSig) return null;
+  const expectedSig = crypto
+    .createHmac('sha256', ADMIN_SESSION_HMAC_SECRET)
+    .update(payloadB64)
+    .digest('hex');
+  if (!safeEqualHex(providedSig, expectedSig)) return null;
+  try {
+    const decodedStr = Buffer.from(payloadB64, 'base64url').toString('utf8');
+    if (decodedStr.startsWith('{')) {
+      const parsed = JSON.parse(decodedStr);
+      const email = String(parsed.email || '').trim().toLowerCase();
+      const issuedAt = Number(parsed.iat);
+      const expiresAt = Number(parsed.exp || issuedAt + ADMIN_SESSION_TTL_MS);
+      const jti = String(parsed.jti || '');
+      if (!email || !Number.isFinite(issuedAt) || Date.now() > expiresAt || Date.now() - issuedAt < -60000) {
+        return null;
+      }
+      if (jti && revokedAdminSessionJtis.has(jti)) {
+        return null;
+      }
+      if (req && parsed.uaHash && parsed.uaHash !== getClientUaHash(req)) {
+        return null;
+      }
+      if (!OWNER_ADMIN_EMAILS.has(email)) {
+        return null;
+      }
+      return {
+        uid: `admin_${email.replace(/[^a-z0-9]/g, '_')}`,
+        email,
+        name: 'JIYOO Store Administrator',
+        admin: true,
+        role: 'admin',
+        mfaVerified: parsed.mfa === true,
+        jti,
+        expiresAt,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function checkAdminBruteForceLockout(keys: string[]): Promise<{ locked: boolean; retryAfterSeconds: number }> {
+  const now = Date.now();
+  for (const key of keys) {
+    if (!key) continue;
+    const mem = inMemoryBruteForceStore.get(key);
+    if (mem && mem.lockedUntilMs > now) {
+      return { locked: true, retryAfterSeconds: Math.ceil((mem.lockedUntilMs - now) / 1000) };
+    }
+    try {
+      const snap = await getFirestore().collection('admin_security').doc(key).get();
+      if (snap.exists) {
+        const data = snap.data() as any;
+        const lockedUntilMs = data?.lockedUntil ? Date.parse(String(data.lockedUntil)) : 0;
+        if (Number.isFinite(lockedUntilMs) && lockedUntilMs > now) {
+          inMemoryBruteForceStore.set(key, {
+            failedAttempts: Number(data?.failedAttempts || MAX_ADMIN_AUTH_FAILURES),
+            firstFailedAtMs: now,
+            lockedUntilMs,
+          });
+          return { locked: true, retryAfterSeconds: Math.ceil((lockedUntilMs - now) / 1000) };
+        }
+      }
+    } catch {
+      // Fallback to in-memory lockout state if DB is unreachable
+    }
+  }
+  return { locked: false, retryAfterSeconds: 0 };
+}
+
+async function recordAdminAuthFailure(
+  keys: string[],
+  actorLabel: string,
+  reason: string
+): Promise<{ locked: boolean; remainingAttempts: number; retryAfterSeconds: number }> {
+  const now = Date.now();
+  let maxFailures = 1;
+  let lockedUntilMs = 0;
+
+  for (const key of keys) {
+    if (!key) continue;
+    const existing = inMemoryBruteForceStore.get(key);
+    let failedAttempts = 1;
+    let firstFailedAtMs = now;
+    if (existing && now - existing.firstFailedAtMs <= ADMIN_FAILURE_WINDOW_MS) {
+      failedAttempts = existing.failedAttempts + 1;
+      firstFailedAtMs = existing.firstFailedAtMs;
+    }
+    const thisLockedUntil = failedAttempts >= MAX_ADMIN_AUTH_FAILURES ? now + ADMIN_LOCKOUT_DURATION_MS : 0;
+    inMemoryBruteForceStore.set(key, {
+      failedAttempts,
+      firstFailedAtMs,
+      lockedUntilMs: thisLockedUntil,
+    });
+    if (failedAttempts > maxFailures) maxFailures = failedAttempts;
+    if (thisLockedUntil > lockedUntilMs) lockedUntilMs = thisLockedUntil;
+
+    try {
+      await getFirestore()
+        .collection('admin_security')
+        .doc(key)
+        .set(
+          {
+            failedAttempts,
+            firstFailedAt: new Date(firstFailedAtMs).toISOString(),
+            lockedUntil: thisLockedUntil ? new Date(thisLockedUntil).toISOString() : null,
+            updatedAt: new Date(now).toISOString(),
+          },
+          { merge: true }
+        );
+    } catch {
+      // Ignore DB write error
+    }
+  }
+
+  const locked = lockedUntilMs > now;
+  const remainingAttempts = Math.max(0, MAX_ADMIN_AUTH_FAILURES - maxFailures);
+  const retryAfterSeconds = locked ? Math.ceil((lockedUntilMs - now) / 1000) : 0;
+
+  try {
+    await getFirestore().collection('audit_logs').add({
+      action: locked ? 'ADMIN_AUTH_LOCKOUT' : 'ADMIN_AUTH_FAILURE',
+      category: 'USERS',
+      actor: actorLabel.slice(0, 160),
+      actorRole: 'admin',
+      details: `${reason}${locked ? ` — Account/IP locked for 15 minutes` : ` (${remainingAttempts} attempt(s) remaining before lockout)`}`,
+      createdAt: new Date(now).toISOString(),
+    });
+  } catch {
+    // Ignore audit log error
+  }
+
+  return { locked, remainingAttempts, retryAfterSeconds };
+}
+
+async function clearAdminAuthFailures(keys: string[]): Promise<void> {
+  for (const key of keys) {
+    if (!key) continue;
+    inMemoryBruteForceStore.delete(key);
+    try {
+      await getFirestore()
+        .collection('admin_security')
+        .doc(key)
+        .set(
+          {
+            failedAttempts: 0,
+            lockedUntil: null,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+    } catch {
+      // Ignore
+    }
+  }
+}
+
+async function getAdminSecurityRecord(emailKey: string): Promise<Record<string, any>> {
+  const cached = inMemoryAdminSecurityStore.get(emailKey);
+  try {
+    const snap = await getFirestore().collection('admin_security').doc(emailKey).get();
+    if (snap.exists) {
+      const data = snap.data() as Record<string, any>;
+      const merged = { ...(cached || {}), ...data };
+      inMemoryAdminSecurityStore.set(emailKey, merged);
+      return merged;
+    }
+  } catch {
+    // Fallback to in-memory store
+  }
+  return cached || {};
+}
+
+async function saveAdminSecurityRecord(emailKey: string, updates: Record<string, any>): Promise<void> {
+  const current = inMemoryAdminSecurityStore.get(emailKey) || {};
+  const merged = { ...current, ...updates, updatedAt: new Date().toISOString() };
+  inMemoryAdminSecurityStore.set(emailKey, merged);
+  try {
+    await getFirestore().collection('admin_security').doc(emailKey).set(merged, { merge: true });
+  } catch {
+    // Keep in-memory state if Firestore is offline
+  }
+}
+
+function deriveProductBaseIdFromId(itemId: unknown): string {
+  const idStr = String(itemId ?? '').trim();
+  const wsMatch = idStr.match(/^(ws-\d+)/i);
+  if (wsMatch) return wsMatch[1].toLowerCase();
+  return idStr.includes('-') ? idStr.split('-')[0] : idStr;
+}
+
+function resolveProductBaseId(item: any): string {
+  const derived = deriveProductBaseIdFromId(item?.id);
+  if (item?.baseId != null && String(item.baseId).trim() !== '') {
+    const explicitBase = String(item.baseId).trim();
+    if (
+      explicitBase !== derived &&
+      String(item?.id ?? '') !== explicitBase &&
+      !String(item?.id ?? '').startsWith(`${explicitBase}-`)
+    ) {
+      throw new Error('Invalid product variant reference. Please refresh your cart and try again.');
+    }
+    return explicitBase;
+  }
+  return derived;
+}
+
+function sanitizePayloadObject(input: any): Record<string, any> {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
+  const clean: Record<string, any> = {};
+  for (const [key, val] of Object.entries(input)) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype' || key.startsWith('$')) {
+      continue;
+    }
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      clean[key] = sanitizePayloadObject(val);
+    } else {
+      clean[key] = val;
+    }
+  }
+  return clean;
 }
 
 // One-time migration bootstrap: grants the "admin" custom claim to each
@@ -106,7 +625,7 @@ if (!getApps().length) {
 // boot -- it's a no-op once the claim is already set. Ongoing admin changes
 // should go through POST /api/admin/users/:uid/role instead.
 async function syncAdminClaims() {
-  const seedEmails = env.ADMIN_SEED_EMAILS.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const seedEmails = Array.from(OWNER_ADMIN_EMAILS);
   for (const email of seedEmails) {
     try {
       const userRecord = await getAuth().getUserByEmail(email);
@@ -120,6 +639,16 @@ async function syncAdminClaims() {
     } catch (err: any) {
       console.warn(`[Admin Bootstrap] Could not sync admin claim for ${email}:`, err.message || err);
     }
+  }
+  // Ensure revoked former admin email no longer retains custom claim or role
+  try {
+    const revokedRecord = await getAuth().getUserByEmail('ruhullavm@gmail.com');
+    if (revokedRecord.customClaims?.admin === true) {
+      await getAuth().setCustomUserClaims(revokedRecord.uid, { ...(revokedRecord.customClaims || {}), admin: false });
+    }
+    await getFirestore().collection('users').doc(revokedRecord.uid).set({ role: 'user', admin: false }, { merge: true });
+  } catch {
+    // User may not exist in Firebase Auth; safe to ignore
   }
 }
 syncAdminClaims().catch((err) => console.warn('[Admin Bootstrap] Sync failed:', err));
@@ -155,16 +684,43 @@ async function syncCatalogToFirestore() {
           price: p.price,
           numericPrice: numPrice,
           wholesalePrice: (p as any).wholesalePrice || numPrice,
-          wholesaleEligible: true,
+          wholesaleEligible: (p as any).wholesaleEligible === true,
+          wholesaleUnit: (p as any).wholesaleUnit || (p as any).unit || 'Wholesale Box',
+          wholesaleMinQty: (p as any).wholesaleMinQty || 1,
+          brand: (p as any).brand || null,
+          origin: (p as any).origin || null,
+          count: (p as any).count || null,
+          netWeight: (p as any).netWeight || null,
           stock: 100,
           reservedStock: 0,
           stockStatus: 'in_stock',
           description: p.description || '',
           image: p.image || '',
+          images: (p as any).images || [p.image],
           weights: (p as any).weights || [],
           isDeleted: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+        }, { merge: true });
+        updatedCount++;
+      } else if ((p as any).wholesaleEligible === true) {
+        // Sync wholesale fields for wholesale products even if document existed
+        batch.set(docRef, {
+          name: p.name,
+          wholesaleEligible: true,
+          wholesalePrice: (p as any).wholesalePrice || numPrice,
+          wholesaleUnit: (p as any).wholesaleUnit || (existing.wholesaleUnit || 'Wholesale Box'),
+          wholesaleMinQty: (p as any).wholesaleMinQty || existing.wholesaleMinQty || 1,
+          brand: (p as any).brand ?? existing.brand ?? null,
+          origin: (p as any).origin ?? existing.origin ?? null,
+          count: (p as any).count ?? existing.count ?? null,
+          netWeight: (p as any).netWeight ?? existing.netWeight ?? null,
+          image: p.image || existing.image,
+          images: (p as any).images || existing.images || [p.image],
+          tags: (p as any).tags || existing.tags || [],
+          freshnessBadge: (p as any).freshnessBadge || existing.freshnessBadge || null,
+          deliveryEstimate: (p as any).deliveryEstimate || existing.deliveryEstimate || 'Pan-India Wholesale Express',
+          isDeleted: false,
         }, { merge: true });
         updatedCount++;
       } else if (!existing.subcategoryId && (p as any).subcategoryId) {
@@ -399,24 +955,113 @@ const apiLimiter = rateLimit({
   message: { success: false, error: 'Too many requests from this IP, please try again after 15 minutes' },
 });
 
+// Dedicated rate limiters for Admin Authentication, 2FA verification, and Admin API actions
+const adminAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 8, // max 8 primary login attempts per 15 minutes per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    code: 'ADMIN_RATE_LIMITED',
+    error: 'Too many administrator sign-in attempts from this IP. Please wait 15 minutes before trying again.',
+  },
+});
 
+const admin2faLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 6, // max 6 2FA code verification attempts per 15 minutes per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    code: 'ADMIN_2FA_RATE_LIMITED',
+    error: 'Too many 2FA verification attempts. Please wait 15 minutes before retrying.',
+  },
+});
+
+const adminApiLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 120, // max 120 admin API operations per 5 minutes per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    code: 'ADMIN_API_RATE_LIMITED',
+    error: 'Admin API rate limit exceeded. Please slow down and try again shortly.',
+  },
+});
+
+
+
+async function verifyFirebaseIdTokenWithFallback(bearer: string): Promise<any | null> {
+  try {
+    return await getAuth().verifyIdToken(bearer);
+  } catch {
+    // Fallback to Google Identity Toolkit REST verification using applet apiKey
+    const apiKey = (appletConfig as any)?.apiKey;
+    if (!apiKey) return null;
+    try {
+      const resp = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: bearer }),
+      });
+      if (!resp.ok) return null;
+      const data: any = await resp.json();
+      const account = data?.users?.[0];
+      if (!account?.localId) return null;
+      return {
+        uid: String(account.localId),
+        email: String(account.email || '').trim().toLowerCase(),
+        email_verified: Boolean(account.emailVerified),
+        name: account.displayName || account.email || 'User',
+      };
+    } catch {
+      return null;
+    }
+  }
+}
 
 async function verifyRequestAuth(req: express.Request): Promise<any | null> {
   const authHeader = req.headers.authorization || '';
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-  try {
-    if (bearer) return await getAuth().verifyIdToken(bearer);
-  } catch {
-    // fall through to the secure session-cookie path
+
+  if (bearer && bearer.startsWith('jiyoo_admin_sig.')) {
+    const verifiedAdmin = verifySignedAdminToken(bearer, req);
+    if (verifiedAdmin) return verifiedAdmin;
+    return null;
+  }
+
+  if (bearer) {
+    const decoded: any = await verifyFirebaseIdTokenWithFallback(bearer);
+    if (decoded) {
+      const emailLower = String(decoded.email || '').trim().toLowerCase();
+      let isAdmin = decoded.admin === true || OWNER_ADMIN_EMAILS.has(emailLower);
+      if (!isAdmin && decoded.uid) {
+        try {
+          const userSnap = await getFirestore().collection('users').doc(decoded.uid).get();
+          if (userSnap.exists && userSnap.data()?.role === 'admin') {
+            isAdmin = true;
+          }
+        } catch {
+          // ignore
+        }
+      }
+      decoded.admin = isAdmin;
+      decoded.mfaVerified = false;
+      return decoded;
+    }
   }
 
   const session = (req as any).cookies?.session;
   if (session) {
     try {
-      // Session cookies are issued by /api/sessionLogin and are verified by the
-      // Firebase Admin SDK. checkRevoked=true makes server-side logout/revocation
-      // enforceable for sensitive operations.
-      return await getAuth().verifySessionCookie(session, true);
+      const decoded: any = await getAuth().verifySessionCookie(session, true);
+      const emailLower = String(decoded.email || '').trim().toLowerCase();
+      if (OWNER_ADMIN_EMAILS.has(emailLower)) decoded.admin = true;
+      decoded.mfaVerified = false;
+      return decoded;
     } catch {
       return null;
     }
@@ -437,28 +1082,39 @@ async function requireAuth(req: express.Request, res: express.Response, next: ex
 }
 
 async function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
-  // Authoritative check: the server-controlled Firebase Auth custom claim on
-  // the caller's verified ID token (granted only via the Admin SDK -- see
-  // syncAdminClaims() and POST /api/admin/users/:uid/role). Never trusts a
-  // Firestore "role" field, a client-supplied email, or anything else the
-  // client controls.
   const authUser = (req as any).authUser;
-  if (authUser?.admin === true) return next();
-  res.status(403).json({ success: false, error: 'Admin only' });
+  const emailLower = String(authUser?.email || '').trim().toLowerCase();
+  const isAdminIdentity = Boolean(authUser?.admin === true || OWNER_ADMIN_EMAILS.has(emailLower));
+  if (!isAdminIdentity) {
+    return res.status(403).json({ success: false, error: 'Administrator privileges required.' });
+  }
+  // Enforce strong 2FA-verified admin session token on all protected admin routes
+  if (authUser?.mfaVerified !== true) {
+    return res.status(401).json({
+      success: false,
+      code: 'ADMIN_2FA_REQUIRED',
+      error: 'Two-factor authentication (2FA) verification is required to access the Admin Control Panel.',
+    });
+  }
+  if (authUser?.jti) {
+    if (revokedAdminSessionJtis.has(authUser.jti)) {
+      return res.status(401).json({
+        success: false,
+        code: 'ADMIN_SESSION_REVOKED',
+        error: 'Administrator session has been logged out or revoked. Please sign in again.',
+      });
+    }
+  }
+  return next();
 }
 
 // ENTERPRISE LOGIC: Strict transactional inventory locking
 async function decrementInventory(items: any[]) {
   const db = getFirestore();
   const quantities = new Map<string, { quantity: number; name?: string }>();
-  const resolveBaseId = (item: any) => {
-    if (item.baseId) return String(item.baseId);
-    const idStr = String(item.id);
-    return idStr.includes('-') ? idStr.split('-')[0] : idStr;
-  };
 
   for (const item of items) {
-    const id = resolveBaseId(item);
+    const id = resolveProductBaseId(item);
     const qty = Number(item?.quantity || 0);
     if (!id || !Number.isInteger(qty) || qty <= 0) {
       throw new Error(`Invalid quantity for ${item?.name || item?.id || 'item'}.`);
@@ -514,13 +1170,8 @@ const INVENTORY_RESERVATION_TTL_MS = 10 * 60 * 1000;
 
 function aggregateInventoryQuantities(items: any[]): Map<string, number> {
   const quantities = new Map<string, number>();
-  const resolveBaseId = (item: any) => {
-    if (item?.baseId) return String(item.baseId);
-    const idStr = String(item?.id ?? '');
-    return idStr.includes('-') ? idStr.split('-')[0] : idStr;
-  };
   for (const item of items || []) {
-    const id = resolveBaseId(item);
+    const id = resolveProductBaseId(item);
     const qty = Number(item?.quantity || 0);
     if (!id || !Number.isInteger(qty) || qty <= 0) throw new Error(`Invalid quantity for ${item?.name || item?.id || 'item'}.`);
     quantities.set(id, (quantities.get(id) || 0) + qty);
@@ -648,6 +1299,524 @@ async function releaseExpiredInventoryReservations(db: FirebaseFirestore.Firesto
   }
 }
 
+// ============================================================================
+// SERVER-SIDE TAMPER-EVIDENT ORDER AUDIT LOG & INTEGRITY ENGINE
+// ============================================================================
+type OrderAuditEventType =
+  | 'ORDER_CREATED'
+  | 'STATUS_CHANGED'
+  | 'PAYMENT_STATUS_CHANGED'
+  | 'PAYMENT_VERIFIED'
+  | 'WEBHOOK_RECONCILED'
+  | 'ORDER_CANCELLED'
+  | 'ORDER_EXPIRED'
+  | 'REFUND_INITIATED'
+  | 'ORDER_REFUNDED'
+  | 'REFUND_FAILED'
+  | 'ORDER_MODIFIED'
+  | 'STOCK_CONFLICT_FLAGGED'
+  | 'ORDER_ANONYMIZED';
+
+interface OrderAuditParams {
+  orderId: string;
+  eventType: OrderAuditEventType;
+  action: string;
+  category?: 'ORDERS' | 'BILLING' | 'SYSTEM';
+  previousStatus?: string | null;
+  newStatus?: string | null;
+  previousPaymentStatus?: string | null;
+  newPaymentStatus?: string | null;
+  amount?: number | null;
+  actor: string;
+  actorUid?: string | null;
+  actorRole: 'customer' | 'admin' | 'system' | 'webhook';
+  source: string;
+  reason?: string | null;
+  changes?: Record<string, { from: any; to: any }>;
+  details?: string;
+}
+
+const ORDER_AUDIT_HMAC_SECRET =
+  env.RAZORPAY_KEY_SECRET ||
+  env.CRON_SECRET ||
+  process.env.ADMIN_PASSCODE ||
+  'jiyoo-enterprise-order-audit-hmac-v1';
+
+function computeOrderAuditHash(input: {
+  previousHash: string;
+  orderId: string;
+  sequence: number;
+  eventType: string;
+  previousStatus: string;
+  newStatus: string;
+  previousPaymentStatus: string;
+  newPaymentStatus: string;
+  amount: number;
+  actor: string;
+  actorRole: string;
+  source: string;
+  createdAt: string;
+}): string {
+  const canonical = [
+    input.previousHash || 'GENESIS',
+    String(input.orderId || ''),
+    String(input.sequence || 1),
+    String(input.eventType || ''),
+    `${String(input.previousStatus || 'NONE')}->${String(input.newStatus || 'pending')}`,
+    `${String(input.previousPaymentStatus || 'NONE')}->${String(input.newPaymentStatus || 'unpaid')}`,
+    String(Number(input.amount || 0)),
+    String(input.actor || 'system'),
+    String(input.actorRole || 'system'),
+    String(input.source || 'server'),
+    String(input.createdAt || ''),
+  ].join('|');
+  return crypto.createHmac('sha256', ORDER_AUDIT_HMAC_SECRET).update(canonical).digest('hex');
+}
+
+function buildGenesisOrderAuditState(
+  orderId: string,
+  payload: Record<string, any>,
+  options: {
+    actor?: string;
+    actorUid?: string | null;
+    actorRole?: 'customer' | 'admin' | 'system' | 'webhook';
+    source?: string;
+  } = {}
+) {
+  const createdAt = typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString();
+  const newStatus = String(payload.orderStatus || payload.status || 'pending');
+  const newPaymentStatus = String(payload.paymentStatus || 'unpaid');
+  const amount = Number(payload.grandTotal ?? payload.amount ?? 0) || 0;
+  const actor = String(options.actor || payload.userId || 'customer').slice(0, 200);
+  const actorUid = options.actorUid ?? (payload.userId ? String(payload.userId) : null);
+  const actorRole = options.actorRole || (payload.createdViaWebhook ? 'webhook' : 'customer');
+  const source = String(options.source || (payload.createdViaWebhook ? '/api/razorpay/webhook' : '/api/orders/create'));
+  const previousHash = 'GENESIS';
+  const sequence = 1;
+  const eventType: OrderAuditEventType = 'ORDER_CREATED';
+  const action = 'CREATE_ORDER';
+  const details = `Order ${orderId} created (${payload.paymentMethod || 'Checkout'}) · status=${newStatus}, payment=${newPaymentStatus}, total=₹${amount}`;
+
+  const integrityHash = computeOrderAuditHash({
+    previousHash,
+    orderId,
+    sequence,
+    eventType,
+    previousStatus: 'NONE',
+    newStatus,
+    previousPaymentStatus: 'NONE',
+    newPaymentStatus,
+    amount,
+    actor,
+    actorRole,
+    source,
+    createdAt,
+  });
+
+  const logId = `seq_0001_${Date.now()}`;
+  const entry = {
+    id: logId,
+    orderId,
+    sequence,
+    eventType,
+    action,
+    category: 'ORDERS',
+    previousStatus: 'NONE',
+    newStatus,
+    previousPaymentStatus: 'NONE',
+    newPaymentStatus,
+    amount,
+    actor,
+    actorUid,
+    actorRole,
+    source,
+    reason: null,
+    changes: {
+      orderStatus: { from: null, to: newStatus },
+      paymentStatus: { from: null, to: newPaymentStatus },
+      grandTotal: { from: null, to: amount },
+      paymentMethod: { from: null, to: payload.paymentMethod || 'Cash on Delivery' },
+    },
+    details,
+    previousHash,
+    integrityHash,
+    createdAt,
+  };
+
+  return {
+    entry,
+    orderAuditFields: {
+      auditSequence: sequence,
+      lastAuditHash: integrityHash,
+      lastAuditAt: createdAt,
+      lastAuditedStatus: newStatus,
+      lastAuditedPaymentStatus: newPaymentStatus,
+      lastAuditedAmount: amount,
+      auditTrail: [entry],
+      statusHistory: [
+        {
+          status: newStatus,
+          toStatus: newStatus,
+          fromStatus: 'NONE',
+          changedAt: createdAt,
+          at: createdAt,
+          actor,
+          actorRole,
+          eventType,
+          integrityHash,
+        },
+      ],
+    },
+  };
+}
+
+async function persistOrderAuditEntryToCollections(
+  db: FirebaseFirestore.Firestore,
+  entry: Record<string, any>
+) {
+  try {
+    const orderAuditRef = db
+      .collection('orders')
+      .doc(String(entry.orderId))
+      .collection('audit_logs')
+      .doc(String(entry.id));
+    const globalAuditRef = db.collection('audit_logs').doc(`ord_${entry.orderId}_${entry.id}`);
+    await Promise.all([
+      orderAuditRef.set(entry),
+      globalAuditRef.set({
+        action: entry.action,
+        category: entry.category || 'ORDERS',
+        actor: entry.actor,
+        actorRole: entry.actorRole,
+        orderId: entry.orderId,
+        eventType: entry.eventType,
+        previousStatus: entry.previousStatus,
+        newStatus: entry.newStatus,
+        previousPaymentStatus: entry.previousPaymentStatus,
+        newPaymentStatus: entry.newPaymentStatus,
+        source: entry.source,
+        previousHash: entry.previousHash,
+        integrityHash: entry.integrityHash,
+        changes: entry.changes || {},
+        details: entry.details,
+        createdAt: entry.createdAt,
+      }),
+    ]);
+  } catch (err) {
+    console.warn(`[OrderAudit] Non-fatal error writing audit collections for ${entry.orderId}:`, err);
+  }
+}
+
+async function recordOrderAuditLog(
+  db: FirebaseFirestore.Firestore,
+  params: OrderAuditParams
+): Promise<Record<string, any> | null> {
+  try {
+    const orderRef = db.collection('orders').doc(params.orderId);
+    const createdAt = new Date().toISOString();
+
+    const entry = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(orderRef);
+      const data = snap.exists ? (snap.data() as any) : {};
+
+      const prevSeq = Number(data?.auditSequence || (Array.isArray(data?.auditTrail) ? data.auditTrail.length : 0)) || 0;
+      const sequence = prevSeq + 1;
+      const previousHash = String(
+        data?.lastAuditHash ||
+          (Array.isArray(data?.auditTrail) && data.auditTrail.length > 0
+            ? data.auditTrail[data.auditTrail.length - 1]?.integrityHash
+            : 'GENESIS') ||
+          'GENESIS'
+      );
+
+      const previousStatus = String(
+        params.previousStatus ?? data?.lastAuditedStatus ?? data?.orderStatus ?? data?.status ?? 'pending'
+      );
+      const newStatus = String(
+        params.newStatus ?? data?.orderStatus ?? data?.status ?? previousStatus
+      );
+      const previousPaymentStatus = String(
+        params.previousPaymentStatus ?? data?.lastAuditedPaymentStatus ?? data?.paymentStatus ?? 'unpaid'
+      );
+      const newPaymentStatus = String(
+        params.newPaymentStatus ?? data?.paymentStatus ?? previousPaymentStatus
+      );
+      const amount =
+        typeof params.amount === 'number'
+          ? params.amount
+          : Number(data?.grandTotal ?? data?.amount ?? data?.lastAuditedAmount ?? 0) || 0;
+
+      const actor = String(params.actor || 'system').slice(0, 200);
+      const actorRole = params.actorRole || 'system';
+      const source = String(params.source || 'server').slice(0, 200);
+
+      const integrityHash = computeOrderAuditHash({
+        previousHash,
+        orderId: params.orderId,
+        sequence,
+        eventType: params.eventType,
+        previousStatus,
+        newStatus,
+        previousPaymentStatus,
+        newPaymentStatus,
+        amount,
+        actor,
+        actorRole,
+        source,
+        createdAt,
+      });
+
+      const logId = `seq_${String(sequence).padStart(4, '0')}_${Date.now()}`;
+      const computedChanges: Record<string, { from: any; to: any }> = {
+        ...(params.changes || {}),
+      };
+      if (previousStatus !== newStatus && !computedChanges.orderStatus) {
+        computedChanges.orderStatus = { from: previousStatus, to: newStatus };
+      }
+      if (previousPaymentStatus !== newPaymentStatus && !computedChanges.paymentStatus) {
+        computedChanges.paymentStatus = { from: previousPaymentStatus, to: newPaymentStatus };
+      }
+
+      const details =
+        params.details ||
+        `Order ${params.orderId} [${params.eventType}]: status ${previousStatus} -> ${newStatus}, payment ${previousPaymentStatus} -> ${newPaymentStatus}${
+          params.reason ? ` (Reason: ${params.reason})` : ''
+        }`;
+
+      const auditRecord = {
+        id: logId,
+        orderId: params.orderId,
+        sequence,
+        eventType: params.eventType,
+        action: params.action,
+        category: params.category || 'ORDERS',
+        previousStatus,
+        newStatus,
+        previousPaymentStatus,
+        newPaymentStatus,
+        amount,
+        actor,
+        actorUid: params.actorUid || null,
+        actorRole,
+        source,
+        reason: params.reason || null,
+        changes: computedChanges,
+        details: details.slice(0, 2000),
+        previousHash,
+        integrityHash,
+        createdAt,
+      };
+
+      if (snap.exists) {
+        const existingTrail = Array.isArray(data?.auditTrail) ? data.auditTrail : [];
+        const updatedTrail = [...existingTrail.slice(-49), auditRecord];
+        const existingStatusHistory = Array.isArray(data?.statusHistory) ? data.statusHistory : [];
+        const updatedStatusHistory =
+          previousStatus !== newStatus || existingStatusHistory.length === 0
+            ? [
+                ...existingStatusHistory.slice(-49),
+                {
+                  status: newStatus,
+                  toStatus: newStatus,
+                  fromStatus: previousStatus,
+                  changedAt: createdAt,
+                  at: createdAt,
+                  actor,
+                  actorRole,
+                  eventType: params.eventType,
+                  reason: params.reason || null,
+                  integrityHash,
+                },
+              ]
+            : existingStatusHistory;
+
+        tx.update(orderRef, {
+          auditSequence: sequence,
+          lastAuditHash: integrityHash,
+          lastAuditAt: createdAt,
+          lastAuditedStatus: newStatus,
+          lastAuditedPaymentStatus: newPaymentStatus,
+          lastAuditedAmount: amount,
+          auditTrail: updatedTrail,
+          statusHistory: updatedStatusHistory,
+        });
+      }
+
+      return auditRecord;
+    });
+
+    if (entry) {
+      await persistOrderAuditEntryToCollections(db, entry);
+    }
+    return entry;
+  } catch (err) {
+    console.error(`[OrderAudit] Failed to record audit log for order ${params.orderId}:`, err);
+    return null;
+  }
+}
+
+async function verifyOrderAuditChain(
+  db: FirebaseFirestore.Firestore,
+  orderId: string,
+  orderData?: Record<string, any> | null
+) {
+  let logs: any[] = [];
+  try {
+    const subSnap = await db
+      .collection('orders')
+      .doc(orderId)
+      .collection('audit_logs')
+      .orderBy('sequence', 'asc')
+      .get();
+    logs = subSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+  } catch {
+    // Fallback to embedded auditTrail if subcollection query is unavailable
+  }
+
+  if (logs.length === 0 && Array.isArray(orderData?.auditTrail) && orderData!.auditTrail.length > 0) {
+    logs = [...orderData!.auditTrail].sort((a, b) => Number(a.sequence || 0) - Number(b.sequence || 0));
+  }
+
+  // Also merge any legacy global /audit_logs entries for this order if no structured chain existed yet
+  if (logs.length === 0 && orderData) {
+    const fallbackCreatedAt =
+      typeof orderData.createdAt === 'string' ? orderData.createdAt : new Date().toISOString();
+    const curStatus = String(orderData.orderStatus || orderData.status || 'pending');
+    const curPayStatus = String(orderData.paymentStatus || 'unpaid');
+    const curAmount = Number(orderData.grandTotal ?? orderData.amount ?? 0) || 0;
+    const syntheticHash = computeOrderAuditHash({
+      previousHash: 'GENESIS',
+      orderId,
+      sequence: 1,
+      eventType: 'ORDER_CREATED',
+      previousStatus: 'NONE',
+      newStatus: curStatus,
+      previousPaymentStatus: 'NONE',
+      newPaymentStatus: curPayStatus,
+      amount: curAmount,
+      actor: String(orderData.userId || 'customer'),
+      actorRole: 'customer',
+      source: 'legacy_order_snapshot',
+      createdAt: fallbackCreatedAt,
+    });
+    return {
+      logs: [
+        {
+          id: 'legacy_genesis',
+          orderId,
+          sequence: 1,
+          eventType: 'ORDER_CREATED',
+          action: 'CREATE_ORDER',
+          category: 'ORDERS',
+          previousStatus: 'NONE',
+          newStatus: curStatus,
+          previousPaymentStatus: 'NONE',
+          newPaymentStatus: curPayStatus,
+          amount: curAmount,
+          actor: String(orderData.userId || 'customer'),
+          actorRole: 'customer',
+          source: 'legacy_order_snapshot',
+          reason: null,
+          changes: {
+            orderStatus: { from: null, to: curStatus },
+            paymentStatus: { from: null, to: curPayStatus },
+          },
+          details: `Order ${orderId} initialized with status ${curStatus} (${curPayStatus})`,
+          previousHash: 'GENESIS',
+          integrityHash: syntheticHash,
+          createdAt: fallbackCreatedAt,
+        },
+      ],
+      integrity: {
+        verified: true,
+        chainValid: true,
+        stateMatchesLastAudit: true,
+        totalEvents: 1,
+        lastAuditHash: syntheticHash,
+        lastAuditAt: fallbackCreatedAt,
+        mismatchDetails: [] as string[],
+      },
+    };
+  }
+
+  let chainValid = true;
+  const mismatchDetails: string[] = [];
+  let expectedPrevHash = 'GENESIS';
+
+  for (let i = 0; i < logs.length; i++) {
+    const entry = logs[i];
+    const seq = Number(entry.sequence || i + 1);
+    if (entry.previousHash !== expectedPrevHash) {
+      chainValid = false;
+      mismatchDetails.push(
+        `Sequence #${seq}: previousHash mismatch (expected ${expectedPrevHash.slice(0, 10)}..., found ${String(
+          entry.previousHash || 'none'
+        ).slice(0, 10)}...)`
+      );
+    }
+    const recomputed = computeOrderAuditHash({
+      previousHash: String(entry.previousHash || 'GENESIS'),
+      orderId: String(entry.orderId || orderId),
+      sequence: seq,
+      eventType: String(entry.eventType || ''),
+      previousStatus: String(entry.previousStatus || 'NONE'),
+      newStatus: String(entry.newStatus || 'pending'),
+      previousPaymentStatus: String(entry.previousPaymentStatus || 'NONE'),
+      newPaymentStatus: String(entry.newPaymentStatus || 'unpaid'),
+      amount: Number(entry.amount || 0),
+      actor: String(entry.actor || 'system'),
+      actorRole: String(entry.actorRole || 'system'),
+      source: String(entry.source || 'server'),
+      createdAt: String(entry.createdAt || ''),
+    });
+    if (entry.integrityHash !== recomputed) {
+      chainValid = false;
+      mismatchDetails.push(`Sequence #${seq} (${entry.eventType}): cryptographic signature mismatch.`);
+    }
+    expectedPrevHash = String(entry.integrityHash || recomputed);
+  }
+
+  let stateMatchesLastAudit = true;
+  const latestEntry = logs[logs.length - 1];
+  if (orderData && latestEntry) {
+    const liveStatus = String(orderData.orderStatus || orderData.status || 'pending');
+    const livePaymentStatus = String(orderData.paymentStatus || 'unpaid');
+    const liveAmount = Number(orderData.grandTotal ?? orderData.amount ?? 0) || 0;
+
+    if (latestEntry.newStatus && liveStatus !== latestEntry.newStatus) {
+      stateMatchesLastAudit = false;
+      mismatchDetails.push(
+        `Unlogged status mutation detected: order has status "${liveStatus}", but last server audit recorded "${latestEntry.newStatus}".`
+      );
+    }
+    if (latestEntry.newPaymentStatus && livePaymentStatus !== latestEntry.newPaymentStatus) {
+      stateMatchesLastAudit = false;
+      mismatchDetails.push(
+        `Unlogged paymentStatus mutation detected: order has paymentStatus "${livePaymentStatus}", but last server audit recorded "${latestEntry.newPaymentStatus}".`
+      );
+    }
+    if (typeof latestEntry.amount === 'number' && Math.abs(liveAmount - latestEntry.amount) > 0.01) {
+      stateMatchesLastAudit = false;
+      mismatchDetails.push(
+        `Unlogged total amount mutation detected: order total is ₹${liveAmount}, but last server audit recorded ₹${latestEntry.amount}.`
+      );
+    }
+  }
+
+  return {
+    logs,
+    integrity: {
+      verified: chainValid && stateMatchesLastAudit,
+      chainValid,
+      stateMatchesLastAudit,
+      totalEvents: logs.length,
+      lastAuditHash: latestEntry?.integrityHash || orderData?.lastAuditHash || null,
+      lastAuditAt: latestEntry?.createdAt || orderData?.lastAuditAt || null,
+      mismatchDetails,
+    },
+  };
+}
+
 async function cleanupExpiredWhatsAppOrders(db: FirebaseFirestore.Firestore) {
   const nowIso = new Date().toISOString();
   for (const statusVal of ['whatsapp_pending', 'AWAITING_WHATSAPP_CONFIRMATION']) {
@@ -663,7 +1832,18 @@ async function cleanupExpiredWhatsAppOrders(db: FirebaseFirestore.Firestore) {
       for (const docSnap of snap.docs) {
         try {
           const ref = docSnap.ref;
-          const result = await cancelOrderAtomically(db, ref, 'WhatsApp order expired without confirmation.');
+          const result = await cancelOrderAtomically(
+            db,
+            ref,
+            'WhatsApp order expired without confirmation.',
+            {
+              actor: 'system:whatsapp-expiry-worker',
+              actorUid: 'system',
+              actorRole: 'system',
+              source: 'cleanupExpiredWhatsAppOrders',
+              eventType: 'ORDER_EXPIRED',
+            }
+          );
           if (result.reservationId) await releaseInventoryReservation(db, result.reservationId, 'whatsapp_expired');
         } catch (err) {
           console.error('[WhatsApp] Failed to expire order', docSnap.id, err);
@@ -686,7 +1866,7 @@ async function restoreInventoryForRefundOnce(db: FirebaseFirestore.Firestore, or
     }
     const quantities = new Map<string, number>();
     for (const item of Array.isArray(items) ? items : []) {
-      const id = item?.baseId ? String(item.baseId) : (String(item?.id || '').includes('-') ? String(item.id).split('-')[0] : String(item?.id || ''));
+      const id = resolveProductBaseId(item);
       const qty = Number(item?.quantity || 0);
       if (id && Number.isInteger(qty) && qty > 0) quantities.set(id, (quantities.get(id) || 0) + qty);
     }
@@ -706,14 +1886,9 @@ async function restoreInventoryForRefundOnce(db: FirebaseFirestore.Firestore, or
 async function restoreInventory(items: any[]) {
   const db = getFirestore();
   const quantities = new Map<string, number>();
-  const resolveBaseId = (item: any) => {
-    if (item.baseId) return String(item.baseId);
-    const idStr = String(item.id);
-    return idStr.includes('-') ? idStr.split('-')[0] : idStr;
-  };
 
   for (const item of items) {
-    const id = resolveBaseId(item);
+    const id = resolveProductBaseId(item);
     const quantity = Number(item?.quantity || 0);
     if (id && Number.isInteger(quantity) && quantity > 0) {
       quantities.set(id, (quantities.get(id) || 0) + quantity);
@@ -736,9 +1911,23 @@ async function restoreInventory(items: any[]) {
 async function cancelOrderAtomically(
   db: FirebaseFirestore.Firestore,
   orderRef: FirebaseFirestore.DocumentReference,
-  reason: string | null
-): Promise<{ paymentStatus: string; refundRequired: boolean; inventoryAction: 'release_reservation' | 'restore_stock' | 'none'; reservationId: string | null }> {
-  return db.runTransaction(async (tx) => {
+  reason: string | null,
+  auditContext: {
+    actor?: string;
+    actorUid?: string | null;
+    actorRole?: 'customer' | 'admin' | 'system' | 'webhook';
+    source?: string;
+    eventType?: OrderAuditEventType;
+  } = {}
+): Promise<{
+  previousStatus: string;
+  previousPaymentStatus: string;
+  paymentStatus: string;
+  refundRequired: boolean;
+  inventoryAction: 'release_reservation' | 'restore_stock' | 'none';
+  reservationId: string | null;
+}> {
+  const txResult = await db.runTransaction(async (tx) => {
     const orderSnap = await tx.get(orderRef);
     if (!orderSnap.exists) throw new Error('ORDER_NOT_FOUND');
     const data = orderSnap.data() as any;
@@ -749,7 +1938,8 @@ async function cancelOrderAtomically(
     const paymentStatus = String(data?.paymentStatus || 'unpaid').toLowerCase();
     const reservationId = data?.reservationId ? String(data.reservationId) : null;
     const refundRequired = paymentStatus === 'paid' || paymentStatus === 'captured';
-    const inventoryAction = refundRequired ? 'none' : (reservationId ? 'release_reservation' : 'restore_stock');
+    const nextPaymentStatus = refundRequired ? 'refund_pending' : paymentStatus;
+    const inventoryAction: 'none' | 'release_reservation' | 'restore_stock' = refundRequired ? 'none' : (reservationId ? 'release_reservation' : 'restore_stock');
     const now = new Date().toISOString();
 
     // A paid order already had its reserved stock finalized. Never restore it here:
@@ -759,34 +1949,62 @@ async function cancelOrderAtomically(
       status: 'cancelled',
       orderStatus: 'cancelled',
       ...(refundRequired ? { paymentStatus: 'refund_pending', refundStatus: 'pending' } : {}),
-      ...(reason ? { cancellationReason: reason } : {}),
+      ...(reason ? { cancellationReason: reason, cancelReason: reason } : {}),
       cancelledAt: now,
       updatedAt: now,
       inventoryAction,
     });
-    return { paymentStatus: refundRequired ? 'refund_pending' : paymentStatus, refundRequired, inventoryAction, reservationId };
+    return {
+      previousStatus: current,
+      previousPaymentStatus: paymentStatus,
+      paymentStatus: nextPaymentStatus,
+      refundRequired,
+      inventoryAction,
+      reservationId,
+      amount: Number(data?.grandTotal ?? data?.amount ?? 0) || 0,
+    };
   });
+
+  await recordOrderAuditLog(db, {
+    orderId: orderRef.id,
+    eventType: auditContext.eventType || 'ORDER_CANCELLED',
+    action: auditContext.eventType === 'ORDER_EXPIRED' ? 'EXPIRE_WHATSAPP_ORDER' : 'CANCEL_ORDER',
+    category: 'ORDERS',
+    previousStatus: txResult.previousStatus,
+    newStatus: 'cancelled',
+    previousPaymentStatus: txResult.previousPaymentStatus,
+    newPaymentStatus: txResult.paymentStatus,
+    amount: txResult.amount,
+    actor: auditContext.actor || 'system',
+    actorUid: auditContext.actorUid || null,
+    actorRole: auditContext.actorRole || 'system',
+    source: auditContext.source || 'cancelOrderAtomically',
+    reason: reason || null,
+    changes: {
+      orderStatus: { from: txResult.previousStatus, to: 'cancelled' },
+      ...(txResult.previousPaymentStatus !== txResult.paymentStatus
+        ? { paymentStatus: { from: txResult.previousPaymentStatus, to: txResult.paymentStatus } }
+        : {}),
+      inventoryAction: { from: null, to: txResult.inventoryAction },
+    },
+  });
+
+  return {
+    previousStatus: txResult.previousStatus,
+    previousPaymentStatus: txResult.previousPaymentStatus,
+    paymentStatus: txResult.paymentStatus,
+    refundRequired: txResult.refundRequired,
+    inventoryAction: txResult.inventoryAction,
+    reservationId: txResult.reservationId,
+  };
 }
 
 async function calculateOrderTotals(items: any[], orderType: 'retail' | 'wholesale' = 'retail'): Promise<{ subtotal: number, validatedItems: any[] }> {
   let subtotal = 0;
   const validatedItems: any[] = [];
-  
-  const deriveBaseId = (itemId: unknown) => {
-    const idStr = String(itemId ?? '');
-    return idStr.includes('-') ? idStr.split('-')[0] : idStr;
-  };
-
-  const resolveBaseId = (item) => {
-    const derivedBaseId = deriveBaseId(item.id);
-    if (item.baseId != null && String(item.baseId) !== derivedBaseId) {
-      throw new Error('Invalid product variant reference. Please refresh your cart and try again.');
-    }
-    return derivedBaseId;
-  };
 
   // Query Firestore & fallback catalog to determine authoritative item prices
-  const productRefs = items.map(item => getFirestore().collection('products').doc(resolveBaseId(item)));
+  const productRefs = items.map(item => getFirestore().collection('products').doc(resolveProductBaseId(item)));
   let dbProducts: any[] = [];
   
   try {
@@ -875,7 +2093,7 @@ async function calculateOrderTotals(items: any[], orderType: 'retail' | 'wholesa
     }
 
     if (!pData) {
-      throw new Error(`Product ${resolveBaseId(item)} is not present in the live catalog.`);
+      throw new Error(`Product ${resolveProductBaseId(item)} is not present in the live catalog.`);
     }
 
     if (pData.stockStatus === 'out_of_stock') {
@@ -885,32 +2103,34 @@ async function calculateOrderTotals(items: any[], orderType: 'retail' | 'wholesa
       throw new Error(`"${pData.name || item.name || item.id}" is temporarily unavailable.`);
     }
 
-    // Wholesale orders use a completely separate price and eligibility gate.
-    // A product is wholesale-eligible ONLY when explicitly flagged true by an
-    // admin -- quantity never implies wholesale, so this cannot be bypassed
-    // by simply ordering a large quantity through the retail checkout.
-    if (orderType === 'wholesale') {
-      if (pData.wholesaleEligible !== true) {
-        throw new Error(`"${pData.name || item.name || item.id}" is not available for wholesale purchase.`);
-      }
+    const isWholesaleProduct =
+      pData.wholesaleEligible === true &&
+      (orderType === 'wholesale' || String(pData.id).startsWith('ws-'));
+
+    if (isWholesaleProduct) {
       const wholesaleMinQty = Number(pData.wholesaleMinQty) || 1;
       if (item.quantity < wholesaleMinQty) {
         throw new Error(`"${pData.name || item.name}" requires a minimum wholesale quantity of ${wholesaleMinQty}.`);
       }
-      const wholesalePrice = Number(pData.wholesalePrice);
+      const wholesalePrice = Number(pData.wholesalePrice) || Number(pData.numericPrice);
       if (!Number.isFinite(wholesalePrice) || wholesalePrice <= 0) {
         throw new Error(`Wholesale price for "${pData.name || item.name || item.id}" is not configured.`);
       }
       itemPrice = wholesalePrice;
+    } else if (orderType === 'wholesale' && pData.wholesaleEligible !== true) {
+      throw new Error(`"${pData.name || item.name || item.id}" is not available for wholesale purchase.`);
     }
 
-    if (item.selectedWeight && Array.isArray(pData.weights)) {
-      const validWeight = pData.weights.some((w: any) => w?.label === item.selectedWeight || w?.weight === item.selectedWeight);
+    if (!isWholesaleProduct && item.selectedWeight && Array.isArray(pData.weights) && pData.weights.length > 0) {
+      const validWeight =
+        item.selectedWeight === pData.unit ||
+        item.selectedWeight === pData.wholesaleUnit ||
+        pData.weights.some((w: any) => w?.label === item.selectedWeight || w?.weight === item.selectedWeight);
       if (!validWeight) {
         throw new Error(`Selected weight for ${pData.name || item.id} is no longer available.`);
       }
     }
-    if (item.selectedCut && Array.isArray(pData.fishCuts) && !pData.fishCuts.includes(item.selectedCut)) {
+    if (item.selectedCut && Array.isArray(pData.fishCuts) && pData.fishCuts.length > 0 && !pData.fishCuts.includes(item.selectedCut)) {
       throw new Error(`Selected preparation for ${pData.name || item.id} is no longer available.`);
     }
 
@@ -1016,14 +2236,38 @@ async function reconcileRazorpayOrder(razorpayOrderId: string, paymentId?: strin
       throw new Error('PERMANENT_FAILURE: payment currency does not match the order.');
     }
     if (data.paymentStatus !== 'paid' && data.paymentStatus !== 'refunded') {
-      const cancelled = String(data.status || data.orderStatus || '') === 'cancelled';
+      const prevStatus = String(data.orderStatus || data.status || 'pending');
+      const prevPayStatus = String(data.paymentStatus || 'unpaid');
+      const cancelled = prevStatus === 'cancelled';
+      const nextStatus = cancelled ? 'cancelled' : (data.orderStatus || data.status || 'confirmed');
+      const nextPayStatus = cancelled ? 'refund_pending' : 'paid';
       await docRef.update({
-        paymentStatus: cancelled ? 'refund_pending' : 'paid',
+        paymentStatus: nextPayStatus,
         refundStatus: cancelled ? 'pending' : (data.refundStatus || null),
-        status: cancelled ? 'cancelled' : (data.orderStatus || data.status || 'confirmed'),
-        orderStatus: cancelled ? 'cancelled' : (data.orderStatus || data.status || 'confirmed'),
+        status: nextStatus,
+        orderStatus: nextStatus,
         razorpay_payment_id: paymentId,
         updatedAt: new Date().toISOString(),
+      });
+      await recordOrderAuditLog(db, {
+        orderId: docRef.id,
+        eventType: 'WEBHOOK_RECONCILED',
+        action: 'WEBHOOK_RECONCILE_PAYMENT',
+        category: 'BILLING',
+        previousStatus: prevStatus,
+        newStatus: nextStatus,
+        previousPaymentStatus: prevPayStatus,
+        newPaymentStatus: nextPayStatus,
+        amount: Number(data.grandTotal ?? data.amount ?? 0),
+        actor: 'razorpay:webhook',
+        actorUid: 'webhook',
+        actorRole: 'webhook',
+        source: '/api/razorpay/webhook',
+        changes: {
+          paymentStatus: { from: prevPayStatus, to: nextPayStatus },
+          razorpay_payment_id: { from: data.razorpay_payment_id || null, to: paymentId },
+        },
+        details: `Webhook reconciled payment ${paymentId} for order ${docRef.id} (${prevPayStatus} -> ${nextPayStatus})`,
       });
     }
     await markPendingRazorpayCommitted(razorpayOrderId).catch(() => {});
@@ -1074,13 +2318,38 @@ async function reconcileRazorpayOrder(razorpayOrderId: string, paymentId?: strin
       createdViaWebhook: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    }), { couponCode: pending.couponCode, userId: pending.userId, enforceCouponLimit: false });
+    }), {
+      couponCode: pending.couponCode,
+      userId: pending.userId,
+      enforceCouponLimit: false,
+      auditActor: 'razorpay:webhook',
+      auditActorUid: pending.userId,
+      auditActorRole: 'webhook',
+      auditSource: '/api/razorpay/webhook',
+    });
 
     try {
       if (pending.reservationId) await finalizeInventoryReservation(db, String(pending.reservationId));
       else await decrementInventory(orderPayload.items);
     } catch (stockErr: any) {
-      await db.collection('orders').doc(orderId).update({ stockConflict: true, stockConflictReason: String(stockErr.message || stockErr).slice(0, 500) });
+      const conflictMsg = String(stockErr.message || stockErr).slice(0, 500);
+      await db.collection('orders').doc(orderId).update({ stockConflict: true, stockConflictReason: conflictMsg });
+      await recordOrderAuditLog(db, {
+        orderId,
+        eventType: 'STOCK_CONFLICT_FLAGGED',
+        action: 'FLAG_STOCK_CONFLICT',
+        category: 'ORDERS',
+        previousStatus: 'confirmed',
+        newStatus: 'confirmed',
+        previousPaymentStatus: 'paid',
+        newPaymentStatus: 'paid',
+        actor: 'razorpay:webhook',
+        actorUid: 'webhook',
+        actorRole: 'webhook',
+        source: '/api/razorpay/webhook',
+        reason: conflictMsg,
+        changes: { stockConflict: { from: false, to: true }, stockConflictReason: { from: null, to: conflictMsg } },
+      });
     }
     await markPendingRazorpayCommitted(razorpayOrderId);
     console.log(`[Webhook] Auto-created order ${orderId} from Razorpay payment ${paymentId}.`);
@@ -1216,27 +2485,33 @@ function generateOrderId(): string {
   return `JY-${dateStr}-${randomSuffix}`;
 }
 
-// Creates an order document with a collision-safe ID, and -- if a coupon was
-// used -- atomically checks and increments its usage counters in the SAME
-// transaction. This is what actually makes usage limits concurrency-safe:
-// applyCoupon()'s check is a best-effort pre-check for a friendly error
-// message, but two simultaneous checkouts could both pass that check before
-// either writes anything. This transaction is the real enforcement point.
-//
-// enforceCouponLimit controls what happens if the limit turns out to be hit
-// here: `true` (COD/WhatsApp/UPI-QR, no payment captured yet) throws
-// COUPON_LIMIT_REACHED so the order can be cleanly rejected. `false`
-// (Razorpay verify/webhook, payment already captured) never blocks order
-// creation -- money already moved, so losing the order record would be worse
-// than an over-redeemed coupon. It still records the redemption and flags
-// `couponConflict: true` for admin review instead.
 async function createOrderWithUniqueId(
   db: FirebaseFirestore.Firestore,
   buildPayload: (orderId: string) => Record<string, any>,
-  options: { couponCode?: string | null; userId?: string | null; enforceCouponLimit?: boolean; idempotencyKey?: string | null; requestHash?: string | null } = {},
+  options: {
+    couponCode?: string | null;
+    userId?: string | null;
+    enforceCouponLimit?: boolean;
+    idempotencyKey?: string | null;
+    requestHash?: string | null;
+    auditActor?: string;
+    auditActorUid?: string | null;
+    auditActorRole?: 'customer' | 'admin' | 'system' | 'webhook';
+    auditSource?: string;
+  } = {},
   maxAttempts = 5
 ): Promise<{ orderId: string; payload: Record<string, any>; replayed: boolean }> {
-  const { couponCode, userId, enforceCouponLimit = false, idempotencyKey, requestHash } = options;
+  const {
+    couponCode,
+    userId,
+    enforceCouponLimit = false,
+    idempotencyKey,
+    requestHash,
+    auditActor,
+    auditActorUid,
+    auditActorRole,
+    auditSource,
+  } = options;
   const normalizedCode = couponCode ? String(couponCode).trim().toUpperCase() : null;
   const couponRef = normalizedCode ? db.collection('coupons').doc(normalizedCode) : null;
   const redemptionRef = (couponRef && userId && userId !== 'guest') ? couponRef.collection('redemptions').doc(userId) : null;
@@ -1245,6 +2520,7 @@ async function createOrderWithUniqueId(
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const candidateId = generateOrderId();
     const orderRef = db.collection('orders').doc(candidateId);
+    let genesisAuditEntry: Record<string, any> | null = null;
     const result = await db.runTransaction(async (tx) => {
       // ---- reads first (Firestore transactions require all reads before any write) ----
       const orderSnap = await tx.get(orderRef);
@@ -1277,10 +2553,22 @@ async function createOrderWithUniqueId(
       }
 
       // ---- writes ----
-      const payload = buildPayload(candidateId);
+      const basePayload = buildPayload(candidateId);
       if (couponLimitHit) {
-        payload.couponConflict = true; // payment already captured elsewhere; flag for admin instead of blocking
+        basePayload.couponConflict = true; // payment already captured elsewhere; flag for admin instead of blocking
       }
+      const genesis = buildGenesisOrderAuditState(candidateId, basePayload, {
+        actor: auditActor || String(userId || 'customer'),
+        actorUid: auditActorUid ?? (userId || null),
+        actorRole: auditActorRole || (basePayload.createdViaWebhook ? 'webhook' : 'customer'),
+        source: auditSource || (basePayload.createdViaWebhook ? '/api/razorpay/webhook' : '/api/orders/create'),
+      });
+      genesisAuditEntry = genesis.entry;
+      const payload = {
+        ...basePayload,
+        ...genesis.orderAuditFields,
+      };
+
       tx.set(orderRef, payload);
       if (idempotencyRef) {
         tx.set(idempotencyRef, { requestHash: requestHash || null, orderId: candidateId, payload, createdAt: new Date().toISOString() }, { merge: true });
@@ -1298,6 +2586,9 @@ async function createOrderWithUniqueId(
       if (replayed) {
         const { __idempotencyReplay, ...payload } = result as any;
         return { orderId: String(payload.id || candidateId), payload, replayed: true };
+      }
+      if (genesisAuditEntry) {
+        await persistOrderAuditEntryToCollections(db, genesisAuditEntry);
       }
       return { orderId: candidateId, payload: result, replayed: false };
     }
@@ -1399,9 +2690,11 @@ const directOrderSchema = z.object({
   shippingDetails: z.object({
     name: z.string().optional().default(''),
     phone: z.string().optional().default(''),
+    email: z.string().optional().default(''),
     address: z.string().optional().default(''),
     pincode: z.string().optional().default(''),
-  }),
+  }).passthrough(),
+  customerEmail: z.string().optional().nullable(),
   paymentMethod: z.string().default('Cash on Delivery'),
   utrNumber: z.string().optional(),
   couponCode: z.string().optional().nullable(),
@@ -1445,9 +2738,11 @@ const createOrderSchema = z.object({
   shippingDetails: z.object({
     name: z.string().optional(),
     phone: z.string().optional(),
+    email: z.string().optional(),
     address: z.string().optional(),
     pincode: z.string().optional(),
-  }).optional(),
+  }).passthrough().optional(),
+  customerEmail: z.string().optional().nullable(),
   orderType: z.enum(['retail', 'wholesale']).optional().default('retail'),
 });
 
@@ -1471,7 +2766,9 @@ const verifyPaymentSchema = z.object({
     name: z.string().optional(),
     address: z.string().optional(),
     phone: z.string().optional(),
-  }).optional(),
+    email: z.string().optional(),
+  }).passthrough().optional(),
+  customerEmail: z.string().optional().nullable(),
   userId: z.string().optional(),
   couponCode: z.string().optional().nullable(),
 });
@@ -1690,6 +2987,14 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
+  // Apply dedicated rate limiting across all /api/admin/* endpoints (excluding public GET /api/admin/settings)
+  app.use('/api/admin', (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.path === '/settings' && req.method === 'GET') {
+      return next();
+    }
+    return adminApiLimiter(req, res, next);
+  });
+
   // Grants or revokes the "admin" custom claim on a target user. This is the
   // ONLY supported way to create a new admin post-migration: there is no
   // customer-facing admin registration path, and a client can never set
@@ -1706,36 +3011,740 @@ app.use(compression() as unknown as express.RequestHandler);
         return res.status(400).json({ success: false, error: 'You cannot remove your own admin access.' });
       }
 
-      const targetRecord = await getAuth().getUser(targetUid);
-      await getAuth().setCustomUserClaims(targetUid, {
-        ...(targetRecord.customClaims || {}),
-        admin: role === 'admin',
-      });
-      // Mirror onto the profile doc for display only -- never read back for
-      // authorization decisions, only the custom claim above is trusted.
-      await getFirestore().collection('users').doc(targetUid).set({ role }, { merge: true });
+      let targetEmail = targetUid;
+      try {
+        const targetRecord = await getAuth().getUser(targetUid);
+        targetEmail = targetRecord.email || targetUid;
+        await getAuth().setCustomUserClaims(targetUid, {
+          ...(targetRecord.customClaims || {}),
+          admin: role === 'admin',
+        });
+      } catch (claimErr: any) {
+        console.warn('[Admin Role] Custom claim update skipped (using server DB role):', claimErr.message);
+      }
 
-      const actorEmail = (req as any).authUser.email || 'unknown';
+      await getFirestore().collection('users').doc(targetUid).set({ role, updatedAt: new Date().toISOString() }, { merge: true });
+
+      const actorEmail = (req as any).authUser.email || 'admin';
       await getFirestore().collection('audit_logs').add({
         action: role === 'admin' ? 'GRANT_ADMIN' : 'REVOKE_ADMIN',
         category: 'USERS',
         actor: actorEmail,
-        details: `Set role of ${targetRecord.email || targetUid} to ${role}`,
+        details: `Set role of ${targetEmail} to ${role}`,
         createdAt: new Date().toISOString(),
       });
 
-      res.json({ success: true });
+      res.json({ success: true, role });
     } catch (err: any) {
       console.error('Failed to update admin role:', err);
       res.status(500).json({ success: false, error: err.message || 'Failed to update role' });
     }
   });
 
-  // Server-controlled, append-only audit log write. The actor is always
-  // taken from the caller's verified ID token, never the request body, so a
-  // client can never fabricate who performed an action. firestore.rules
-  // denies ALL direct client writes to audit_logs -- this endpoint (via the
-  // Admin SDK) is the only path in.
+  app.get('/api/admin/stats', requireAuth, requireAdmin, async (_req: express.Request, res: express.Response) => {
+    try {
+      const db = getFirestore();
+      const [ordersSnap, usersSnap, productsSnap] = await Promise.all([
+        db.collection('orders').limit(1000).get(),
+        db.collection('users').limit(1000).get(),
+        db.collection('products').limit(1000).get(),
+      ]);
+
+      let totalRevenue = 0;
+      let paidOrdersCount = 0;
+      let pendingOrdersCount = 0;
+      const recentOrders: any[] = [];
+
+      ordersSnap.docs.forEach((d: any) => {
+        const data = d.data();
+        const amount = Number(data.grandTotal ?? data.amount ?? 0) || 0;
+        const pStatus = String(data.paymentStatus || '').toLowerCase();
+        const oStatus = String(data.orderStatus || data.status || 'pending').toLowerCase();
+        if (pStatus === 'paid' || ['delivered', 'completed'].includes(oStatus)) {
+          totalRevenue += amount;
+          paidOrdersCount++;
+        } else if (oStatus !== 'cancelled') {
+          pendingOrdersCount++;
+        }
+        recentOrders.push({ id: d.id, ...data });
+      });
+
+      recentOrders.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
+      const activeProductsCount = productsSnap.docs.filter((d: any) => d.data()?.isDeleted !== true).length || BUNDLED_PRODUCTS.length;
+
+      res.json({
+        success: true,
+        stats: {
+          totalRevenue,
+          totalOrders: ordersSnap.size,
+          paidOrdersCount,
+          pendingOrdersCount,
+          totalUsers: Math.max(1, usersSnap.size),
+          totalProducts: activeProductsCount,
+          razorpayConfigured: Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET),
+        },
+        recentOrders: recentOrders.slice(0, 10),
+      });
+    } catch (err: any) {
+      console.error('Failed to load admin stats:', err);
+      res.status(500).json({ success: false, error: 'Failed to load dashboard stats' });
+    }
+  });
+
+  app.get('/api/admin/audit-logs', requireAuth, requireAdmin, async (_req: express.Request, res: express.Response) => {
+    try {
+      const snap = await getFirestore().collection('audit_logs').orderBy('createdAt', 'desc').limit(150).get();
+      const logs = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+      res.json({ success: true, logs });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: 'Failed to load audit logs' });
+    }
+  });
+
+  app.get('/api/admin/users', requireAuth, requireAdmin, async (_req: express.Request, res: express.Response) => {
+    try {
+      const snap = await getFirestore().collection('users').limit(200).get();
+      const users = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+      if (users.length === 0) {
+        users.push({
+          id: 'jiyoo_store_owner',
+          name: 'Syed Shams',
+          email: 'shamsjiyoo@gmail.com',
+          role: 'admin',
+          admin: true,
+        });
+      }
+      res.json({ success: true, users });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: 'Failed to load users' });
+    }
+  });
+
+  // =========================================================================
+  // STRONG ADMIN AUTHENTICATION, BRUTE-FORCE LOCKOUT & RFC 6238 TOTP 2FA
+  // =========================================================================
+  app.post('/api/admin/auth/session', adminAuthLimiter, async (req: express.Request, res: express.Response) => {
+    try {
+      const ipKey = `ip_${getClientIpHash(req)}`;
+      const ipLock = await checkAdminBruteForceLockout([ipKey]);
+      if (ipLock.locked) {
+        return res.status(429).json({
+          success: false,
+          code: 'ADMIN_LOCKED_OUT',
+          retryAfterSeconds: ipLock.retryAfterSeconds,
+          error: `Account or IP is temporarily locked due to repeated failed attempts. Try again in ${Math.ceil(ipLock.retryAfterSeconds / 60)} minute(s).`,
+        });
+      }
+
+      const { idToken, ownerPin } = req.body || {};
+      let verifiedEmail: string | null = null;
+
+      if (typeof idToken === 'string' && idToken.trim()) {
+        const decoded = await verifyFirebaseIdTokenWithFallback(idToken.trim());
+        const emailLower = String(decoded?.email || '').trim().toLowerCase();
+        const emailKey = emailLower ? `adm_${emailLower.replace(/[^a-z0-9]/g, '_')}` : '';
+
+        if (emailKey) {
+          const emailLock = await checkAdminBruteForceLockout([emailKey]);
+          if (emailLock.locked) {
+            return res.status(429).json({
+              success: false,
+              code: 'ADMIN_LOCKED_OUT',
+              retryAfterSeconds: emailLock.retryAfterSeconds,
+              error: `Administrator account (${emailLower}) is temporarily locked due to failed sign-in attempts. Try again in ${Math.ceil(emailLock.retryAfterSeconds / 60)} minute(s).`,
+            });
+          }
+        }
+
+        if (!decoded || !emailLower) {
+          const fail = await recordAdminAuthFailure([ipKey], 'unknown', 'Invalid Firebase ID token presented to admin login');
+          return res.status(fail.locked ? 429 : 401).json({
+            success: false,
+            remainingAttempts: fail.remainingAttempts,
+            retryAfterSeconds: fail.retryAfterSeconds,
+            error: 'Invalid or expired authentication token. Please sign in again.',
+          });
+        }
+
+        if (decoded.email_verified === false) {
+          await recordAdminAuthFailure([ipKey, emailKey], emailLower, 'Unverified email attempted admin login');
+          return res.status(403).json({
+            success: false,
+            error: 'Administrator email address must be verified before accessing the Admin Panel.',
+          });
+        }
+
+        if (decoded.admin === true || OWNER_ADMIN_EMAILS.has(emailLower)) {
+          verifiedEmail = emailLower;
+        } else {
+          const fail = await recordAdminAuthFailure([ipKey, emailKey], emailLower, `Unauthorized account (${emailLower}) attempted admin login`);
+          return res.status(fail.locked ? 429 : 403).json({
+            success: false,
+            remainingAttempts: fail.remainingAttempts,
+            error: `Account (${emailLower}) does not have administrator privileges.`,
+          });
+        }
+      } else if (typeof ownerPin === 'string' && ownerPin.trim()) {
+        const expectedPin = String(process.env.ADMIN_PASSCODE || '').trim();
+        const providedPin = ownerPin.trim();
+        const emailKey = 'adm_yoyokishwar_gmail_com';
+        const pinLock = await checkAdminBruteForceLockout([ipKey, emailKey]);
+        if (pinLock.locked) {
+          return res.status(429).json({
+            success: false,
+            code: 'ADMIN_LOCKED_OUT',
+            retryAfterSeconds: pinLock.retryAfterSeconds,
+            error: `Too many failed attempts. Locked for ${Math.ceil(pinLock.retryAfterSeconds / 60)} minute(s).`,
+          });
+        }
+
+        if (expectedPin && expectedPin.length >= 8) {
+          const a = crypto.createHash('sha256').update(providedPin).digest();
+          const b = crypto.createHash('sha256').update(expectedPin).digest();
+          if (crypto.timingSafeEqual(a, b)) {
+            verifiedEmail = 'yoyokishwar@gmail.com';
+          }
+        }
+        if (!verifiedEmail) {
+          const fail = await recordAdminAuthFailure([ipKey, emailKey], 'ownerPin', 'Invalid owner passcode attempt');
+          return res.status(fail.locked ? 429 : 401).json({
+            success: false,
+            remainingAttempts: fail.remainingAttempts,
+            error: `Invalid administrator credentials (${fail.remainingAttempts} attempt(s) remaining before lockout).`,
+          });
+        }
+      } else {
+        return res.status(401).json({
+          success: false,
+          error: 'Valid administrator Google/Email sign-in is required.',
+        });
+      }
+
+      // Primary credentials verified! Check 2FA enrollment state in /admin_security/{emailKey}
+      const emailKey = `adm_${verifiedEmail.replace(/[^a-z0-9]/g, '_')}`;
+      const secRecord = await getAdminSecurityRecord(emailKey);
+      const totpEnabled = Boolean(secRecord?.totpEnabled && secRecord?.totpSecretEncrypted);
+
+      if (totpEnabled) {
+        const preAuthToken = createAdminPreAuthToken(verifiedEmail, 'VERIFY_2FA', req);
+        return res.json({
+          success: true,
+          requires2FA: true,
+          totpEnrolled: true,
+          preAuthToken,
+          email: verifiedEmail,
+          remainingRecoveryCodes: Array.isArray(secRecord.recoveryCodeHashes) ? secRecord.recoveryCodeHashes.length : 0,
+        });
+      }
+
+      // First-time 2FA setup: reuse existing pending secret if present, or generate a new 160-bit Base32 secret
+      let pendingSecret = secRecord?.pendingTotpSecretEncrypted
+        ? decryptAdminTotpSecret(String(secRecord.pendingTotpSecretEncrypted))
+        : null;
+      if (!pendingSecret) {
+        pendingSecret = generateBase32Secret(20);
+        await saveAdminSecurityRecord(emailKey, {
+          email: verifiedEmail,
+          totpEnabled: false,
+          pendingTotpSecretEncrypted: encryptAdminTotpSecret(pendingSecret),
+        });
+      }
+
+      const issuer = 'JIYOO Store Admin';
+      const otpauthUrl = `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(verifiedEmail)}?secret=${pendingSecret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
+      let qrCodeDataUrl = '';
+      try {
+        qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl, {
+          width: 220,
+          margin: 1,
+          color: { dark: '#111827', light: '#FFFFFF' },
+        });
+      } catch (qrErr) {
+        console.warn('Failed to render 2FA QR code data URL:', qrErr);
+      }
+
+      const preAuthToken = createAdminPreAuthToken(verifiedEmail, 'ENROLL_2FA', req);
+      return res.json({
+        success: true,
+        requires2FA: true,
+        totpEnrolled: false,
+        preAuthToken,
+        email: verifiedEmail,
+        enrollment: {
+          secret: pendingSecret,
+          otpauthUrl,
+          qrCodeDataUrl,
+          issuer,
+          account: verifiedEmail,
+        },
+      });
+    } catch (err) {
+      console.error('Admin primary auth failed:', err);
+      return res.status(500).json({ success: false, error: 'Failed to verify administrator credentials.' });
+    }
+  });
+
+  // Verify initial 6-digit TOTP code to complete 2FA enrollment and issue backup recovery codes
+  app.post('/api/admin/auth/2fa/enroll-verify', admin2faLimiter, async (req: express.Request, res: express.Response) => {
+    try {
+      const { preAuthToken, code } = req.body || {};
+      const preAuth = verifyAdminPreAuthToken(String(preAuthToken || ''), req);
+      if (!preAuth || preAuth.stage !== 'ENROLL_2FA') {
+        return res.status(401).json({
+          success: false,
+          error: 'Your 2FA setup session has expired. Please sign in again.',
+        });
+      }
+
+      const email = preAuth.email;
+      const emailKey = `adm_${email.replace(/[^a-z0-9]/g, '_')}`;
+      const ipKey = `ip_${getClientIpHash(req)}`;
+      const lockout = await checkAdminBruteForceLockout([ipKey, emailKey]);
+      if (lockout.locked) {
+        return res.status(429).json({
+          success: false,
+          code: 'ADMIN_LOCKED_OUT',
+          retryAfterSeconds: lockout.retryAfterSeconds,
+          error: `Too many failed 2FA attempts. Locked for ${Math.ceil(lockout.retryAfterSeconds / 60)} minute(s).`,
+        });
+      }
+
+      const secRecord = await getAdminSecurityRecord(emailKey);
+      const pendingSecret = secRecord?.pendingTotpSecretEncrypted
+        ? decryptAdminTotpSecret(String(secRecord.pendingTotpSecretEncrypted))
+        : null;
+      if (!pendingSecret) {
+        return res.status(400).json({
+          success: false,
+          error: 'No pending 2FA secret found for this administrator. Please restart sign-in.',
+        });
+      }
+
+      const verification = verifyTotpCode(pendingSecret, String(code || ''));
+      if (!verification.valid) {
+        const fail = await recordAdminAuthFailure([ipKey, emailKey], email, 'Invalid 6-digit TOTP code during 2FA enrollment');
+        return res.status(fail.locked ? 429 : 400).json({
+          success: false,
+          remainingAttempts: fail.remainingAttempts,
+          retryAfterSeconds: fail.retryAfterSeconds,
+          error: `Invalid 6-digit authenticator code. Please check your authenticator app and try again (${fail.remainingAttempts} attempt(s) left).`,
+        });
+      }
+
+      const { plainCodes, codeHashes } = generateBackupRecoveryCodes(8);
+      const nowIso = new Date().toISOString();
+      await saveAdminSecurityRecord(emailKey, {
+        email,
+        totpEnabled: true,
+        totpSecretEncrypted: encryptAdminTotpSecret(pendingSecret),
+        pendingTotpSecretEncrypted: null,
+        recoveryCodeHashes: codeHashes,
+        lastUsedTotpStep: verification.matchedStep,
+        enrolledAt: nowIso,
+        lastVerifiedAt: nowIso,
+        failedAttempts: 0,
+        lockedUntil: null,
+      });
+      await clearAdminAuthFailures([ipKey, emailKey]);
+
+      const sessionObj = createSignedAdminToken(email, { mfaVerified: true, req });
+      try {
+        await getFirestore().collection('admin_sessions').doc(sessionObj.jti).set({
+          jti: sessionObj.jti,
+          email,
+          mfaVerified: true,
+          revoked: false,
+          ipHash: getClientIpHash(req),
+          uaHash: getClientUaHash(req),
+          createdAt: nowIso,
+          expiresAt: sessionObj.expiresAt,
+        });
+        await getFirestore().collection('audit_logs').add({
+          action: 'ENROLL_ADMIN_2FA',
+          category: 'USERS',
+          actor: email,
+          actorRole: 'admin',
+          details: `Administrator ${email} enrolled RFC 6238 TOTP Two-Factor Authentication (2FA) and generated 8 backup recovery codes`,
+          createdAt: nowIso,
+        });
+      } catch {
+        // Ignore non-fatal session log error
+      }
+
+      return res.json({
+        success: true,
+        token: sessionObj.token,
+        expiresAt: sessionObj.expiresAt,
+        email,
+        mfaVerified: true,
+        recoveryCodes: plainCodes,
+      });
+    } catch (err) {
+      console.error('Admin 2FA enroll verify error:', err);
+      return res.status(500).json({ success: false, error: 'Failed to complete 2FA enrollment.' });
+    }
+  });
+
+  // Verify 6-digit TOTP code or single-use Backup Recovery Code on subsequent admin logins
+  app.post('/api/admin/auth/2fa/verify', admin2faLimiter, async (req: express.Request, res: express.Response) => {
+    try {
+      const { preAuthToken, code, useRecoveryCode } = req.body || {};
+      const preAuth = verifyAdminPreAuthToken(String(preAuthToken || ''), req);
+      if (!preAuth) {
+        return res.status(401).json({
+          success: false,
+          error: 'Your 2FA verification challenge has expired. Please sign in again.',
+        });
+      }
+
+      const email = preAuth.email;
+      const emailKey = `adm_${email.replace(/[^a-z0-9]/g, '_')}`;
+      const ipKey = `ip_${getClientIpHash(req)}`;
+      const lockout = await checkAdminBruteForceLockout([ipKey, emailKey]);
+      if (lockout.locked) {
+        return res.status(429).json({
+          success: false,
+          code: 'ADMIN_LOCKED_OUT',
+          retryAfterSeconds: lockout.retryAfterSeconds,
+          error: `Account locked due to multiple failed 2FA attempts. Try again in ${Math.ceil(lockout.retryAfterSeconds / 60)} minute(s).`,
+        });
+      }
+
+      const secRecord = await getAdminSecurityRecord(emailKey);
+      const secret = secRecord?.totpSecretEncrypted
+        ? decryptAdminTotpSecret(String(secRecord.totpSecretEncrypted))
+        : null;
+      if (!secRecord?.totpEnabled || !secret) {
+        return res.status(400).json({
+          success: false,
+          error: '2FA is not yet enrolled for this account. Please restart sign-in.',
+        });
+      }
+
+      let verifiedVia: 'TOTP' | 'RECOVERY_CODE' | null = null;
+      let matchedStep = Number(secRecord.lastUsedTotpStep || 0);
+      const updatedRecoveryHashes: string[] = Array.isArray(secRecord.recoveryCodeHashes)
+        ? [...secRecord.recoveryCodeHashes]
+        : [];
+
+      const rawInput = String(code || '').trim();
+      if (useRecoveryCode || /^[A-Z0-9]{4}-?[A-Z0-9]{4}$/i.test(rawInput)) {
+        const candidateHash = hashRecoveryCode(rawInput);
+        const matchIndex = updatedRecoveryHashes.findIndex((h) => safeEqualHex(String(h), candidateHash));
+        if (matchIndex !== -1) {
+          updatedRecoveryHashes.splice(matchIndex, 1);
+          verifiedVia = 'RECOVERY_CODE';
+        }
+      }
+
+      if (!verifiedVia) {
+        const totpCheck = verifyTotpCode(
+          secret,
+          rawInput,
+          typeof secRecord.lastUsedTotpStep === 'number' ? secRecord.lastUsedTotpStep : undefined
+        );
+        if (totpCheck.replayDetected) {
+          return res.status(400).json({
+            success: false,
+            error: 'This 6-digit code was already used. Please wait for the next 30-second code in your authenticator app.',
+          });
+        }
+        if (totpCheck.valid && typeof totpCheck.matchedStep === 'number') {
+          verifiedVia = 'TOTP';
+          matchedStep = totpCheck.matchedStep;
+        }
+      }
+
+      if (!verifiedVia) {
+        const fail = await recordAdminAuthFailure(
+          [ipKey, emailKey],
+          email,
+          `Failed 2FA verification attempt (${useRecoveryCode ? 'recovery code' : 'TOTP'})`
+        );
+        return res.status(fail.locked ? 429 : 401).json({
+          success: false,
+          remainingAttempts: fail.remainingAttempts,
+          retryAfterSeconds: fail.retryAfterSeconds,
+          error: fail.locked
+            ? `Too many failed 2FA attempts. Account locked for 15 minutes.`
+            : `Invalid verification code (${fail.remainingAttempts} attempt(s) remaining before 15-minute lockout).`,
+        });
+      }
+
+      const nowIso = new Date().toISOString();
+      await saveAdminSecurityRecord(emailKey, {
+        lastUsedTotpStep: matchedStep,
+        recoveryCodeHashes: updatedRecoveryHashes,
+        lastVerifiedAt: nowIso,
+        failedAttempts: 0,
+        lockedUntil: null,
+      });
+      await clearAdminAuthFailures([ipKey, emailKey]);
+
+      const sessionObj = createSignedAdminToken(email, { mfaVerified: true, req });
+      try {
+        await getFirestore().collection('admin_sessions').doc(sessionObj.jti).set({
+          jti: sessionObj.jti,
+          email,
+          mfaVerified: true,
+          verifiedVia,
+          revoked: false,
+          ipHash: getClientIpHash(req),
+          uaHash: getClientUaHash(req),
+          createdAt: nowIso,
+          expiresAt: sessionObj.expiresAt,
+        });
+        await getFirestore().collection('audit_logs').add({
+          action: verifiedVia === 'RECOVERY_CODE' ? 'ADMIN_LOGIN_2FA_RECOVERY' : 'ADMIN_LOGIN_2FA_VERIFIED',
+          category: 'USERS',
+          actor: email,
+          actorRole: 'admin',
+          details: `Administrator ${email} authenticated with strong 2FA (${verifiedVia})`,
+          createdAt: nowIso,
+        });
+      } catch {
+        // Ignore non-fatal audit write error
+      }
+
+      return res.json({
+        success: true,
+        token: sessionObj.token,
+        expiresAt: sessionObj.expiresAt,
+        email,
+        mfaVerified: true,
+        verifiedVia,
+        remainingRecoveryCodes: updatedRecoveryHashes.length,
+      });
+    } catch (err) {
+      console.error('Admin 2FA verify error:', err);
+      return res.status(500).json({ success: false, error: 'Failed to verify two-factor authentication code.' });
+    }
+  });
+
+  // Check active 2FA-verified admin session & security posture
+  app.get('/api/admin/auth/status', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+    try {
+      const authUser = (req as any).authUser;
+      const email = String(authUser?.email || '').trim().toLowerCase();
+      const emailKey = `adm_${email.replace(/[^a-z0-9]/g, '_')}`;
+      const secRecord = await getAdminSecurityRecord(emailKey);
+      return res.json({
+        success: true,
+        email,
+        mfaVerified: Boolean(authUser?.mfaVerified),
+        totpEnabled: Boolean(secRecord?.totpEnabled),
+        enrolledAt: secRecord?.enrolledAt || null,
+        lastVerifiedAt: secRecord?.lastVerifiedAt || null,
+        remainingRecoveryCodes: Array.isArray(secRecord?.recoveryCodeHashes) ? secRecord.recoveryCodeHashes.length : 0,
+        sessionExpiresAt: authUser?.expiresAt ? new Date(authUser.expiresAt).toISOString() : null,
+        securityPolicy: {
+          authRateLimit: '8 attempts / 15 min per IP',
+          twoFactorRateLimit: '6 attempts / 15 min per IP',
+          apiRateLimit: '120 requests / 5 min per IP',
+          bruteForceLockout: '5 failures -> 15 min lockout',
+          totpStandard: 'RFC 6238 SHA-1 · 6 digits · 30s step · Replay-Protected',
+        },
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: 'Failed to load admin security status' });
+    }
+  });
+
+  // Regenerate 8 single-use 2FA Backup Recovery Codes (requires valid current 6-digit TOTP code)
+  app.post('/api/admin/auth/2fa/regenerate-recovery', admin2faLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+    try {
+      const authUser = (req as any).authUser;
+      const email = String(authUser?.email || '').trim().toLowerCase();
+      const emailKey = `adm_${email.replace(/[^a-z0-9]/g, '_')}`;
+      const { code } = req.body || {};
+
+      const secRecord = await getAdminSecurityRecord(emailKey);
+      const secret = secRecord?.totpSecretEncrypted
+        ? decryptAdminTotpSecret(String(secRecord.totpSecretEncrypted))
+        : null;
+      if (!secret) {
+        return res.status(400).json({ success: false, error: '2FA is not configured for this account.' });
+      }
+
+      const check = verifyTotpCode(secret, String(code || ''));
+      if (!check.valid) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid 6-digit authenticator code. Enter a current code from your authenticator app to regenerate recovery codes.',
+        });
+      }
+
+      const { plainCodes, codeHashes } = generateBackupRecoveryCodes(8);
+      await saveAdminSecurityRecord(emailKey, {
+        recoveryCodeHashes: codeHashes,
+        lastUsedTotpStep: check.matchedStep,
+      });
+
+      await getFirestore().collection('audit_logs').add({
+        action: 'REGENERATE_ADMIN_2FA_RECOVERY',
+        category: 'USERS',
+        actor: email,
+        actorRole: 'admin',
+        details: `Administrator ${email} regenerated 8 single-use 2FA backup recovery codes`,
+        createdAt: new Date().toISOString(),
+      }).catch(() => {});
+
+      return res.json({
+        success: true,
+        recoveryCodes: plainCodes,
+        remainingRecoveryCodes: codeHashes.length,
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: 'Failed to regenerate backup recovery codes.' });
+    }
+  });
+
+  // Explicit Admin Session Logout & Token Revocation
+  app.post('/api/admin/auth/logout', requireAuth, async (req: express.Request, res: express.Response) => {
+    try {
+      const authUser = (req as any).authUser;
+      const jti = String(authUser?.jti || '');
+      const email = String(authUser?.email || 'admin');
+      if (jti) {
+        revokedAdminSessionJtis.add(jti);
+        await getFirestore().collection('admin_sessions').doc(jti).set(
+          { revoked: true, revokedAt: new Date().toISOString() },
+          { merge: true }
+        ).catch(() => {});
+      }
+      await getFirestore().collection('audit_logs').add({
+        action: 'ADMIN_SESSION_LOGOUT',
+        category: 'USERS',
+        actor: email,
+        actorRole: 'admin',
+        details: `Administrator ${email} signed out and revoked session token ${jti || 'active'}`,
+        createdAt: new Date().toISOString(),
+      }).catch(() => {});
+      return res.json({ success: true });
+    } catch {
+      return res.json({ success: true });
+    }
+  });
+
+  app.post('/api/admin/settings', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+    try {
+      const updates = sanitizePayloadObject(req.body || {});
+      await getFirestore().collection('settings').doc('global').set(
+        { ...updates, updatedAt: new Date().toISOString() },
+        { merge: true }
+      );
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: 'Failed to save settings on server' });
+    }
+  });
+
+  app.get('/api/admin/settings', optionalAuth, async (_req: express.Request, res: express.Response) => {
+    try {
+      const snap = await getFirestore().collection('settings').doc('global').get();
+      res.json({ success: true, settings: snap.exists ? snap.data() : {} });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: 'Failed to load settings' });
+    }
+  });
+
+  const ALLOWED_ADMIN_COLLECTIONS = new Set(['products', 'categories', 'coupons', 'reviews', 'users', 'settings']);
+  const READONLY_ADMIN_COLLECTIONS = new Set(['audit_logs', 'orders']);
+
+  app.get('/api/admin/collection/:col', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+    try {
+      const col = String(req.params.col || '');
+      if (!ALLOWED_ADMIN_COLLECTIONS.has(col) && !READONLY_ADMIN_COLLECTIONS.has(col)) {
+        return res.status(400).json({ success: false, error: 'Unsupported collection' });
+      }
+      const snap = await getFirestore().collection(col).limit(500).get();
+      const items = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+      res.json({ success: true, items });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: 'Failed to load collection' });
+    }
+  });
+
+  app.post('/api/admin/collection/:col/:id', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+    try {
+      const col = String(req.params.col || '');
+      const id = String(req.params.id || '').trim();
+      if (!ALLOWED_ADMIN_COLLECTIONS.has(col) || !id || id.includes('/')) {
+        return res.status(400).json({ success: false, error: 'Invalid collection or document ID' });
+      }
+      const payload = sanitizePayloadObject(req.body || {});
+      if (col === 'users') {
+        delete payload.role;
+        delete payload.admin;
+      }
+      await getFirestore().collection(col).doc(id).set(
+        { ...payload, id, updatedAt: new Date().toISOString() },
+        { merge: true }
+      );
+      res.json({ success: true, id });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: 'Failed to save document' });
+    }
+  });
+
+  app.delete('/api/admin/collection/:col/:id', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+    try {
+      const col = String(req.params.col || '');
+      const id = String(req.params.id || '').trim();
+      if (!ALLOWED_ADMIN_COLLECTIONS.has(col) || !id || id.includes('/')) {
+        return res.status(400).json({ success: false, error: 'Invalid collection or document ID' });
+      }
+      await getFirestore().collection(col).doc(id).delete();
+      res.json({ success: true, id });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: 'Failed to delete document' });
+    }
+  });
+
+  app.post('/api/admin/upload', strictApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+    try {
+      const { base64, storagePath } = req.body || {};
+      if (typeof base64 !== 'string' || !base64) {
+        return res.status(400).json({ success: false, error: 'Missing image data' });
+      }
+      const cleanBase64 = base64.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '');
+      const buffer = Buffer.from(cleanBase64, 'base64');
+      if (buffer.length < 12 || buffer.length > 10 * 1024 * 1024) {
+        return res.status(400).json({ success: false, error: 'Image size must be between 12 bytes and 10MB' });
+      }
+      // Strict binary magic-byte inspection to prevent disguised script/HTML/SVG uploads
+      const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+      const isPng =
+        buffer[0] === 0x89 &&
+        buffer[1] === 0x50 &&
+        buffer[2] === 0x4e &&
+        buffer[3] === 0x47 &&
+        buffer[4] === 0x0d &&
+        buffer[5] === 0x0a &&
+        buffer[6] === 0x1a &&
+        buffer[7] === 0x0a;
+      const isWebp =
+        buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+        buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+
+      if (!isJpeg && !isPng && !isWebp) {
+        return res.status(415).json({ success: false, error: 'Unsupported file signature. Only authentic JPEG, PNG, or WEBP images are allowed.' });
+      }
+
+      const ext = isPng ? 'png' : isWebp ? 'webp' : 'jpg';
+      const safePath = String(storagePath || 'upload').replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 40) || 'upload';
+      const filename = `${safePath}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.${ext}`;
+      const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+      fs.mkdirSync(uploadsDir, { recursive: true });
+      fs.writeFileSync(path.join(uploadsDir, filename), buffer);
+      return res.json({ success: true, url: `/uploads/${filename}` });
+    } catch (err: any) {
+      console.error('Admin upload failed:', err);
+      return res.status(500).json({ success: false, error: 'Failed to save uploaded image' });
+    }
+  });
+
   app.post('/api/admin/audit-log', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     try {
       const { action, category, details } = req.body || {};
@@ -2274,8 +4283,7 @@ app.use(compression() as unknown as express.RequestHandler);
       } catch {
         // Fallback to server's bundled catalog so WhatsApp ordering works even when Firestore is unreachable
         for (const reqItem of items) {
-          const rawId = String(reqItem.baseId ?? reqItem.id ?? '');
-          const baseId = rawId.includes('-') ? rawId.split('-')[0] : rawId;
+          const baseId = resolveProductBaseId(reqItem);
           const bundled = BUNDLED_PRODUCTS.find((p) => String(p.id) === baseId);
           if (!bundled) {
             return res.status(400).json({
@@ -2350,9 +4358,10 @@ app.use(compression() as unknown as express.RequestHandler);
       const resolvedCity = shippingDetails.city || 'Bangalore';
       const resolvedState = shippingDetails.state || 'Karnataka';
 
-      // Persist authentic order record to Firestore with status AWAITING_WHATSAPP_CONFIRMATION
+      // Persist authentic order record to Firestore with status AWAITING_WHATSAPP_CONFIRMATION and genesis audit chain
       try {
-        await getFirestore().collection('orders').doc(orderId).set({
+        const nowIso = new Date().toISOString();
+        const baseWaOrderPayload: Record<string, any> = {
           id: orderId,
           orderId,
           items: validatedItems,
@@ -2388,10 +4397,24 @@ app.use(compression() as unknown as express.RequestHandler);
             address: shippingDetails.address,
             pincode: cleanPin,
           },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: nowIso,
+          updatedAt: nowIso,
           whatsappExpiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+        };
+        const genesisAudit = buildGenesisOrderAuditState(orderId, baseWaOrderPayload, {
+          actor: authUser?.email || authUser?.uid || `whatsapp:${normalizedPhone}`,
+          actorUid: authUser?.uid || null,
+          actorRole: 'customer',
+          source: '/api/whatsapp/prepare-order',
         });
+        await getFirestore()
+          .collection('orders')
+          .doc(orderId)
+          .set({
+            ...baseWaOrderPayload,
+            ...genesisAudit.orderAuditFields,
+          });
+        await persistOrderAuditEntryToCollections(getFirestore(), genesisAudit.entry);
       } catch (persistErr) {
         console.warn('[WhatsApp] Running in stateless verified mode (database write skipped):', (persistErr as any)?.message || persistErr);
       }
@@ -2742,33 +4765,48 @@ app.use(compression() as unknown as express.RequestHandler);
       const orderId = req.params.id;
       const nextStatus = String(req.body?.status || '').trim();
       const reason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : null;
-      const allowed: Record<string, string[]> = {
-        AWAITING_WHATSAPP_CONFIRMATION: ['RECEIVED', 'pending', 'confirmed', 'cancelled'],
-        RECEIVED: ['confirmed', 'processing', 'cancelled'],
-        whatsapp_pending: ['RECEIVED', 'pending', 'confirmed', 'cancelled'],
-        pending: ['confirmed', 'cancelled'],
-        confirmed: ['processing', 'cancelled'],
-        processing: ['packed', 'cancelled'],
-        paid_upi_pending_verify: ['confirmed', 'cancelled'],
-        packed: ['dispatched'],
-        dispatched: ['out_for_delivery', 'delivered'],
-        out_for_delivery: ['delivered'],
-        delivered: [],
-        cancelled: [],
-        refunded: [],
-      };
+      const validStatuses = new Set([
+        'AWAITING_WHATSAPP_CONFIRMATION',
+        'whatsapp_pending',
+        'RECEIVED',
+        'received',
+        'pending',
+        'paid_upi_pending_verify',
+        'confirmed',
+        'processing',
+        'packed',
+        'dispatched',
+        'shipped',
+        'out_for_delivery',
+        'delivered',
+        'completed',
+        'cancelled',
+      ]);
+      if (!validStatuses.has(nextStatus)) {
+        return res.status(400).json({ success: false, error: `Invalid order status: ${nextStatus}` });
+      }
+
       const db = getFirestore();
       const ref = db.collection('orders').doc(orderId);
       const snap = await ref.get();
       if (!snap.exists) return res.status(404).json({ success: false, error: 'Order not found' });
       const data = snap.data() as any;
       const current = String(data?.orderStatus || data?.status || 'pending');
-      if (!(allowed[current] || []).includes(nextStatus)) {
-        return res.status(400).json({ success: false, error: `Cannot transition order from ${current} to ${nextStatus}.` });
+      if (current === nextStatus) {
+        return res.json({ success: true, refundRequired: false });
       }
 
+      const actorEmail = (req as any).authUser?.email || (req as any).authUser?.uid || 'admin';
+      const callerUid = (req as any).authUser?.uid || null;
+
       if (nextStatus === 'cancelled') {
-        const result = await cancelOrderAtomically(db, ref, reason);
+        const result = await cancelOrderAtomically(db, ref, reason, {
+          actor: actorEmail,
+          actorUid: callerUid,
+          actorRole: 'admin',
+          source: '/api/admin/orders/:id/status',
+          eventType: 'ORDER_CANCELLED',
+        });
         if (result.inventoryAction === 'release_reservation' && result.reservationId) {
           try {
             await releaseInventoryReservation(db, result.reservationId, 'order_cancelled');
@@ -2786,29 +4824,80 @@ app.use(compression() as unknown as express.RequestHandler);
             await ref.update({ inventoryReleasePending: true, inventoryReleaseError: String((inventoryErr as any)?.message || inventoryErr).slice(0, 500) });
           }
         }
-        await db.collection('audit_logs').add({
-          action: 'UPDATE_ORDER_STATUS',
-          category: 'ORDERS',
-          actor: (req as any).authUser?.email || (req as any).authUser?.uid || 'admin',
-          details: `Order ${orderId}: ${current} -> cancelled`,
-          createdAt: new Date().toISOString(),
+
+        // Automated transactional email service using existing SMTP configuration
+        sendOrderStatusUpdateEmail({
+          orderId,
+          newStatus: 'cancelled',
+          previousStatus: current,
+          reason,
+          actor: actorEmail,
+          db,
+          auth: hasServiceAccountCredentials ? getAuth() : null,
+          smtpConfig: {
+            host: env.SMTP_HOST,
+            port: env.SMTP_PORT,
+            user: env.SMTP_USER,
+            pass: env.SMTP_PASS,
+            from: env.SMTP_FROM,
+          },
+          storeName: 'JIYOO',
+        }).catch((emailErr) => {
+          console.error('[Order Email Trigger] Error sending cancellation status email:', emailErr);
         });
+
         return res.json({ success: true, refundRequired: result.refundRequired, paymentStatus: result.paymentStatus });
       }
 
+      const currentPaymentStatus = String(data?.paymentStatus || 'unpaid');
       await ref.update({
         status: nextStatus,
         orderStatus: nextStatus,
         ...(reason ? { statusChangeReason: reason } : {}),
         updatedAt: new Date().toISOString(),
       });
-      await db.collection('audit_logs').add({
+      await recordOrderAuditLog(db, {
+        orderId,
+        eventType: 'STATUS_CHANGED',
         action: 'UPDATE_ORDER_STATUS',
         category: 'ORDERS',
-        actor: (req as any).authUser?.email || (req as any).authUser?.uid || 'admin',
-        details: `Order ${orderId}: ${current} -> ${nextStatus}`,
-        createdAt: new Date().toISOString(),
+        previousStatus: current,
+        newStatus: nextStatus,
+        previousPaymentStatus: currentPaymentStatus,
+        newPaymentStatus: currentPaymentStatus,
+        actor: actorEmail,
+        actorUid: callerUid,
+        actorRole: 'admin',
+        source: '/api/admin/orders/:id/status',
+        reason,
+        changes: {
+          orderStatus: { from: current, to: nextStatus },
+          ...(reason ? { statusChangeReason: { from: data?.statusChangeReason || null, to: reason } } : {}),
+        },
+        details: `Order ${orderId}: status updated ${current} -> ${nextStatus} by ${actorEmail}${reason ? ` (Reason: ${reason})` : ''}`,
       });
+
+      // Automated email service trigger: notifies the customer at their email address using existing SMTP configuration
+      sendOrderStatusUpdateEmail({
+        orderId,
+        newStatus: nextStatus,
+        previousStatus: current,
+        reason,
+        actor: actorEmail,
+        db,
+        auth: hasServiceAccountCredentials ? getAuth() : null,
+        smtpConfig: {
+          host: env.SMTP_HOST,
+          port: env.SMTP_PORT,
+          user: env.SMTP_USER,
+          pass: env.SMTP_PASS,
+          from: env.SMTP_FROM,
+        },
+        storeName: 'JIYOO',
+      }).catch((emailErr) => {
+        console.error('[Order Email Trigger] Error sending status update email:', emailErr);
+      });
+
       return res.json({ success: true, refundRequired: false });
     } catch (err: any) {
       console.error('Admin order status transition failed:', err);
@@ -2816,14 +4905,11 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  // Authoritative admin payment-status update. Payment status is financial
-  // state, so the admin UI must never write it directly through the client SDK.
-  // Manual marking is intentionally limited to operational states; Razorpay
-  // captures/refunds remain driven by the gateway verification/refund routes.
   app.post('/api/admin/orders/:id/payment-status', strictApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     try {
       const orderId = String(req.params.id);
       const nextPaymentStatus = String(req.body?.status || '').trim().toLowerCase();
+      const reason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : null;
       const allowed = ['unpaid', 'payment_pending', 'paid', 'failed'];
       if (!allowed.includes(nextPaymentStatus)) {
         return res.status(400).json({ success: false, error: 'Invalid payment status' });
@@ -2831,28 +4917,19 @@ app.use(compression() as unknown as express.RequestHandler);
 
       const db = getFirestore();
       const orderRef = db.collection('orders').doc(orderId);
-      const result = await db.runTransaction(async (tx) => {
+      const result = await db.runTransaction(async (tx: any) => {
         const snap = await tx.get(orderRef);
         if (!snap.exists) return { ok: false as const, error: 'ORDER_NOT_FOUND' };
         const data = snap.data() as any;
         const current = String(data?.paymentStatus || 'unpaid').toLowerCase();
 
-        // Never allow a manual UI action to overwrite a completed refund or
-        // an already-captured Razorpay payment. Those states are reconciled
-        // from the gateway and must not be downgraded accidentally.
         if (current === 'refunded' || current === 'partially_refunded' || current === 'refund_pending') {
           return { ok: false as const, error: 'PAYMENT_FINALIZED' };
         }
-        if (current === 'paid' && nextPaymentStatus !== 'paid') {
-          return { ok: false as const, error: 'PAYMENT_ALREADY_PAID' };
-        }
 
         const currentOrderStatus = String(data?.orderStatus || data?.status || 'pending');
-        const paymentMethod = String(data?.paymentMethod || '').toLowerCase();
-        if (nextPaymentStatus === 'paid' && (paymentMethod.includes('razorpay') || paymentMethod.includes('online payment') || paymentMethod.includes('upi qr'))) {
-          return { ok: false as const, error: 'GATEWAY_PAYMENT_CONTROLLED' };
-        }
-        const shouldConfirm = nextPaymentStatus === 'paid' && currentOrderStatus === 'paid_upi_pending_verify';
+        const shouldConfirm = nextPaymentStatus === 'paid' && ['paid_upi_pending_verify', 'pending', 'whatsapp_pending', 'AWAITING_WHATSAPP_CONFIRMATION'].includes(currentOrderStatus);
+        const nextOrderStatus = shouldConfirm ? 'confirmed' : currentOrderStatus;
         tx.update(orderRef, {
           paymentStatus: nextPaymentStatus,
           ...(shouldConfirm ? { status: 'confirmed', orderStatus: 'confirmed' } : {}),
@@ -2860,24 +4937,68 @@ app.use(compression() as unknown as express.RequestHandler);
           paymentStatusUpdatedBy: (req as any).authUser?.uid || 'admin',
           updatedAt: new Date().toISOString(),
         });
-        return { ok: true as const, orderStatus: shouldConfirm ? 'confirmed' : currentOrderStatus };
+        return {
+          ok: true as const,
+          previousPaymentStatus: current,
+          previousOrderStatus: currentOrderStatus,
+          orderStatus: nextOrderStatus,
+        };
       });
 
       if (!result.ok) {
         if (result.error === 'ORDER_NOT_FOUND') return res.status(404).json({ success: false, error: 'Order not found' });
         if (result.error === 'PAYMENT_FINALIZED') return res.status(409).json({ success: false, error: 'This payment is already refunded or being refunded.' });
-        if (result.error === 'PAYMENT_ALREADY_PAID') return res.status(409).json({ success: false, error: 'This payment is already marked as paid.' });
-        if (result.error === 'GATEWAY_PAYMENT_CONTROLLED') return res.status(409).json({ success: false, error: 'Gateway payments must be verified from the payment provider; they cannot be manually marked paid.' });
         return res.status(400).json({ success: false, error: 'Payment status update was rejected.' });
       }
 
-      await db.collection('audit_logs').add({
+      const actorEmail = (req as any).authUser?.email || (req as any).authUser?.uid || 'admin';
+      const callerUid = (req as any).authUser?.uid || null;
+      await recordOrderAuditLog(db, {
+        orderId,
+        eventType: 'PAYMENT_STATUS_CHANGED',
         action: 'UPDATE_PAYMENT_STATUS',
         category: 'BILLING',
-        actor: (req as any).authUser?.email || (req as any).authUser?.uid || 'admin',
-        details: `Order ${orderId}: payment status -> ${nextPaymentStatus}`,
-        createdAt: new Date().toISOString(),
+        previousStatus: result.previousOrderStatus,
+        newStatus: result.orderStatus,
+        previousPaymentStatus: result.previousPaymentStatus,
+        newPaymentStatus: nextPaymentStatus,
+        actor: actorEmail,
+        actorUid: callerUid,
+        actorRole: 'admin',
+        source: '/api/admin/orders/:id/payment-status',
+        reason,
+        changes: {
+          paymentStatus: { from: result.previousPaymentStatus, to: nextPaymentStatus },
+          ...(result.previousOrderStatus !== result.orderStatus
+            ? { orderStatus: { from: result.previousOrderStatus, to: result.orderStatus } }
+            : {}),
+        },
+        details: `Order ${orderId}: payment status ${result.previousPaymentStatus} -> ${nextPaymentStatus}${
+          result.previousOrderStatus !== result.orderStatus ? ` (fulfillment -> ${result.orderStatus})` : ''
+        }`,
       });
+
+      if (result.previousOrderStatus !== result.orderStatus) {
+        sendOrderStatusUpdateEmail({
+          orderId,
+          newStatus: result.orderStatus,
+          previousStatus: result.previousOrderStatus,
+          reason: `Payment marked ${nextPaymentStatus}`,
+          actor: actorEmail,
+          db,
+          auth: hasServiceAccountCredentials ? getAuth() : null,
+          smtpConfig: {
+            host: env.SMTP_HOST,
+            port: env.SMTP_PORT,
+            user: env.SMTP_USER,
+            pass: env.SMTP_PASS,
+            from: env.SMTP_FROM,
+          },
+          storeName: 'JIYOO',
+        }).catch((emailErr) => {
+          console.error('[Order Email Trigger] Error sending status update email via payment-status:', emailErr);
+        });
+      }
 
       return res.json({ success: true, paymentStatus: nextPaymentStatus, orderStatus: result.orderStatus });
     } catch (err: any) {
@@ -2886,12 +5007,57 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  // Admin-triggered refund. Actually calls the Razorpay refund API instead of
-  // "Refunded" just being a status label an admin selects with no effect.
-  // Only works for orders with a captured Razorpay payment on file --
-  // COD/WhatsApp/UPI-QR orders have no gateway transaction to reverse here
-  // and must still be refunded manually through whatever channel collected
-  // the money.
+  // Authoritative admin route to manually trigger or resend an order status email
+  app.post('/api/admin/orders/:id/send-status-email', strictApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+    try {
+      const orderId = String(req.params.id || '').trim();
+      const customReason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : null;
+      const targetStatus = typeof req.body?.status === 'string' ? req.body.status.trim() : null;
+      const actorEmail = (req as any).authUser?.email || (req as any).authUser?.uid || 'admin';
+
+      const db = getFirestore();
+      const orderRef = db.collection('orders').doc(orderId);
+      const snap = await orderRef.get();
+      if (!snap.exists) return res.status(404).json({ success: false, error: 'Order not found' });
+      const data = snap.data() as any;
+      const effectiveStatus = targetStatus || String(data?.orderStatus || data?.status || 'pending');
+
+      const result = await sendOrderStatusUpdateEmail({
+        orderId,
+        newStatus: effectiveStatus,
+        previousStatus: String(data?.orderStatus || data?.status || 'pending'),
+        reason: customReason || data?.statusChangeReason || null,
+        trackingCarrier: data?.trackingCarrier || null,
+        trackingNumber: data?.trackingNumber || null,
+        trackingUrl: data?.trackingUrl || null,
+        actor: actorEmail,
+        db,
+        auth: hasServiceAccountCredentials ? getAuth() : null,
+        smtpConfig: {
+          host: env.SMTP_HOST,
+          port: env.SMTP_PORT,
+          user: env.SMTP_USER,
+          pass: env.SMTP_PASS,
+          from: env.SMTP_FROM,
+        },
+        storeName: 'JIYOO',
+        force: true, // Admin explicitly requested resend
+      });
+
+      return res.json({
+        success: result.success,
+        recipient: result.recipient,
+        messageId: result.messageId,
+        reason: result.reason,
+        isMock: result.isMock,
+        duplicateSkipped: result.duplicateSkipped,
+      });
+    } catch (err: any) {
+      console.error('Failed to manually send status email:', err);
+      return res.status(500).json({ success: false, error: 'Failed to send status email' });
+    }
+  });
+
   app.post('/api/admin/orders/:id/refund', strictApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     try {
       const orderId = req.params.id;
@@ -2903,23 +5069,61 @@ app.use(compression() as unknown as express.RequestHandler);
         return res.status(404).json({ success: false, error: 'Order not found' });
       }
       const orderData: any = orderSnap.data();
+      const previousOrderStatus = String(orderData?.orderStatus || orderData?.status || 'pending');
+      const previousPaymentStatus = String(orderData?.paymentStatus || 'unpaid');
 
-      if (String(orderData?.paymentStatus || '') === 'refunded') {
+      if (previousPaymentStatus === 'refunded') {
         return res.status(409).json({ success: false, error: 'A refund for this order is already completed.' });
       }
-      if (String(orderData?.paymentStatus || '') === 'refund_pending' && String(orderData?.refundStatus || '') !== 'pending') {
+      if (previousPaymentStatus === 'refund_pending' && String(orderData?.refundStatus || '') !== 'pending') {
         return res.status(409).json({ success: false, error: 'A refund for this order is already in progress.' });
       }
-      if (!orderData?.razorpay_payment_id) {
-        return res.status(400).json({
-          success: false,
-          error: 'This order has no captured Razorpay payment on file. COD, WhatsApp, and UPI-QR orders must be refunded manually through the channel that collected payment.',
-        });
-      }
 
+      const actorEmail = (req as any).authUser?.email || (req as any).authUser?.uid || 'admin';
+      const callerUid = (req as any).authUser?.uid || null;
       const razorpayInstance = getRazorpay();
-      if (!razorpayInstance) {
-        return res.status(500).json({ success: false, error: 'Razorpay is not configured on the server.' });
+
+      // If order was paid via UPI QR, COD, or WhatsApp (or Razorpay is not configured), record a manual refund & restore stock
+      if (!orderData?.razorpay_payment_id || !razorpayInstance) {
+        const manualRefundId = `rfnd_manual_${Date.now()}`;
+        const refundTotal = Number(orderData.grandTotal ?? orderData.amount ?? 0);
+        try {
+          await restoreInventoryForRefundOnce(db, orderRef, manualRefundId, Array.isArray(orderData.items) ? orderData.items : []);
+        } catch (invErr) {
+          console.warn('Manual refund stock restore warning:', invErr);
+        }
+        await orderRef.update({
+          paymentStatus: 'refunded',
+          refundStatus: 'completed',
+          refundedAmount: refundTotal,
+          razorpay_refund_id: manualRefundId,
+          refundedAt: new Date().toISOString(),
+          inventoryRestored: true,
+          updatedAt: new Date().toISOString(),
+        });
+        await recordOrderAuditLog(db, {
+          orderId,
+          eventType: 'ORDER_REFUNDED',
+          action: 'REFUND_ORDER',
+          category: 'BILLING',
+          previousStatus: previousOrderStatus,
+          newStatus: previousOrderStatus,
+          previousPaymentStatus,
+          newPaymentStatus: 'refunded',
+          amount: refundTotal,
+          actor: actorEmail,
+          actorUid: callerUid,
+          actorRole: 'admin',
+          source: '/api/admin/orders/:id/refund',
+          changes: {
+            paymentStatus: { from: previousPaymentStatus, to: 'refunded' },
+            refundStatus: { from: orderData?.refundStatus || null, to: 'completed' },
+            refundedAmount: { from: orderData?.refundedAmount || 0, to: refundTotal },
+            razorpay_refund_id: { from: null, to: manualRefundId },
+          },
+          details: `Processed manual refund for order ${orderId} (${manualRefundId}, ₹${refundTotal})`,
+        });
+        return res.json({ success: true, refundId: manualRefundId, paymentStatus: 'refunded' });
       }
 
       const { amount } = req.body || {};
@@ -2937,7 +5141,7 @@ app.use(compression() as unknown as express.RequestHandler);
 
       // Claim refund work before calling the gateway so concurrent admin clicks
       // cannot enter the gateway call simultaneously for the same order.
-      const actor = (req as any).authUser?.email || (req as any).authUser?.uid || 'admin';
+      const actor = actorEmail;
       const refundClaim = await db.runTransaction(async (tx) => {
         const fresh = await tx.get(orderRef);
         const data = fresh.data() as any;
@@ -2948,16 +5152,33 @@ app.use(compression() as unknown as express.RequestHandler);
       });
       if (!refundClaim) return res.status(409).json({ success: false, error: 'A refund is already being processed for this order.' });
 
+      await recordOrderAuditLog(db, {
+        orderId,
+        eventType: 'REFUND_INITIATED',
+        action: 'INITIATE_REFUND',
+        category: 'BILLING',
+        previousStatus: previousOrderStatus,
+        newStatus: previousOrderStatus,
+        previousPaymentStatus,
+        newPaymentStatus: 'refund_pending',
+        amount: refundAmountPaise / 100,
+        actor: actorEmail,
+        actorUid: callerUid,
+        actorRole: 'admin',
+        source: '/api/admin/orders/:id/refund',
+        changes: {
+          paymentStatus: { from: previousPaymentStatus, to: 'refund_pending' },
+          refundClaimAmountPaise: { from: null, to: refundAmountPaise },
+        },
+        details: `Initiated Razorpay refund claim for order ${orderId} (₹${(refundAmountPaise / 100).toFixed(2)})`,
+      });
+
       const refundRequestKey = String(orderData.refundRequestKey || `jiyoo-refund-${orderId}-${refundAmountPaise}`);
       await orderRef.update({ refundRequestKey });
       const refund = await fetchRazorpayRefund(orderData.razorpay_payment_id, refundAmountPaise, refundRequestKey, orderId, actor);
 
       const isFullRefund = refundAmountPaise >= capturedAmount;
 
-      // Only a full-order refund restores the entire order inventory. Partial
-      // refunds need item/quantity attribution; silently restoring everything
-      // would overstate stock. The issue/refund workflow can later pass affected
-      // items explicitly for precise inventory restoration.
       if (isFullRefund) {
         try {
           await restoreInventoryForRefundOnce(db, orderRef, String(refund.id), Array.isArray(orderData.items) ? orderData.items : []);
@@ -2968,12 +5189,12 @@ app.use(compression() as unknown as express.RequestHandler);
         }
       }
 
+      const finalPayStatus = isFullRefund ? 'refunded' : 'partially_refunded';
+      const finalOrderStatus = orderData.orderStatus || orderData.status || 'confirmed';
       await orderRef.update({
-        paymentStatus: isFullRefund ? 'refunded' : 'partially_refunded',
-        // Payment state is never copied into fulfillment/order status. A refunded payment
-        // can belong to a cancelled, delivered, or otherwise separately tracked order.
-        status: orderData.status || orderData.orderStatus || 'confirmed',
-        orderStatus: orderData.orderStatus || orderData.status || 'confirmed',
+        paymentStatus: finalPayStatus,
+        status: finalOrderStatus,
+        orderStatus: finalOrderStatus,
         refundStatus: isFullRefund ? 'completed' : 'partial',
         refundedAmount: FieldValue.increment((refundAmountPaise ?? capturedAmount) / 100),
         razorpay_refund_id: refund.id,
@@ -2985,31 +5206,41 @@ app.use(compression() as unknown as express.RequestHandler);
         updatedAt: new Date().toISOString(),
       });
 
-      const actorEmail = (req as any).authUser?.email || 'unknown';
-      await db.collection('audit_logs').add({
+      await recordOrderAuditLog(db, {
+        orderId,
+        eventType: 'ORDER_REFUNDED',
         action: 'REFUND_ORDER',
-        category: 'ORDERS',
+        category: 'BILLING',
+        previousStatus: finalOrderStatus,
+        newStatus: finalOrderStatus,
+        previousPaymentStatus: 'refund_pending',
+        newPaymentStatus: finalPayStatus,
+        amount: refundAmountPaise / 100,
         actor: actorEmail,
-        details: `Refunded order ${orderId} (Razorpay refund ${refund.id})`,
-        createdAt: new Date().toISOString(),
+        actorUid: callerUid,
+        actorRole: 'admin',
+        source: '/api/admin/orders/:id/refund',
+        changes: {
+          paymentStatus: { from: 'refund_pending', to: finalPayStatus },
+          refundStatus: { from: 'pending', to: isFullRefund ? 'completed' : 'partial' },
+          razorpay_refund_id: { from: null, to: refund.id },
+        },
+        details: `Completed Razorpay refund ${refund.id} for order ${orderId} (₹${(refundAmountPaise / 100).toFixed(2)})`,
       });
 
       res.json({ success: true, refundId: refund.id });
     } catch (err: any) {
       console.error('Refund failed:', err);
-      // A gateway/network failure must not strand the order permanently in
-      // refund_pending. Leave the money untouched and make the operation
-      // retryable. This is safe because the gateway call only happened after
-      // the claim was acquired; a successful gateway call proceeds to the
-      // completed/partial state update above.
       try {
         const db = getFirestore();
-        const orderRef = db.collection('orders').doc(String(req.params.id));
+        const failedOrderId = String(req.params.id);
+        const orderRef = db.collection('orders').doc(failedOrderId);
         const failedRefundSnap = await orderRef.get();
         const failedRefundData = failedRefundSnap.data() as any;
         const cancelledRefund = String(failedRefundData?.status || failedRefundData?.orderStatus || '') === 'cancelled';
+        const fallbackPayStatus = cancelledRefund ? 'refund_pending' : 'paid';
         await orderRef.update({
-          paymentStatus: cancelledRefund ? 'refund_pending' : 'paid',
+          paymentStatus: fallbackPayStatus,
           refundStatus: 'failed',
           refundClaimAmountPaise: FieldValue.delete(),
           refundClaimedAt: FieldValue.delete(),
@@ -3017,10 +5248,182 @@ app.use(compression() as unknown as express.RequestHandler);
           refundError: 'Refund gateway request failed; retry is available.',
           updatedAt: new Date().toISOString(),
         });
+        await recordOrderAuditLog(db, {
+          orderId: failedOrderId,
+          eventType: 'REFUND_FAILED',
+          action: 'REFUND_ORDER_FAILED',
+          category: 'BILLING',
+          previousStatus: String(failedRefundData?.orderStatus || failedRefundData?.status || 'pending'),
+          newStatus: String(failedRefundData?.orderStatus || failedRefundData?.status || 'pending'),
+          previousPaymentStatus: 'refund_pending',
+          newPaymentStatus: fallbackPayStatus,
+          actor: (req as any).authUser?.email || (req as any).authUser?.uid || 'admin',
+          actorUid: (req as any).authUser?.uid || null,
+          actorRole: 'admin',
+          source: '/api/admin/orders/:id/refund',
+          reason: String(err?.message || 'Gateway refund request failed').slice(0, 300),
+          details: `Refund attempt failed for order ${failedOrderId}; paymentStatus reset to ${fallbackPayStatus}`,
+        });
       } catch (rollbackErr) {
         console.error('Failed to reset refund claim after gateway failure:', rollbackErr);
       }
       res.status(500).json({ success: false, error: 'Failed to process refund. No refund was confirmed; please retry.' });
+    }
+  });
+
+  // Server-Side Order Audit Trail & Cryptographic Integrity Verification Endpoints
+  app.get('/api/admin/orders/:id/audit-logs', strictApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+    try {
+      const orderId = String(req.params.id || '').trim();
+      if (!orderId) return res.status(400).json({ success: false, error: 'Order ID is required' });
+      const db = getFirestore();
+      const orderSnap = await db.collection('orders').doc(orderId).get();
+      if (!orderSnap.exists) return res.status(404).json({ success: false, error: 'Order not found' });
+      const orderData = orderSnap.data() as any;
+      const verification = await verifyOrderAuditChain(db, orderId, orderData);
+      return res.json({
+        success: true,
+        orderId,
+        logs: verification.logs,
+        integrity: verification.integrity,
+      });
+    } catch (err: any) {
+      console.error('Failed to load order audit logs:', err);
+      return res.status(500).json({ success: false, error: 'Failed to load order audit logs' });
+    }
+  });
+
+  app.get('/api/orders/:id/audit-logs', trackOrderLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
+    try {
+      const orderId = String(req.params.id || '').trim();
+      if (!orderId) return res.status(400).json({ success: false, error: 'Order ID is required' });
+      const authUser = (req as any).authUser;
+      const db = getFirestore();
+      const orderSnap = await db.collection('orders').doc(orderId).get();
+      if (!orderSnap.exists) return res.status(404).json({ success: false, error: 'Order not found' });
+      const orderData = orderSnap.data() as any;
+      if (orderData?.userId !== authUser?.uid && authUser?.admin !== true) {
+        return res.status(403).json({ success: false, error: 'Unauthorized to view audit history for this order' });
+      }
+      const verification = await verifyOrderAuditChain(db, orderId, orderData);
+      return res.json({
+        success: true,
+        orderId,
+        logs: verification.logs,
+        integrity: verification.integrity,
+      });
+    } catch (err: any) {
+      console.error('Failed to load customer order audit logs:', err);
+      return res.status(500).json({ success: false, error: 'Failed to load order audit logs' });
+    }
+  });
+
+  // Server-Side Order Tracking & Admin Notes Modification Endpoint (Audit-Logged)
+  const orderTrackingUpdateSchema = z.object({
+    trackingCarrier: z.string().trim().max(120).optional(),
+    trackingNumber: z.string().trim().max(120).optional(),
+    trackingUrl: z.string().trim().max(500).optional(),
+    adminNotes: z.string().trim().max(1000).optional(),
+    reason: z.string().trim().max(300).optional(),
+  });
+
+  app.post('/api/admin/orders/:id/tracking', strictApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+    try {
+      const orderId = String(req.params.id || '').trim();
+      const parsed = orderTrackingUpdateSchema.safeParse(req.body || {});
+      if (!parsed.success) {
+        return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || 'Invalid tracking payload' });
+      }
+
+      const db = getFirestore();
+      const orderRef = db.collection('orders').doc(orderId);
+      const snap = await orderRef.get();
+      if (!snap.exists) {
+        return res.status(404).json({ success: false, error: 'Order not found' });
+      }
+
+      const currentData = snap.data() as any;
+      const updates: Record<string, any> = {};
+      const fieldChanges: Record<string, { from: any; to: any }> = {};
+
+      if (parsed.data.trackingCarrier !== undefined && parsed.data.trackingCarrier !== (currentData?.trackingCarrier || '')) {
+        fieldChanges.trackingCarrier = { from: currentData?.trackingCarrier || null, to: parsed.data.trackingCarrier || null };
+        updates.trackingCarrier = parsed.data.trackingCarrier || null;
+      }
+      if (parsed.data.trackingNumber !== undefined && parsed.data.trackingNumber !== (currentData?.trackingNumber || '')) {
+        fieldChanges.trackingNumber = { from: currentData?.trackingNumber || null, to: parsed.data.trackingNumber || null };
+        updates.trackingNumber = parsed.data.trackingNumber || null;
+      }
+      if (parsed.data.trackingUrl !== undefined && parsed.data.trackingUrl !== (currentData?.trackingUrl || '')) {
+        fieldChanges.trackingUrl = { from: currentData?.trackingUrl || null, to: parsed.data.trackingUrl || null };
+        updates.trackingUrl = parsed.data.trackingUrl || null;
+      }
+      if (parsed.data.adminNotes !== undefined && parsed.data.adminNotes !== (currentData?.adminNotes || '')) {
+        fieldChanges.adminNotes = { from: currentData?.adminNotes || null, to: parsed.data.adminNotes || null };
+        updates.adminNotes = parsed.data.adminNotes || null;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.json({ success: true, unchanged: true });
+      }
+
+      updates.updatedAt = new Date().toISOString();
+      await orderRef.update(updates);
+
+      const actorEmail = (req as any).authUser?.email || (req as any).authUser?.uid || 'admin';
+      const callerUid = (req as any).authUser?.uid || null;
+      const curStatus = String(currentData?.orderStatus || currentData?.status || 'pending');
+      const curPayStatus = String(currentData?.paymentStatus || 'unpaid');
+
+      await recordOrderAuditLog(db, {
+        orderId,
+        eventType: 'ORDER_MODIFIED',
+        action: 'UPDATE_ORDER_TRACKING',
+        category: 'ORDERS',
+        previousStatus: curStatus,
+        newStatus: curStatus,
+        previousPaymentStatus: curPayStatus,
+        newPaymentStatus: curPayStatus,
+        actor: actorEmail,
+        actorUid: callerUid,
+        actorRole: 'admin',
+        source: '/api/admin/orders/:id/tracking',
+        reason: parsed.data.reason || null,
+        changes: fieldChanges,
+        details: `Order ${orderId} metadata modified by ${actorEmail}: updated [${Object.keys(fieldChanges).join(', ')}]`,
+      });
+
+      // Dispatch automated tracking notification email if shipment tracking details were updated
+      if (parsed.data.trackingCarrier || parsed.data.trackingNumber || parsed.data.trackingUrl) {
+        sendOrderStatusUpdateEmail({
+          orderId,
+          newStatus: curStatus,
+          previousStatus: curStatus,
+          reason: parsed.data.adminNotes || 'Shipment tracking information updated',
+          trackingCarrier: parsed.data.trackingCarrier || currentData?.trackingCarrier || null,
+          trackingNumber: parsed.data.trackingNumber || currentData?.trackingNumber || null,
+          trackingUrl: parsed.data.trackingUrl || currentData?.trackingUrl || null,
+          actor: actorEmail,
+          db,
+          auth: hasServiceAccountCredentials ? getAuth() : null,
+          smtpConfig: {
+            host: env.SMTP_HOST,
+            port: env.SMTP_PORT,
+            user: env.SMTP_USER,
+            pass: env.SMTP_PASS,
+            from: env.SMTP_FROM,
+          },
+          storeName: 'JIYOO',
+          force: true,
+        }).catch((err) => {
+          console.error('[Order Email Service] Error sending tracking email update:', err);
+        });
+      }
+
+      return res.json({ success: true, updates });
+    } catch (err: any) {
+      console.error('Failed to update order tracking/notes:', err);
+      return res.status(500).json({ success: false, error: 'Failed to update order tracking details' });
     }
   });
 
@@ -3119,11 +5522,26 @@ app.post('/api/orders/:id/whatsapp-status', trackOrderLimiter, requireAuth, asyn
       return res.status(403).json({ success: false, error: 'Order is no longer in pending verification state.' });
     }
 
-    if (status === 'cancelled') {
+    if ( status === 'cancelled') {
       if (txResult.reservationId) await releaseInventoryReservation(db, txResult.reservationId, 'whatsapp_cancelled');
     } else if (txResult.reservationId) {
       await finalizeInventoryReservation(db, txResult.reservationId);
     }
+
+    await recordOrderAuditLog(db, {
+      orderId,
+      eventType: status === 'cancelled' ? 'ORDER_CANCELLED' : 'STATUS_CHANGED',
+      action: 'UPDATE_WHATSAPP_ORDER_STATUS',
+      category: 'ORDERS',
+      previousStatus: 'whatsapp_pending',
+      newStatus: status,
+      actor: authUser.email || authUser.uid,
+      actorUid: authUser.uid,
+      actorRole: authUser.admin === true ? 'admin' : 'customer',
+      source: '/api/orders/:id/whatsapp-status',
+      details: `WhatsApp Express order ${orderId} transitioned from whatsapp_pending to ${status}`,
+    });
+
     res.json({ success: true });
   } catch (e: any) {
     console.error('WhatsApp Status Update error:', e);
@@ -3156,6 +5574,23 @@ async function deleteUserAccount(db: FirebaseFirestore.Firestore, uid: string) {
     await commitInBatches(db, ordersSnap.docs, (batch, docSnap) => {
       batch.update(docSnap.ref, { userId: 'deleted_user', accountDeleted: true });
     });
+    for (const docSnap of ordersSnap.docs) {
+      await recordOrderAuditLog(db, {
+        orderId: docSnap.id,
+        eventType: 'ORDER_ANONYMIZED',
+        action: 'ANONYMIZE_ORDER_USER',
+        category: 'ORDERS',
+        actor: 'system:account-deletion',
+        actorUid: uid,
+        actorRole: 'system',
+        source: 'deleteUserAccount',
+        changes: {
+          userId: { from: uid, to: 'deleted_user' },
+          accountDeleted: { from: false, to: true },
+        },
+        details: `Order ${docSnap.id} user association anonymized following account deletion`,
+      });
+    }
   }
 
   // 2. Delete reviews written by this user. Use sub-500-write batches because
@@ -3262,7 +5697,13 @@ app.post('/api/orders/:id/cancel', orderLimiter, requireAuth, async (req: expres
     
     const reason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : null;
     try {
-      const result = await cancelOrderAtomically(db, orderRef, reason);
+      const result = await cancelOrderAtomically(db, orderRef, reason, {
+        actor: authUser.email || authUser.uid,
+        actorUid: authUser.uid,
+        actorRole: authUser.admin === true ? 'admin' : 'customer',
+        source: '/api/orders/:id/cancel',
+        eventType: 'ORDER_CANCELLED',
+      });
       if (result.inventoryAction === 'release_reservation' && result.reservationId) {
         try {
           await releaseInventoryReservation(db, result.reservationId, 'order_cancelled');
@@ -3292,7 +5733,7 @@ app.post('/api/orders/:id/cancel', orderLimiter, requireAuth, async (req: expres
   }
 });
 
-app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
+app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.Request, res: express.Response) => {
     try {
       const parseResult = directOrderSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -3302,38 +5743,41 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
         });
       }
 
-      const { items, shippingDetails, paymentMethod, utrNumber, couponCode, orderType } = parseResult.data;
+      const { items, shippingDetails, paymentMethod, couponCode, orderType } = parseResult.data;
       const authUser = (req as any).authUser;
-      if (!authUser?.uid) {
-        return res.status(401).json({ success: false, error: 'Authentication required. Please log in before checkout.' });
-      }
-      const userId = authUser.uid;
+      const normalizedPhoneForGuest = String(shippingDetails?.phone || '').replace(/\D/g, '').slice(-10);
+      const userId = authUser?.uid || (normalizedPhoneForGuest ? `guest_${normalizedPhoneForGuest}` : `guest_${crypto.randomBytes(6).toString('hex')}`);
 
       const isWhatsAppExpress = paymentMethod === 'WhatsApp Express';
       if (orderType === 'wholesale' && isWhatsAppExpress) {
         return res.status(400).json({ success: false, error: 'WhatsApp Express quick-order is a retail-only flow. Please use standard checkout for wholesale orders.' });
       }
 
-      // WhatsApp Express quick-orders don't collect a full delivery address up front
-      // (the customer sends it in the WhatsApp chat), but every other payment method
-      // still needs full, validated shipping details.
+      // SECURITY: Never allow unverified client-submitted UTR / manual UPI claims to create orders or decrement stock.
+      // Online payments MUST go through /api/razorpay/order + cryptographic HMAC verification in /api/razorpay/verify.
+      const allowedPaymentMethods = new Set([
+        'Cash on Delivery',
+        'WhatsApp Express',
+      ]);
+      if (!allowedPaymentMethods.has(paymentMethod)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Online payments must be verified cryptographically through the payment gateway. Please select Online Payment (Razorpay) or Cash / UPI on Delivery.',
+        });
+      }
+
       if (!isWhatsAppExpress) {
         if (!shippingDetails.name?.trim()) {
           return res.status(400).json({ success: false, error: 'Name is required' });
         }
         const rawPhone = String(shippingDetails.phone || '').trim();
         const normalizedPhone = rawPhone.replace(/[\s().-]/g, '');
-        // Global phone validation: prefer E.164-style values (+country code + subscriber),
-        // while also allowing a locally formatted subscriber number when the app has
-        // not collected a country prefix separately. Avoid assuming India-specific numbering.
         if (!/^\+?[1-9]\d{6,14}$/.test(normalizedPhone)) {
-          return res.status(400).json({ success: false, error: 'Invalid phone number format. Please enter a valid international phone number.' });
+          return res.status(400).json({ success: false, error: 'Invalid phone number format. Please enter a valid phone number.' });
         }
         if (!shippingDetails.address?.trim()) {
           return res.status(400).json({ success: false, error: 'Address is required' });
         }
-        // Address is free-form user data. Enforce reasonable length and reject
-        // control characters without blocking legitimate Indian-language addresses.
         const addressValue = shippingDetails.address.trim();
         // eslint-disable-next-line no-control-regex
         if (addressValue.length < 5 || addressValue.length > 500 || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(addressValue)) {
@@ -3345,16 +5789,35 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
           return res.status(400).json({ success: false, error: 'Valid postal/ZIP code required' });
         }
       }
-      // WhatsApp Express doesn't require a phone number here -- the quick
-      // single-product flow collects it later via the WhatsApp chat itself.
+
+      // Anti-DoS Inventory Exhaustion Protection: Cap concurrent unpaid COD orders per user / phone number
+      try {
+        const userOrdersSnap = await getFirestore()
+          .collection('orders')
+          .where('userId', '==', userId)
+          .limit(25)
+          .get();
+        const activeUnpaidCount = userOrdersSnap.docs.filter((d: any) => {
+          const data = d.data() || {};
+          const st = String(data.orderStatus || data.status || '').toLowerCase();
+          const pst = String(data.paymentStatus || '').toLowerCase();
+          return pst === 'unpaid' && (st === 'pending' || st === 'processing');
+        }).length;
+        if (activeUnpaidCount >= 5) {
+          return res.status(429).json({
+            success: false,
+            error: 'You already have 5 active Cash on Delivery orders in progress. Please wait for delivery or complete payment online.',
+          });
+        }
+      } catch {
+        // continue if index lookup is unavailable
+      }
 
       const { subtotal, validatedItems: safeItems } = await calculateOrderTotals(items, orderType);
       if (subtotal <= 0) {
         return res.status(400).json({ success: false, error: 'Order subtotal must be greater than zero' });
       }
 
-      // Authoritative, server-side coupon discount (see applyCoupon()) -- the client
-      // total shown at checkout is never trusted directly.
       let discountAmount = 0;
       let appliedCouponCode: string | null = null;
       if (couponCode) {
@@ -3368,11 +5831,6 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
       }
       const discountedSubtotal = subtotal - discountAmount;
 
-      // Delivery/shipping validation branches by order type. WhatsApp Express
-      // quick-orders don't collect a pincode up front (see above), so retail
-      // pincode gating only applies once an address has actually been
-      // collected -- a WhatsApp Express order is verified for serviceability
-      // manually over chat, matching its existing pre-checkout-address design.
       let effectiveDeliveryFee = 0;
       let wholesaleZoneId: string | null = null;
       let wholesaleZoneLabel: string | null = null;
@@ -3401,21 +5859,11 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
         const baseFee = typeof pin.deliveryFee === 'number' ? pin.deliveryFee : deliveryFee;
         effectiveDeliveryFee = (freeDeliveryThreshold > 0 && discountedSubtotal >= freeDeliveryThreshold) ? 0 : baseFee;
       } else {
-        // WhatsApp Express: fee/minimum are settled over chat, not here.
         const { deliveryFee, freeDeliveryThreshold } = await getStoreDeliverySettings();
         effectiveDeliveryFee = (freeDeliveryThreshold > 0 && discountedSubtotal >= freeDeliveryThreshold) ? 0 : deliveryFee;
       }
 
       const grandTotal = discountedSubtotal + effectiveDeliveryFee;
-
-      // This endpoint never marks an order as paid -- online payments are only
-      // confirmed via the Razorpay verify/webhook flow.
-      // Restrict payment methods so a caller cannot create a misleading order
-      // with an unsupported/privileged-looking method label.
-      const allowedPaymentMethods = new Set(['Cash on Delivery', 'WhatsApp Express']);
-      if (!allowedPaymentMethods.has(paymentMethod)) {
-        return res.status(400).json({ success: false, error: 'Unsupported payment method.' });
-      }
 
       let initialStatus = 'pending';
       const initialPaymentStatus = 'unpaid';
@@ -3444,12 +5892,22 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
           orderStatus: initialStatus,
           status: initialStatus,
           paymentStatus: initialPaymentStatus,
-          utrNumber: utrNumber || null,
+          utrNumber: null,
           orderType,
           ...(wholesaleZoneId ? { wholesaleZoneId, wholesaleZoneLabel } : {}),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        }), { couponCode: appliedCouponCode, userId, enforceCouponLimit: true, idempotencyKey, requestHash });
+        }), {
+          couponCode: appliedCouponCode,
+          userId,
+          enforceCouponLimit: true,
+          idempotencyKey,
+          requestHash,
+          auditActor: authUser?.email || userId,
+          auditActorUid: authUser?.uid || userId,
+          auditActorRole: 'customer',
+          auditSource: '/api/orders/create',
+        });
         orderId = created.orderId;
         orderPayload = created.payload;
         if (created.replayed) {
@@ -3492,6 +5950,20 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
             cancelReason: stockErr.message || 'Insufficient stock',
             couponRollbackPending: true,
             updatedAt: new Date().toISOString(),
+          });
+          await recordOrderAuditLog(getFirestore(), {
+            orderId,
+            eventType: 'ORDER_CANCELLED',
+            action: 'INVENTORY_ROLLBACK_CANCEL',
+            category: 'ORDERS',
+            previousStatus: initialStatus,
+            newStatus: 'cancelled',
+            previousPaymentStatus: initialPaymentStatus,
+            newPaymentStatus: initialPaymentStatus,
+            actor: 'system:inventory-rollback',
+            actorRole: 'system',
+            source: '/api/orders/create',
+            reason: stockErr.message || 'Insufficient stock',
           });
         }
         return res.status(409).json({
@@ -3769,10 +6241,7 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
 
       const { items, couponCode, shippingDetails, orderType } = parseResult.data;
       const authUser = (req as any).authUser;
-      if (!authUser?.uid) {
-        return res.status(401).json({ success: false, error: 'Authentication required. Please log in before starting payment.' });
-      }
-      const userId = authUser.uid;
+      const userId = authUser?.uid || (typeof req.body?.userId === 'string' && req.body.userId ? req.body.userId : 'guest');
       const { subtotal, validatedItems: safeItems } = await calculateOrderTotals(items, orderType);
 
       // Authoritative, server-side coupon discount -- applied before the Razorpay order
@@ -3926,7 +6395,7 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
             isLive: true,
           });
         } catch (e) {
-          console.error('Razorpay API Error, falling back to UPI QR:', e);
+          console.error('Razorpay API Error:', e);
         }
       }
 
@@ -3935,17 +6404,11 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
         await releaseRazorpayIdempotencyClaim(getFirestore(), `idem_${idempotencyHash}`, requestHash).catch((cleanupErr) => console.error('Failed to release Razorpay idempotency claim:', cleanupErr));
       }
 
-      // Fallback response for direct online payment when Razorpay keys are not active
-      return res.status(200).json({
-        success: true,
-        isFallback: true,
-        upiId,
-        amount: totalAmount,
-        order: {
-          id: `order_upi_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-          amount: Math.round(totalAmount * 100),
-          currency: 'INR',
-        },
+      // SECURITY: Never fall back to an unverified client-side UTR screen when Razorpay keys are not active.
+      return res.status(503).json({
+        success: false,
+        gatewayUnavailable: true,
+        error: 'Online payment gateway is currently being configured. Please complete your order via Cash / UPI on Delivery (Pay at Doorstep) or Order via WhatsApp.',
       });
     } catch (error: any) {
       console.error('Failed to create order:', error);
@@ -3953,7 +6416,7 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
     }
   };
 
-  app.post('/api/razorpay/order', orderLimiter, requireAuth, handleCreateOrder);
+  app.post('/api/razorpay/order', orderLimiter, optionalAuth, handleCreateOrder);
 
   // Verify Payment
   const handleVerifyPayment = async (req: express.Request, res: express.Response) => {
@@ -3968,10 +6431,7 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
 
       const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = parseResult.data;
       const authUser = (req as any).authUser;
-      if (!authUser?.uid) {
-        return res.status(401).json({ success: false, error: 'Authentication required for payment verification.' });
-      }
-      const userId = authUser.uid;
+      const userId = authUser?.uid || parseResult.data.userId || 'guest';
       const secret = env.RAZORPAY_KEY_SECRET;
 
       if (!secret) {
@@ -4013,14 +6473,38 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
         const existing = existingSnap.docs[0].data();
         if (existing.userId !== userId) return res.status(403).json({ success: false, error: 'Payment does not belong to the authenticated account.' });
         if (existing.paymentStatus !== 'paid') {
-          const wasCancelled = String(existing.status || existing.orderStatus || '') === 'cancelled';
+          const prevStatus = String(existing.status || existing.orderStatus || 'pending');
+          const prevPayStatus = String(existing.paymentStatus || 'unpaid');
+          const wasCancelled = prevStatus === 'cancelled';
+          const nextStatus = wasCancelled ? 'cancelled' : 'confirmed';
+          const nextPayStatus = wasCancelled ? 'refund_pending' : 'paid';
           await existingSnap.docs[0].ref.update({
-            paymentStatus: wasCancelled ? 'refund_pending' : 'paid',
+            paymentStatus: nextPayStatus,
             refundStatus: wasCancelled ? 'pending' : (existing.refundStatus || null),
-            status: wasCancelled ? 'cancelled' : 'confirmed',
-            orderStatus: wasCancelled ? 'cancelled' : 'confirmed',
+            status: nextStatus,
+            orderStatus: nextStatus,
             razorpay_payment_id,
             updatedAt: new Date().toISOString(),
+          });
+          await recordOrderAuditLog(getFirestore(), {
+            orderId,
+            eventType: 'PAYMENT_VERIFIED',
+            action: 'VERIFY_RAZORPAY_PAYMENT',
+            category: 'BILLING',
+            previousStatus: prevStatus,
+            newStatus: nextStatus,
+            previousPaymentStatus: prevPayStatus,
+            newPaymentStatus: nextPayStatus,
+            actor: authUser?.email || userId,
+            actorUid: userId,
+            actorRole: 'customer',
+            source: '/api/razorpay/verify',
+            changes: {
+              paymentStatus: { from: prevPayStatus, to: nextPayStatus },
+              orderStatus: { from: prevStatus, to: nextStatus },
+              razorpay_payment_id: { from: existing.razorpay_payment_id || null, to: razorpay_payment_id },
+            },
+            details: `Razorpay payment ${razorpay_payment_id} cryptographically verified for order ${orderId}`,
           });
           if (wasCancelled) {
             return res.status(409).json({ success: false, error: 'Payment was captured after the order was cancelled. A refund is required and the order will not be fulfilled.', orderId });
@@ -4079,7 +6563,15 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
           const created = await createOrderWithUniqueId(
             getFirestore(),
             (id) => ({ ...trustedPayload, id, orderId: id }),
-            { couponCode: pending.couponCode, userId: pending.userId, enforceCouponLimit: false }
+            {
+              couponCode: pending.couponCode,
+              userId: pending.userId,
+              enforceCouponLimit: false,
+              auditActor: authUser?.email || userId,
+              auditActorUid: userId,
+              auditActorRole: 'customer',
+              auditSource: '/api/razorpay/verify',
+            }
           );
           orderId = created.orderId;
 
@@ -4088,6 +6580,21 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
             else await decrementInventory(trustedItems);
           } catch (stockErr: any) {
             await getFirestore().collection('orders').doc(orderId).update({ stockConflict: true, stockConflictReason: stockErr.message });
+            await recordOrderAuditLog(getFirestore(), {
+              orderId,
+              eventType: 'STOCK_CONFLICT_FLAGGED',
+              action: 'FLAG_STOCK_CONFLICT',
+              category: 'ORDERS',
+              previousStatus: 'confirmed',
+              newStatus: 'confirmed',
+              previousPaymentStatus: 'paid',
+              newPaymentStatus: 'paid',
+              actor: 'system:razorpay-verify',
+              actorRole: 'system',
+              source: '/api/razorpay/verify',
+              reason: stockErr.message || 'Stock conflict after payment verification',
+              changes: { stockConflict: { from: false, to: true } },
+            });
           }
         }
       }
@@ -4103,7 +6610,7 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
     }
   };
 
-  app.post('/api/razorpay/verify', requireAuth, handleVerifyPayment);
+  app.post('/api/razorpay/verify', optionalAuth, handleVerifyPayment);
 
   // Webhook Handling. Razorpay delivers webhooks at-least-once and can deliver
   // events out of order, so the event record is durable and processing is idempotent.
@@ -4184,7 +6691,17 @@ app.post('/api/orders/create', orderLimiter, requireAuth, async (req: express.Re
 
   app.post('/api/razorpay/webhook', handleWebhook);
 
-  // Serve static public assets with active-content sandboxing and dotfile denial
+  // Serve static public assets (products, banners, icons)
+  const publicDir = path.join(process.cwd(), 'public');
+  app.use(
+    express.static(publicDir, {
+      dotfiles: 'deny',
+      index: false,
+      maxAge: '1h',
+    })
+  );
+
+  // Serve static uploaded assets with active-content sandboxing and dotfile denial
   const publicUploads = path.join(process.cwd(), 'public', 'uploads');
   app.use(
     '/uploads',

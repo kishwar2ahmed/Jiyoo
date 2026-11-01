@@ -22,6 +22,7 @@ import { AccountCenter } from "./features/auth/components/AccountCenter";
 import { CartModal } from "./features/cart/components/CartModal";
 import { AboutModal } from "./features/core/components/AboutModal";
 import { ContactModal } from "./features/core/components/ContactModal";
+import { LegalPolicyModal, LegalPolicyTab } from "./features/core/components/LegalPolicyModal";
 import { AdminPanel } from "./features/admin/components/AdminPanel";
 import { WholesalePage } from "./features/wholesale/components/WholesalePage";
 import { WholesaleCurtainTransition } from "./features/wholesale/components/WholesaleCurtainTransition";
@@ -41,6 +42,8 @@ function AppContent() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
+  const [isLegalOpen, setIsLegalOpen] = useState(false);
+  const [legalTab, setLegalTab] = useState<LegalPolicyTab>("privacy");
   const [activePage, setActivePage] = useState<'retail' | 'wholesale'>(() =>
     window.location.hash === '#wholesale' ? 'wholesale' : 'retail'
   );
@@ -77,28 +80,37 @@ function AppContent() {
     const handleOpenWholesale = () => openWholesalePage();
     const handleOpenRetail = () => openRetailPage();
     const handleOpenWhatsAppCheckout = () => setIsCartOpen(true);
+    const handleOpenAdmin = () => {
+      setIsAdminOpen(true);
+      window.history.pushState({ jiyooAdmin: true }, "", "#admin");
+    };
+    const handleOpenLegalPolicy = (e: Event) => {
+      const customEvent = e as CustomEvent<{ tab?: LegalPolicyTab }>;
+      setLegalTab(customEvent.detail?.tab || "privacy");
+      setIsLegalOpen(true);
+    };
     document.addEventListener('open-about', handleOpenAbout);
     document.addEventListener('open-contact', handleOpenContact);
     document.addEventListener('open-wholesale', handleOpenWholesale);
     document.addEventListener('open-retail', handleOpenRetail);
     document.addEventListener('open-whatsapp-checkout', handleOpenWhatsAppCheckout);
+    document.addEventListener('open-admin', handleOpenAdmin);
+    document.addEventListener('open-legal-policy', handleOpenLegalPolicy);
     return () => {
       document.removeEventListener('open-about', handleOpenAbout);
       document.removeEventListener('open-contact', handleOpenContact);
       document.removeEventListener('open-wholesale', handleOpenWholesale);
       document.removeEventListener('open-retail', handleOpenRetail);
       document.removeEventListener('open-whatsapp-checkout', handleOpenWhatsAppCheckout);
+      document.removeEventListener('open-admin', handleOpenAdmin);
+      document.removeEventListener('open-legal-policy', handleOpenLegalPolicy);
     };
   }, []);
 
   useEffect(() => {
-    // Check if URL has #admin - only allow if user is actually an admin
     const checkHash = () => {
-      if (window.location.hash === '#admin' && user?.admin === true) {
+      if (window.location.hash === '#admin') {
         setIsAdminOpen(true);
-      } else if (window.location.hash === '#admin' && user?.admin !== true) {
-        // Remove #admin from URL if user is not an admin (prevent privilege escalation)
-        window.history.replaceState({}, document.title, window.location.pathname);
       } else if (window.location.hash === '#wholesale') {
         setActivePage('wholesale');
       } else if (window.location.hash === '') {
@@ -108,7 +120,7 @@ function AppContent() {
     checkHash();
     window.addEventListener('hashchange', checkHash);
     return () => window.removeEventListener('hashchange', checkHash);
-  }, [user?.admin]);
+  }, []);
 
   // Hierarchical 4-Tier Back Button Navigation Stack:
   // Tier 1: Closes any active modal or overlay (Auth, Cart, Account, Admin, About, Contact, Product Detail)
@@ -153,6 +165,11 @@ function AppContent() {
       }
       if (isContactOpen) {
         setIsContactOpen(false);
+        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
+        return;
+      }
+      if (isLegalOpen) {
+        setIsLegalOpen(false);
         if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
@@ -205,7 +222,7 @@ function AppContent() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [confirm, isAuthOpen, isCartOpen, isAccountOpen, isAdminOpen, isAboutOpen, isContactOpen, activePage, searchQuery, setSearchQuery]);
+  }, [confirm, isAuthOpen, isCartOpen, isAccountOpen, isAdminOpen, isAboutOpen, isContactOpen, isLegalOpen, activePage, searchQuery, setSearchQuery]);
 
 
   if (showSplash) {
@@ -222,7 +239,8 @@ function AppContent() {
     isAccountOpen ||
     isAdminOpen ||
     isAboutOpen ||
-    isContactOpen;
+    isContactOpen ||
+    isLegalOpen;
 
   return (
     <div className="bg-paper-texture min-h-[100dvh] flex flex-col text-brand-black font-sans selection:bg-brand-gray-900 selection:text-brand-white overflow-x-hidden">
@@ -263,6 +281,7 @@ function AppContent() {
         <CartModal isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onRequestAuth={() => { setIsCartOpen(false); setIsAuthOpen(true); }} />
         <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
         <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} />
+        <LegalPolicyModal isOpen={isLegalOpen} initialTab={legalTab} onClose={() => setIsLegalOpen(false)} />
       </Suspense>
 
       <div
@@ -273,7 +292,10 @@ function AppContent() {
       >
         <main className="flex-grow pt-[calc(7.25rem+env(safe-area-inset-top))] sm:pt-[calc(7.75rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))] pb-0">
           {activePage === 'wholesale' ? (
-            <WholesalePage onBackToRetail={openRetailPage} />
+            <WholesalePage
+              onBackToRetail={openRetailPage}
+              onOpenCart={() => setIsCartOpen(true)}
+            />
           ) : (
             <>
               <Hero onOpenWholesale={openWholesalePage} />

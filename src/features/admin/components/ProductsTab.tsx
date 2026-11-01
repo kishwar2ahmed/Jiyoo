@@ -10,6 +10,7 @@ import { useToast } from '../../core/contexts/ToastContext';
 import { useConfirm } from '../../core/contexts/ConfirmContext';
 import { resolveProductImage } from '../../../utils/imageUtils';
 import { InstaBlueTickIcon } from '../../core/components/SocialIcons';
+import { adminSaveDoc, adminFetchCollection } from '../../../utils/adminAuth';
 
 
 import React from 'react';
@@ -75,12 +76,41 @@ export function ProductsTab() {
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   
   useEffect(() => {
-    // Failsafe timer to stop loading spinner after 800ms
     const timer = setTimeout(() => {
       setLoading(false);
     }, 800);
 
-    // Real-time categories snapshot
+    // Load from server collection API first so server-persisted edits appear immediately
+    adminFetchCollection<Product>('products').then((serverProds) => {
+      if (serverProds.length > 0) {
+        const prodMap = new Map<string, Product>();
+        PRODUCTS.forEach(p => prodMap.set(String(p.id), p));
+        serverProds.forEach((data: any) => {
+          if (!data || typeof data !== 'object') return;
+          const id = String(data.id);
+          if (data.isDeleted === true) {
+            prodMap.delete(id);
+          } else {
+            const base = prodMap.get(id);
+            const merged = {
+              ...(base || {}),
+              ...data,
+              id,
+              name: data.name || base?.name || '',
+              categoryId: data.categoryId || base?.categoryId || 'fruits',
+              subcategoryId: data.subcategoryId ?? base?.subcategoryId,
+              subSubcategoryId: data.subSubcategoryId ?? base?.subSubcategoryId,
+              price: data.price ?? base?.price ?? 0,
+              unit: data.unit || base?.unit || '1 kg',
+              image: resolveProductImage(data.image || base?.image) || '',
+            } as Product;
+            if (merged.name) prodMap.set(id, merged);
+          }
+        });
+        setProducts(Array.from(prodMap.values()));
+      }
+    });
+
     const unsubCats = onSnapshot(collection(db, 'categories'), (snap) => {
       const loaded: Category[] = [];
       snap.forEach(d => {
@@ -100,7 +130,6 @@ export function ProductsTab() {
       console.warn("Categories subscription error:", err);
     });
 
-    // Real-time products snapshot with safe baseline field merging
     const unsubProds = onSnapshot(query(collection(db, 'products'), limit(500)), (snap) => {
       if (snap.empty) {
         setProducts(prev => (prev.length > 0 ? prev : PRODUCTS));
@@ -136,7 +165,6 @@ export function ProductsTab() {
       setLoading(false);
     }, (err) => {
       console.warn("Products subscription error:", err);
-      // Preserve last known valid product state on subscription error
       setProducts(prev => (prev.length > 0 ? prev : PRODUCTS));
       setLoading(false);
     });
@@ -149,26 +177,16 @@ export function ProductsTab() {
   }, []);
 
   const handleSeedCatalog = async () => {
-    if (!(await confirm({ title: "Sync catalog?", message: "Safely merge baseline catalog products and images into Firestore without deleting existing records?", danger: false, confirmLabel: "Sync" }))) return;
+    if (!(await confirm({ title: "Sync catalog?", message: "Safely merge baseline catalog products and images into the database without deleting existing records?", danger: false, confirmLabel: "Sync" }))) return;
     setLoading(true);
     try {
-      let batch = writeBatch(db);
-      let count = 0;
-      for (const p of PRODUCTS) {
+      for (const p of PRODUCTS.slice(0, 25)) {
         const cleanProd = Object.fromEntries(
           Object.entries({ ...p, id: String(p.id), isDeleted: false, updatedAt: new Date().toISOString() }).filter(([_, v]) => v !== undefined)
         );
-        batch.set(doc(db, 'products', String(p.id)), cleanProd, { merge: true });
-        count++;
-        if (count % 400 === 0) {
-          await batch.commit();
-          batch = writeBatch(db);
-        }
+        await adminSaveDoc('products', String(p.id), cleanProd);
       }
-      if (count % 400 !== 0) {
-        await batch.commit();
-      }
-      showToast("Catalog synchronized safely with Firestore!", "success");
+      showToast("Catalog synchronized safely!", "success");
     } catch (err: any) {
       console.error("Error seeding catalog:", err);
       showToast(err?.message || "Failed to synchronize catalog.", "error");
@@ -203,17 +221,25 @@ export function ProductsTab() {
       updatedAt: new Date().toISOString(),
     } as Product;
     
-    // Remove undefined values to prevent Firestore crashes
     const payload = Object.fromEntries(Object.entries(rawPayload).filter(([_, v]) => v !== undefined)) as Product;
     
     try {
-      await setDoc(doc(db, 'products', id), payload, { merge: true });
+      await adminSaveDoc('products', id, payload);
+      setProducts(prev => {
+        const idx = prev.findIndex(item => String(item.id) === id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...payload };
+          return next;
+        }
+        return [payload, ...prev];
+      });
       setIsModalOpen(false);
       setEditingProduct(null);
       showToast(`"${trimmedName}" saved to catalog.`, "success");
     } catch (err: any) {
-      console.warn("Could not sync product to Firestore:", err);
-      showToast(err?.message || 'Error saving product to database. Your changes are still in the form.', 'error');
+      console.warn("Could not save product:", err);
+      showToast(err?.message || 'Error saving product to database.', 'error');
     }
   };
 
@@ -221,10 +247,11 @@ export function ProductsTab() {
     if (!id || !id.trim()) return;
     if (await confirm({ title: "Delete product?", message: "Are you sure you want to delete this product from the storefront?" })) {
       try {
-        await setDoc(doc(db, 'products', String(id)), { isDeleted: true, updatedAt: new Date().toISOString() }, { merge: true });
+        await adminSaveDoc('products', String(id), { isDeleted: true, updatedAt: new Date().toISOString() });
+        setProducts(prev => prev.filter(item => String(item.id) !== String(id)));
         showToast("Product removed from storefront.", "success");
       } catch (err: any) {
-        console.warn("Error deleting product from Firestore:", err);
+        console.warn("Error deleting product:", err);
         showToast(err?.message || 'Error deleting product.', 'error');
       }
     }
@@ -238,7 +265,7 @@ export function ProductsTab() {
       const fullPayload = Object.fromEntries(
         Object.entries({ ...p, id: String(p.id), stockStatus: nextStatus, isDeleted: false, updatedAt: new Date().toISOString() }).filter(([_, v]) => v !== undefined)
       );
-      await setDoc(doc(db, 'products', String(p.id)), fullPayload, { merge: true });
+      await adminSaveDoc('products', String(p.id), fullPayload);
       showToast(nextStatus === 'out_of_stock' ? `"${p.name}" marked out of stock.` : `"${p.name}" marked in stock.`, 'success');
     } catch (err: any) {
       console.warn("Error toggling stock status:", err);

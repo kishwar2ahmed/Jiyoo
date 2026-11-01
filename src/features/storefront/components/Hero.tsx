@@ -11,6 +11,7 @@ import { useSettings } from '../../../contexts/SettingsContext';
 import { sanitizeWhatsAppNumber } from '../../../utils/whatsapp';
 import { WhatsAppIcon } from '../../core/components/SocialIcons';
 import { TypewriterText } from '../../core/components/TypewriterText';
+import { VelvetWhatsAppButton } from '../../product/components/VelvetWhatsAppButton';
 import { HeroSlideshow } from './HeroSlideshow';
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -65,6 +66,26 @@ export function Hero({
     document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Subtle interactive pointer parallax for desktop ambient contours & showcase depth
+  const pointerX = useSpring(0, { stiffness: 120, damping: 28, mass: 0.6 });
+  const pointerY = useSpring(0, { stiffness: 120, damping: 28, mass: 0.6 });
+  const showcaseRotateX = useTransform(pointerY, [-0.5, 0.5], prefersReducedMotion ? [0, 0] : [2.2, -2.2]);
+  const showcaseRotateY = useTransform(pointerX, [-0.5, 0.5], prefersReducedMotion ? [0, 0] : [-2.6, 2.6]);
+  const contourShiftX = useTransform(pointerX, [-0.5, 0.5], prefersReducedMotion ? [0, 0] : [-14, 14]);
+
+  const handleHeroPointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (prefersReducedMotion || e.pointerType === 'touch') return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    pointerX.set((e.clientX - rect.left) / rect.width - 0.5);
+    pointerY.set((e.clientY - rect.top) / rect.height - 0.5);
+  };
+
+  const handleHeroPointerLeave = () => {
+    pointerX.set(0);
+    pointerY.set(0);
+  };
+
   const whatsappHref = `https://wa.me/${sanitizeWhatsAppNumber(settings.whatsappNumber)}?text=${encodeURIComponent(
     `Hi ${settings.storeName || 'JIYOO'}! I would like to place a fresh order.`
   )}`;
@@ -72,13 +93,15 @@ export function Hero({
   return (
     <section
       ref={heroRef}
+      onPointerMove={handleHeroPointerMove}
+      onPointerLeave={handleHeroPointerLeave}
       className="relative w-full bg-[#FAF9F5] border-b border-[#E7E3DA] overflow-hidden"
     >
       {/* Bespoke Warm Botanical & Architectural Contour Backdrop */}
       <motion.div
         aria-hidden="true"
-        style={{ y: ambientY }}
-        className="pointer-events-none absolute inset-0 overflow-hidden"
+        style={{ y: ambientY, x: contourShiftX }}
+        className="pointer-events-none absolute inset-0 overflow-hidden will-change-transform"
       >
         <div className="absolute -top-32 right-[-8%] w-[540px] h-[540px] rounded-full bg-[radial-gradient(circle,rgba(214,204,186,0.34)_0%,rgba(250,249,245,0)_70%)]" />
         <div className="absolute bottom-[-20%] left-[-6%] w-[460px] h-[460px] rounded-full bg-[radial-gradient(circle,rgba(229,222,208,0.36)_0%,rgba(250,249,245,0)_72%)]" />
@@ -125,17 +148,28 @@ export function Hero({
           <div className="order-1 lg:order-1 lg:col-span-6 xl:col-span-6 flex flex-col justify-between">
             {/* Desktop Editorial Headline & Value Prop */}
             <div className="hidden lg:block">
-              {/* Unboxed Bold Editorial Eyebrow (JIYOO PREMIUM) */}
+              {/* Unboxed Bold Editorial Eyebrow (JIYOO PREMIUM) with Champagne-Gold Pulse */}
               <motion.div
                 style={{ y: eyebrowY }}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, ease: EASE_OUT_EXPO }}
-                className="mb-3 sm:mb-4 flex items-center text-xs sm:text-sm text-[#1C1917] font-sans-clean"
+                className="mb-3 sm:mb-4 flex items-center gap-2.5 text-xs sm:text-sm text-[#1C1917] font-sans-clean"
               >
+                <span className="relative flex h-2 w-2 items-center justify-center" aria-hidden="true">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C5A880] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#8A5A36]" />
+                </span>
                 <span className="font-extrabold tracking-[0.18em] uppercase text-[#1C1917]">
                   JIYOO PREMIUM
                 </span>
+                <motion.span
+                  aria-hidden="true"
+                  initial={{ scaleX: 0, opacity: 0 }}
+                  animate={{ scaleX: 1, opacity: 1 }}
+                  transition={{ duration: 0.85, delay: 0.25, ease: EASE_OUT_EXPO }}
+                  className="h-[1px] w-12 bg-gradient-to-r from-[#C5A880] to-transparent origin-left"
+                />
               </motion.div>
 
               {/* Word-by-Word Mask-Clipped Kinetic Display Headline with Editorial Typewriter & Underline */}
@@ -220,12 +254,12 @@ export function Hero({
                 <motion.button
                   type="button"
                   onClick={handleExploreCatalog}
-                  whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.01 }}
+                  whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.015 }}
                   whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
                   transition={{ duration: 0.16, ease: EASE_OUT_EXPO }}
-                  className="group relative overflow-hidden inline-flex items-center justify-center gap-3 px-6 py-3.5 text-xs font-semibold tracking-[0.11em] uppercase text-[#FAF9F5] bg-[#1C1917] hover:bg-[#292524] rounded-lg transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C1917]"
+                  className="group relative overflow-hidden inline-flex items-center justify-center gap-3 px-6 py-3.5 text-xs font-semibold tracking-[0.11em] uppercase text-[#FAF9F5] bg-[#1C1917] hover:bg-[#292524] rounded-lg shadow-[0_10px_24px_-8px_rgba(28,25,23,0.35)] transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C1917]"
                 >
-                  <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/12 to-transparent transition-transform duration-500 ease-out group-hover:translate-x-full" />
+                  <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-500 ease-out group-hover:translate-x-full" />
                   <span className="relative z-10">Shop Catalog</span>
                   <ArrowRight
                     className="relative z-10 w-3.5 h-3.5 transition-transform duration-200 ease-out group-hover:translate-x-1"
@@ -233,22 +267,15 @@ export function Hero({
                   />
                 </motion.button>
 
-                <motion.a
+                <VelvetWhatsAppButton
                   href={whatsappHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.01 }}
-                  whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
-                  transition={{ duration: 0.16, ease: EASE_OUT_EXPO }}
-                  className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 text-xs sm:text-sm font-bold tracking-[0.06em] uppercase text-white bg-emerald-700 hover:bg-emerald-800 border border-emerald-800/30 rounded-lg shadow-xs transition-colors duration-150 cursor-pointer whitespace-nowrap shrink-0"
-                >
-                  <WhatsAppIcon className="w-5 h-5 shrink-0 text-white" />
-                  <span>Order via WhatsApp</span>
-                </motion.a>
+                  label="Order via WhatsApp"
+                  size="modal"
+                />
               </motion.div>
             </div>
 
-            {/* Mobile Strip Above Banner: Bold JIYOO PREMIUM + Larger Order via WhatsApp Button + Compact Editorial Typewriter */}
+            {/* Mobile Strip Above Banner: Bold JIYOO PREMIUM + Velvet Maroon WhatsApp Pill Button + Compact Editorial Typewriter */}
             <div className="block lg:hidden pb-0.5">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
@@ -270,23 +297,31 @@ export function Hero({
                   </div>
                 </div>
 
-                <a
-                  href={whatsappHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-bold tracking-wider uppercase text-white bg-gradient-to-r from-[#0369A1] via-[#0284C7] to-[#0EA5E9] hover:from-[#075985] hover:via-[#0369A1] hover:to-[#0284C7] border border-[#38BDF8]/50 rounded-full shrink-0 shadow-[0_3px_12px_-2px_rgba(14,165,233,0.5),inset_0_1px_0_rgba(255,255,255,0.3)] transition-all duration-200 cursor-pointer"
-                >
-                  <WhatsAppIcon className="w-4 h-4 text-white shrink-0 drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)]" />
-                  <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.18)]">Order via WhatsApp</span>
-                </a>
+                <div className="shrink-0 flex items-center justify-end">
+                  <VelvetWhatsAppButton
+                    href={whatsappHref}
+                    label="Order via WhatsApp"
+                    size="compact"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
           {/* Right Column on Desktop / Order 2 on Mobile (Below JIYOO PREMIUM bar): Hero Banner Slideshow */}
-          <div className="order-2 lg:order-2 lg:col-span-6 xl:col-span-6 w-full">
+          <motion.div
+            initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 18, scale: prefersReducedMotion ? 1 : 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.78, delay: 0.15, ease: EASE_OUT_EXPO }}
+            style={{
+              rotateX: showcaseRotateX,
+              rotateY: showcaseRotateY,
+              transformPerspective: 1200,
+            }}
+            className="order-2 lg:order-2 lg:col-span-6 xl:col-span-6 w-full will-change-transform"
+          >
             <HeroSlideshow />
-          </div>
+          </motion.div>
         </motion.div>
       </div>
     </section>

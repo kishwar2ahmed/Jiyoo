@@ -318,13 +318,17 @@ export function Storefront() {
                 className="group relative flex min-w-0 w-full flex-col items-center outline-none gap-1 sm:gap-3.5 cursor-pointer pb-1.5 sm:pb-2.5"
               >
                 <div 
-                  className={`relative w-full aspect-square sm:aspect-[4/5] max-w-[54px] sm:max-w-none mx-auto rounded-xl sm:rounded-[20px] overflow-hidden bg-brand-white border border-brand-gray-100 transition-all duration-300 ease-out sm:group-hover:shadow-[0_14px_28px_-8px_rgba(0,0,0,0.14)] ${isActive ? 'shadow-[0_10px_20px_-6px_rgba(0,0,0,0.12)] ring-2 ring-brand-black/25' : 'shadow-[0_4px_12px_-4px_rgba(0,0,0,0.05)]'}`}
+                  className={`luxury-sheen-sweep relative w-full aspect-square sm:aspect-[4/5] max-w-[54px] sm:max-w-none mx-auto rounded-xl sm:rounded-[20px] overflow-hidden bg-brand-white border transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] sm:group-hover:shadow-[0_16px_32px_-8px_rgba(28,25,23,0.16)] ${
+                    isActive
+                      ? 'border-[#C5A880] shadow-[0_10px_24px_-6px_rgba(28,25,23,0.14)] ring-2 ring-[#1C1917]/20'
+                      : 'border-brand-gray-100 sm:group-hover:border-[#C5A880]/60 shadow-[0_4px_12px_-4px_rgba(0,0,0,0.05)]'
+                  }`}
                 >
                   {thumbData?.urls && thumbData.urls.length > 0 ? (
                     <img 
                       src={thumbData.urls[0]} 
                       alt={category.label} 
-                      className={`w-full h-full object-cover transition-transform duration-500 ease-out sm:group-hover:scale-105 ${isActive ? 'scale-105' : 'scale-100'}`}
+                      className={`w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] sm:group-hover:scale-108 ${isActive ? 'scale-105' : 'scale-100'}`}
                       loading="eager"
                       fetchPriority="high"
                       decoding="async"
@@ -346,7 +350,7 @@ export function Storefront() {
                 {isActive && (
                   <motion.span
                     layoutId="activeCategoryUnderline"
-                    className="absolute bottom-0 w-5 sm:w-10 h-[2px] bg-[#1C1917] rounded-full"
+                    className="absolute bottom-0 w-6 sm:w-12 h-[2.5px] bg-gradient-to-r from-[#1E1B4B] via-[#C5A880] to-[#0D9488] rounded-full shadow-[0_2px_8px_rgba(197,168,128,0.5)]"
                     transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                   />
                 )}
@@ -404,13 +408,20 @@ export function Storefront() {
                       key={subsub.id}
                       whileTap={{ scale: 0.96 }}
                       onClick={() => handleSubSubcategoryChange(subsub.id)}
-                      className={`px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors duration-200 cursor-pointer
+                      className={`relative px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors duration-200 cursor-pointer z-10
                         ${isActive 
-                          ? 'bg-brand-gray-900 text-brand-white shadow-sm' 
+                          ? 'text-brand-white' 
                           : 'bg-brand-gray-100 text-brand-gray-500 hover:bg-brand-gray-200 hover:text-brand-gray-900'
                         }`}
                     >
-                      {subsub.label}
+                      {isActive && (
+                        <motion.span
+                          layoutId="activeSubSubcategoryPill"
+                          transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                          className="pointer-events-none absolute inset-0 rounded-lg bg-brand-gray-900 shadow-sm -z-10"
+                        />
+                      )}
+                      <span className="relative z-10">{subsub.label}</span>
                     </motion.button>
                   );
                 })}
@@ -427,25 +438,39 @@ export function Storefront() {
                   <button
                     type="button"
                     onClick={() => setSearchScope('all')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    className={`relative px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer z-10 ${
                       searchScope === 'all'
-                        ? 'bg-[#1C1917] text-[#FAF9F5] shadow-2xs'
+                        ? 'text-[#FAF9F5]'
                         : 'text-[#57534E] hover:text-[#1C1917]'
                     }`}
                   >
-                    All Products
+                    {searchScope === 'all' && (
+                      <motion.span
+                        layoutId="storefrontSearchScopePill"
+                        transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                        className="pointer-events-none absolute inset-0 rounded-md bg-[#1C1917] shadow-2xs -z-10"
+                      />
+                    )}
+                    <span className="relative z-10">All Products</span>
                   </button>
                   {activeCategory && (
                     <button
                       type="button"
                       onClick={() => setSearchScope('category')}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                      className={`relative px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer z-10 ${
                         searchScope === 'category'
-                          ? 'bg-[#1C1917] text-[#FAF9F5] shadow-2xs'
+                          ? 'text-[#FAF9F5]'
                           : 'text-[#57534E] hover:text-[#1C1917]'
                       }`}
                     >
-                      In {activeCategory.label}
+                      {searchScope === 'category' && (
+                        <motion.span
+                          layoutId="storefrontSearchScopePill"
+                          transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                          className="pointer-events-none absolute inset-0 rounded-md bg-[#1C1917] shadow-2xs -z-10"
+                        />
+                      )}
+                      <span className="relative z-10">In {activeCategory.label}</span>
                     </button>
                   )}
                 </div>

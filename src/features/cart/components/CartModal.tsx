@@ -28,6 +28,7 @@ import {
   RuPayIcon,
   UpiAppsPillRow,
 } from "../../core/components/UpiIcons";
+import { VelvetWhatsAppButton } from "../../product/components/VelvetWhatsAppButton";
 import { db } from "../../../services/firebase";
 import {
   collection,
@@ -115,15 +116,34 @@ export function CartModal({
   const [promoError, setPromoError] = useState("");
   const [isValidatingPromo, setIsValidatingPromo] = useState(false);
 
+  const hasWholesaleItems = items.some((item) => {
+    const rawId = String(item.baseId ?? item.id ?? "");
+    return rawId.startsWith("ws-") || (item as any).wholesaleEligible === true;
+  });
+
+  const [orderType, setOrderType] = useState<"retail" | "wholesale">(() =>
+    hasWholesaleItems ? "wholesale" : "retail"
+  );
+
+  useEffect(() => {
+    setOrderType(hasWholesaleItems ? "wholesale" : "retail");
+  }, [hasWholesaleItems]);
+
   const effectiveDeliveryFee =
-    items.length > 0 ? (isFreeDelivery ? 0 : deliveryFeeSetting) : 0;
+    items.length > 0
+      ? orderType === "wholesale"
+        ? 0
+        : isFreeDelivery
+        ? 0
+        : deliveryFeeSetting
+      : 0;
   // Discount comes from the last server-validated coupon check (handleApplyPromo).
   const discountAmount = appliedCoupon?.discountAmount || 0;
   const isPromoApplied = !!appliedCoupon;
   const finalCartTotal = Math.max(0, cartTotal - discountAmount);
   const grandTotal = items.length > 0 ? finalCartTotal + effectiveDeliveryFee : 0;
 
-  const [step, setStep] = useState<"cart" | "checkout" | "success" | "upi_qr" | "whatsapp_success" | "whatsapp_confirm">(
+  const [step, setStep] = useState<"cart" | "checkout" | "success" | "whatsapp_success" | "whatsapp_confirm">(
     "cart",
   );
   const [isProcessing, setIsProcessing] = useState(false);
@@ -172,7 +192,7 @@ export function CartModal({
   };
 
   const [paymentMethod, setPaymentMethod] = useState<
-    "razorpay" | "upi_qr" | "cod"
+    "razorpay" | "cod"
   >("razorpay");
   const [isWhatsAppCheckoutMode, setIsWhatsAppCheckoutMode] = useState(false);
 
@@ -189,7 +209,6 @@ export function CartModal({
   const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [address, setAddress] = useState("");
   const [pincode, setPincode] = useState("");
-  const [orderType, setOrderType] = useState<"retail" | "wholesale">("retail");
   const [selectedRetailArea, setSelectedRetailArea] = useState<string>("");
   const [activeRetailAreas, setActiveRetailAreas] = useState<RetailAreaItem[]>(
     DEFAULT_RETAIL_AREAS,
@@ -609,10 +628,7 @@ export function CartModal({
   
   const requireCheckoutAuth = () => {
     setIsWhatsAppCheckoutMode(false);
-    if (user?.id) return true;
-    showToast("Please log in to continue with Online / COD checkout.", "error");
-    onRequestAuth?.();
-    return false;
+    return true;
   };
 
   const handleCheckout = async (e: React.FormEvent) => {
@@ -814,14 +830,8 @@ export function CartModal({
         });
         
         const data = await res.json();
-        
-        if (data.isFallback) {
-          setStep("upi_qr");
-          setIsProcessing(false);
-          return;
-        }
 
-        if (res.ok && data.success) {
+        if (res.ok && data.success && data.order?.id && data.key_id) {
           const options = {
             key: data.key_id,
             amount: data.order.amount,
@@ -940,12 +950,21 @@ export function CartModal({
           }
         } else {
           setIsProcessing(false);
-          showToast("Online payment is currently unavailable. Please use Cash on Delivery or WhatsApp.", "error");
+          setPaymentMethod("cod");
+          showToast(
+            data?.error ||
+              "Online payment gateway is currently being configured. Switched to Cash / UPI on Delivery (Pay at Doorstep).",
+            "info",
+          );
         }
       } catch (err: any) {
         console.error("Checkout error:", err);
         setIsProcessing(false);
-        showToast("Online payment is currently unavailable. Please use Cash on Delivery or WhatsApp.", "error");
+        showToast(
+          err?.message ||
+            "Could not connect to online payment gateway. Please use Cash / UPI on Delivery or Order via WhatsApp.",
+          "error",
+        );
       }
     }
   };
@@ -1214,7 +1233,6 @@ export function CartModal({
                 className={
                   step !== "success" &&
                   step !== "whatsapp_confirm" &&
-                  step !== "upi_qr" &&
                   items.length > 0
                     ? "max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 sm:py-8 lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start"
                     : "max-w-2xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-10"
@@ -1224,7 +1242,6 @@ export function CartModal({
                   className={
                     step !== "success" &&
                     step !== "whatsapp_confirm" &&
-                    step !== "upi_qr" &&
                     items.length > 0
                       ? "lg:col-span-7 min-w-0"
                       : "w-full"
@@ -1257,134 +1274,175 @@ export function CartModal({
                     ) : (
                       <>
                         <div className="space-y-6 flex-1">
-                          {items.map((item) => (
-                            <div
-                              key={item.id}
-                              className="flex gap-6 p-4 bg-white rounded-2xl shadow-sm border border-gray-100"
-                            >
-                              <div className="w-24 h-24 bg-gray-50 rounded-xl overflow-hidden relative flex-shrink-0">
-                                {item.image ? (
-                                  <img
-                                    src={getOptimizedImageUrl(
-                                      item.image,
-                                      200,
-                                      80,
-                                    )}
-                                    alt={item.name}
-                                    className="w-full h-full object-contain bg-white"
-                                    onError={(e) => {
-                                      const target =
-                                        e.target as HTMLImageElement;
-                                      if (target.dataset.failed) return;
-
-                                      const rawFallbackSequence = [
+                          <AnimatePresence initial={false}>
+                            {items.map((item, idx) => (
+                              <motion.div
+                                key={item.id}
+                                layout
+                                initial={{ opacity: 0, y: 12, scale: 0.985 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, x: -24, scale: 0.96 }}
+                                transition={{
+                                  duration: 0.28,
+                                  delay: Math.min(idx * 0.035, 0.2),
+                                  ease: [0.16, 1, 0.3, 1],
+                                }}
+                                className="flex gap-6 p-4 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-[#C5A880]/70 transition-colors"
+                              >
+                                <div className="w-24 h-24 bg-gray-50 rounded-xl overflow-hidden relative flex-shrink-0">
+                                  {item.image ? (
+                                    <img
+                                      src={getOptimizedImageUrl(
                                         item.image,
-                                        '',
-                                        settings?.logoUrl || "/logo.jpg",
-                                        "/logo.jpg",
-                                      ].filter(Boolean) as string[];
+                                        200,
+                                        80,
+                                      )}
+                                      alt={item.name}
+                                      className="w-full h-full object-contain bg-white"
+                                      onError={(e) => {
+                                        const target =
+                                          e.target as HTMLImageElement;
+                                        if (target.dataset.failed) return;
 
-                                      // Remove duplicates to prevent stalling if src doesn't change
-                                      const fallbackSequence = Array.from(
-                                        new Set(rawFallbackSequence),
-                                      );
+                                        const rawFallbackSequence = [
+                                          item.image,
+                                          '',
+                                          settings?.logoUrl || "/logo.jpg",
+                                          "/logo.jpg",
+                                        ].filter(Boolean) as string[];
 
-                                      const currentAttempt = parseInt(
-                                        target.dataset.attempt || "0",
-                                        10,
-                                      );
-
-                                      if (
-                                        currentAttempt < fallbackSequence.length
-                                      ) {
-                                        target.dataset.attempt = String(
-                                          currentAttempt + 1,
+                                        // Remove duplicates to prevent stalling if src doesn't change
+                                        const fallbackSequence = Array.from(
+                                          new Set(rawFallbackSequence),
                                         );
+
+                                        const currentAttempt = parseInt(
+                                          target.dataset.attempt || "0",
+                                          10,
+                                        );
+
                                         if (
-                                          target.src.endsWith(
-                                            fallbackSequence[currentAttempt],
-                                          ) ||
-                                          target.src ===
-                                            fallbackSequence[currentAttempt]
+                                          currentAttempt < fallbackSequence.length
                                         ) {
-                                          target.src =
-                                            fallbackSequence[
-                                              Math.min(
-                                                currentAttempt + 1,
-                                                fallbackSequence.length - 1,
-                                              )
-                                            ];
                                           target.dataset.attempt = String(
-                                            currentAttempt + 2,
+                                            currentAttempt + 1,
                                           );
+                                          if (
+                                            target.src.endsWith(
+                                              fallbackSequence[currentAttempt],
+                                            ) ||
+                                            target.src ===
+                                              fallbackSequence[currentAttempt]
+                                          ) {
+                                            target.src =
+                                              fallbackSequence[
+                                                Math.min(
+                                                  currentAttempt + 1,
+                                                  fallbackSequence.length - 1,
+                                                )
+                                              ];
+                                            target.dataset.attempt = String(
+                                              currentAttempt + 2,
+                                            );
+                                          } else {
+                                            target.src =
+                                              fallbackSequence[currentAttempt];
+                                          }
                                         } else {
-                                          target.src =
-                                            fallbackSequence[currentAttempt];
+                                          target.dataset.failed = "true";
                                         }
-                                      } else {
-                                        target.dataset.failed = "true";
-                                      }
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="absolute inset-0 flex items-center justify-center text-gray-300">
-                                    <ShoppingBag className="w-8 h-8 opacity-20" />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex-1 flex flex-col justify-between py-1">
-                                <div>
-                                  <div className="flex justify-between items-start">
-                                    <h3 className="font-medium text-gray-900">
-                                      {item.name}
-                                    </h3>
-                                    <button
-                                      onClick={() => removeFromCart(item.id)}
-                                      className="text-gray-400 hover:text-red-500 transition-colors"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                  <p className="text-gray-500 text-sm mt-1">
-                                    ₹{getValidPrice(item)}
-                                  </p>
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="absolute inset-0 flex items-center justify-center text-gray-300">
+                                      <ShoppingBag className="w-8 h-8 opacity-20" />
+                                    </div>
+                                  )}
                                 </div>
-                                <div className="flex items-center justify-between mt-4">
-                                  <div className="flex items-center gap-4 bg-gray-50 rounded-lg p-1 border border-gray-100">
-                                    <button
-                                      onClick={() =>
-                                        updateQuantity(
-                                          item.id,
-                                          Math.max(0, item.quantity - 1),
-                                        )
-                                      }
-                                      className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-black hover:bg-white rounded-md transition-all shadow-sm"
-                                    >
-                                      <Minus className="w-3 h-3" />
-                                    </button>
-                                    <span className="w-4 text-center text-sm font-medium">
-                                      {item.quantity}
-                                    </span>
-                                    <button
-                                      onClick={() =>
-                                        updateQuantity(
-                                          item.id,
-                                          item.quantity + 1,
-                                        )
-                                      }
-                                      className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-black hover:bg-white rounded-md transition-all shadow-sm"
-                                    >
-                                      <Plus className="w-3 h-3" />
-                                    </button>
+                                <div className="flex-1 flex flex-col justify-between py-1">
+                                  <div>
+                                    <div className="flex justify-between items-start gap-2">
+                                      <div>
+                                        <h3 className="font-medium text-gray-900">
+                                          {item.name}
+                                        </h3>
+                                        {(item.selectedWeight || item.badge) && (
+                                          <span className="inline-block mt-1 px-2 py-0.5 rounded bg-stone-100 border border-stone-200 text-[10px] font-mono uppercase tracking-wider text-stone-700">
+                                            {item.selectedWeight || item.badge}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <button
+                                        onClick={() => removeFromCart(item.id)}
+                                        className="text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                    <p className="text-gray-500 text-sm mt-1 tabular-nums">
+                                      ₹{getValidPrice(item)}
+                                      {(item as any).wholesaleMinQty && (item as any).wholesaleMinQty > 1
+                                        ? ` · MOQ ${(item as any).wholesaleMinQty}`
+                                        : ""}
+                                    </p>
                                   </div>
-                                  <p className="font-medium text-gray-900 tracking-tight">
-                                    ₹
-                                    {getValidPrice(item) * item.quantity}
-                                  </p>
+                                  <div className="flex items-center justify-between mt-4">
+                                    <div className="flex items-center gap-4 bg-gray-50 rounded-lg p-1 border border-gray-100">
+                                      <button
+                                        onClick={() => {
+                                          const minQty = Number((item as any).wholesaleMinQty) || 1;
+                                          const nextQty = item.quantity <= minQty ? 0 : item.quantity - 1;
+                                          updateQuantity(item.id, nextQty);
+                                        }}
+                                        className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-black hover:bg-white active:scale-90 rounded-md transition-all shadow-sm cursor-pointer"
+                                      >
+                                        <Minus className="w-3 h-3" />
+                                      </button>
+                                      <span className="w-5 text-center text-sm font-medium overflow-hidden inline-flex items-center justify-center tabular-nums">
+                                        <AnimatePresence mode="popLayout" initial={false}>
+                                          <motion.span
+                                            key={`cart-item-qty-${item.quantity}`}
+                                            initial={{ y: 8, opacity: 0 }}
+                                            animate={{ y: 0, opacity: 1 }}
+                                            exit={{ y: -8, opacity: 0 }}
+                                            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                                            className="inline-block"
+                                          >
+                                            {item.quantity}
+                                          </motion.span>
+                                        </AnimatePresence>
+                                      </span>
+                                      <button
+                                        onClick={() =>
+                                          updateQuantity(
+                                            item.id,
+                                            item.quantity + 1,
+                                          )
+                                        }
+                                        className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-black hover:bg-white active:scale-90 rounded-md transition-all shadow-sm cursor-pointer"
+                                      >
+                                        <Plus className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                    <div className="overflow-hidden tabular-nums">
+                                      <AnimatePresence mode="popLayout" initial={false}>
+                                        <motion.p
+                                          key={`cart-item-sub-${getValidPrice(item) * item.quantity}`}
+                                          initial={{ y: 8, opacity: 0 }}
+                                          animate={{ y: 0, opacity: 1 }}
+                                          exit={{ y: -8, opacity: 0 }}
+                                          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                          className="font-medium text-gray-900 tracking-tight"
+                                        >
+                                          ₹{getValidPrice(item) * item.quantity}
+                                        </motion.p>
+                                      </AnimatePresence>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
-                          ))}
+                              </motion.div>
+                            ))}
+                          </AnimatePresence>
                         </div>
 
                         {/* PROMO / COUPON CODE */}
@@ -1498,53 +1556,69 @@ export function CartModal({
                       </div>
 
                       <div className="space-y-4">
-                        {/* Active Bangalore Retail Area Quick-Select */}
-                        <div className="p-3.5 bg-emerald-50/50 border border-emerald-200/80 rounded-xl space-y-2">
-                          <div className="flex items-center justify-between">
-                            <label className="block text-[11px] uppercase tracking-wider text-emerald-950 font-bold">
-                              Select Delivery Locality (13 Active Areas)
-                            </label>
-                            <span className="text-[10px] font-semibold text-emerald-700">
-                              Auto-fills Area &amp; PIN
-                            </span>
+                        {orderType === "wholesale" ? (
+                          <div className="p-3.5 bg-[#161412] text-[#FAF9F5] border border-[#C5A880]/40 rounded-xl space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#E5C99B] font-bold">
+                                Wholesale Trade Dispatch Active
+                              </span>
+                              <span className="text-[10px] font-mono text-emerald-400 font-semibold">
+                                Pan-India &amp; Hyderabad Cold Chain
+                              </span>
+                            </div>
+                            <p className="text-xs text-[#D6D1C7] leading-relaxed">
+                              Wholesale crate &amp; carton orders are serviceable across all valid 6-digit Indian PIN codes with temperature-controlled dispatch.
+                            </p>
                           </div>
-                          <select
-                            value={selectedRetailArea}
-                            onChange={(e) => {
-                              const areaVal = e.target.value;
-                              setSelectedRetailArea(areaVal);
-                              const match = activeRetailAreas.find(
-                                (a) => `${a.areaName} (${a.displayPincode})` === areaVal,
-                              );
-                              if (match) {
-                                setArea(match.areaName);
-                                setPincode(match.pincode);
-                                setCity("Bangalore");
-                                setState("Karnataka");
-                                setFormErrors((prev) => ({
-                                  ...prev,
-                                  area: undefined,
-                                  pincode: undefined,
-                                }));
-                              }
-                            }}
-                            className="w-full bg-white border border-emerald-200 rounded-xl px-3 py-2.5 text-xs text-gray-900 font-medium outline-none focus:border-emerald-600"
-                          >
-                            <option value="">
-                              -- Choose from 13 Active Bangalore Retail Areas --
-                            </option>
-                            {activeRetailAreas
-                              .filter((a) => a.enabled)
-                              .map((a) => (
-                                <option
-                                  key={a.id}
-                                  value={`${a.areaName} (${a.displayPincode})`}
-                                >
-                                  {a.slNo}. {a.areaName} — {a.displayPincode}
-                                </option>
-                              ))}
-                          </select>
-                        </div>
+                        ) : (
+                          /* Active Bangalore Retail Area Quick-Select */
+                          <div className="p-3.5 bg-emerald-50/50 border border-emerald-200/80 rounded-xl space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="block text-[11px] uppercase tracking-wider text-emerald-950 font-bold">
+                                Select Delivery Locality (13 Active Areas)
+                              </label>
+                              <span className="text-[10px] font-semibold text-emerald-700">
+                                Auto-fills Area &amp; PIN
+                              </span>
+                            </div>
+                            <select
+                              value={selectedRetailArea}
+                              onChange={(e) => {
+                                const areaVal = e.target.value;
+                                setSelectedRetailArea(areaVal);
+                                const match = activeRetailAreas.find(
+                                  (a) => `${a.areaName} (${a.displayPincode})` === areaVal,
+                                );
+                                if (match) {
+                                  setArea(match.areaName);
+                                  setPincode(match.pincode);
+                                  setCity("Bangalore");
+                                  setState("Karnataka");
+                                  setFormErrors((prev) => ({
+                                    ...prev,
+                                    area: undefined,
+                                    pincode: undefined,
+                                  }));
+                                }
+                              }}
+                              className="w-full bg-white border border-emerald-200 rounded-xl px-3 py-2.5 text-xs text-gray-900 font-medium outline-none focus:border-emerald-600"
+                            >
+                              <option value="">
+                                -- Choose from 13 Active Bangalore Retail Areas --
+                              </option>
+                              {activeRetailAreas
+                                .filter((a) => a.enabled)
+                                .map((a) => (
+                                  <option
+                                    key={a.id}
+                                    value={`${a.areaName} (${a.displayPincode})`}
+                                  >
+                                    {a.slNo}. {a.areaName} — {a.displayPincode}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                        )}
 
                         {/* Full Name */}
                         <div>
@@ -1884,10 +1958,10 @@ export function CartModal({
                               </div>
                               <div className="text-left">
                                 <span className="font-medium text-gray-900 block text-sm">
-                                  Cash on Delivery (COD)
+                                  Cash / UPI on Delivery (Pay at Doorstep)
                                 </span>
                                 <span className="text-xs text-gray-500 block">
-                                  Pay cash or UPI upon delivery
+                                  Pay via Cash or scan Delivery Partner&apos;s verified UPI QR upon delivery
                                 </span>
                               </div>
                             </div>
@@ -1896,44 +1970,6 @@ export function CartModal({
                         </div>
                       </section>
                     )}
-                  </motion.div>
-                )}
-
-                {/* RAZORPAY FALLBACK STEP */}
-                {step === "upi_qr" && (
-                  <motion.div
-                    key="upi_qr"
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.98 }}
-                    transition={{ duration: 0.25 }}
-                    className="p-8 flex flex-col items-center justify-center text-center min-h-full space-y-5"
-                  >
-                    <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center text-amber-600 border border-amber-100 shadow-sm">
-                      <CreditCard className="w-9 h-9" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-serif text-gray-900">Online payment is temporarily unavailable</h2>
-                      <p className="mt-2 text-sm text-gray-500 max-w-sm leading-relaxed">
-                        Your cart is safe. Choose Cash on Delivery, or go back and try online payment again in a moment.
-                      </p>
-                    </div>
-                    <div className="w-full max-w-xs space-y-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => { if (requireCheckoutAuth()) { setPaymentMethod("cod"); setStep("checkout"); } }}
-                        className="w-full py-3.5 bg-[#1C1917] text-[#FAF9F5] rounded-xl text-xs font-semibold tracking-wider uppercase hover:bg-black transition-colors"
-                      >
-                        Continue with Cash on Delivery
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { if (requireCheckoutAuth()) setStep("checkout"); }}
-                        className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl text-xs font-medium tracking-wider uppercase hover:bg-gray-200 transition-colors"
-                      >
-                        Back to payment
-                      </button>
-                    </div>
                   </motion.div>
                 )}
 
@@ -2037,7 +2073,7 @@ export function CartModal({
                 </div>
 
                 {/* Order Summary & Desktop Checkout Column (also scrolls naturally at the bottom on Mobile) */}
-                {step !== "success" && step !== "whatsapp_confirm" && step !== "upi_qr" && items.length > 0 && (
+                {step !== "success" && step !== "whatsapp_confirm" && items.length > 0 && (
                   <div className="mt-6 lg:mt-0 lg:col-span-5 lg:sticky lg:top-6">
                     <div className="bg-white border border-[#E7E3DA] rounded-2xl p-5 sm:p-6 shadow-sm">
                       <div className="space-y-3 mb-5">
@@ -2146,30 +2182,22 @@ export function CartModal({
                                 <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
                               </span>
                             </button>
-                            <button
-                              type="button"
+                            <VelvetWhatsAppButton
                               onClick={triggerWhatsAppOrder}
-                              className="group relative flex w-full h-[52px] text-[11px] font-bold uppercase tracking-[0.15em] text-white bg-emerald-600 transition-all duration-300 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(5,150,105,0.3)] hover:bg-emerald-700 active:scale-[0.98]"
-                            >
-                              <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
-                                <MessageCircle className="w-4 h-4" />
-                                Order via WhatsApp
-                              </span>
-                            </button>
+                              label="Order via WhatsApp"
+                              size="modal"
+                              className="w-full"
+                            />
                           </div>
                         ) : isWhatsAppCheckoutMode ? (
                           <div className="space-y-2.5">
-                            <button
-                              type="button"
+                            <VelvetWhatsAppButton
                               onClick={triggerWhatsAppOrder}
                               disabled={isProcessing}
-                              className="group relative flex w-full h-[52px] text-[11px] font-bold uppercase tracking-[0.15em] text-white bg-emerald-600 transition-all duration-300 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(5,150,105,0.35)] hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50"
-                            >
-                              <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
-                                <MessageCircle className="w-4 h-4" />
-                                {isProcessing ? "Validating Order..." : `Proceed to WhatsApp (₹${grandTotal})`}
-                              </span>
-                            </button>
+                              label={isProcessing ? "Validating Order..." : `Proceed to WhatsApp (₹${grandTotal})`}
+                              size="modal"
+                              className="w-full"
+                            />
                             <button
                               type="button"
                               onClick={() => {
@@ -2200,21 +2228,17 @@ export function CartModal({
                                     {paymentMethod === "cod"
                                       ? `Place Order (COD ₹${grandTotal})`
                                       : `Pay Online ₹${grandTotal}`}
-                                    <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+                                      <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
                                   </>
                                 )}
                               </span>
                             </button>
-                            <button
-                              type="button"
+                            <VelvetWhatsAppButton
                               onClick={triggerWhatsAppOrder}
-                              className="group relative flex w-full h-[52px] text-[11px] font-bold uppercase tracking-[0.15em] text-[#1C1917] bg-transparent border border-[#1C1917] transition-all duration-300 cursor-pointer rounded-full overflow-hidden hover:bg-stone-100 active:scale-[0.98]"
-                            >
-                              <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">
-                                <MessageCircle className="w-4 h-4" />
-                                Instant Order via WhatsApp
-                              </span>
-                            </button>
+                              label="Instant Order via WhatsApp"
+                              size="modal"
+                              className="w-full"
+                            />
                           </div>
                         )}
                       </div>
@@ -2241,7 +2265,7 @@ export function CartModal({
             </div>
 
             {/* Compact Mobile Sticky Action Bar (< 15% viewport height) */}
-            {step !== "success" && step !== "whatsapp_confirm" && step !== "upi_qr" && items.length > 0 && (
+            {step !== "success" && step !== "whatsapp_confirm" && items.length > 0 && (
               <div className="lg:hidden shrink-0 bg-white border-t border-[#E7E3DA] px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.06)] z-20">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-baseline gap-1.5">

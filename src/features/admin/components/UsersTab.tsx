@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, limit } from 'firebase/firestore';
-import { auth, db } from '../../../services/firebase';
+import { useState, useEffect, useCallback } from 'react';
 import { AuthUser } from '../../../types';
 import { Search, Trash2, Check } from 'lucide-react';
 import { useToast } from '../../core/contexts/ToastContext';
 import { useConfirm } from '../../core/contexts/ConfirmContext';
+import { getAdminAuthHeaders } from '../../../utils/adminAuth';
 
 export function UsersTab() {
   const { showToast } = useToast();
@@ -13,37 +12,31 @@ export function UsersTab() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    const unsub = onSnapshot(
-      query(collection(db, 'users'), limit(100)),
-      (snap) => {
-        const loaded: AuthUser[] = [];
-        snap.forEach(docSnap => {
-          loaded.push({ id: docSnap.id, ...docSnap.data() } as AuthUser);
-        });
-        setUsers(loaded);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Error listening to users:', err);
-        setLoading(false);
+  const loadUsers = useCallback(async () => {
+    try {
+      const headers = await getAdminAuthHeaders();
+      const res = await fetch('/api/admin/users', { headers });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && Array.isArray(data.users)) {
+        setUsers(data.users);
       }
-    );
-    return () => unsub();
+    } catch (err) {
+      console.error('Error loading users:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Role changes are authoritative only through the server: this calls
-  // POST /api/admin/users/:uid/role, which sets the real Firebase Auth
-  // custom claim via the Admin SDK (and mirrors the Firestore "role" field
-  // for display). A direct client-side Firestore write here would only ever
-  // update the display mirror, never actual access -- see firestore.rules.
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
+
   const updateRole = async (id: string, newRole: string) => {
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error('Not signed in');
+      const headers = await getAdminAuthHeaders(true);
       const res = await fetch(`/api/admin/users/${id}/role`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers,
         body: JSON.stringify({ role: newRole }),
       });
       const data = await res.json().catch(() => ({}));
@@ -51,6 +44,7 @@ export function UsersTab() {
         throw new Error(data.error || 'Failed to update role');
       }
       setUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole } : u));
+      showToast(`User role updated to ${newRole}`, 'success');
     } catch (err: any) {
       console.error("Error updating role", err);
       showToast(err.message || "Failed to update role", "error");
@@ -65,11 +59,10 @@ export function UsersTab() {
       return;
     }
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error('Not signed in');
+      const headers = await getAdminAuthHeaders(true);
       const res = await fetch(`/api/admin/users/${userToRemove.id}/delete`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers,
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {

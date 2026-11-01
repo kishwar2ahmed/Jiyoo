@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { auth } from '../../../services/firebase';
 import { useToast } from '../../core/contexts/ToastContext';
 import { useConfirm } from '../../core/contexts/ConfirmContext';
+import { getAdminAuthHeaders } from '../../../utils/adminAuth';
 import {
   MapPin,
   Truck,
@@ -41,11 +41,10 @@ interface ZoneRow {
 }
 
 async function authedFetch(path: string, body?: any) {
-  const token = await auth.currentUser?.getIdToken();
-  if (!token) throw new Error('Not signed in');
+  const headers = await getAdminAuthHeaders(true);
   const res = await fetch(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
@@ -54,9 +53,8 @@ async function authedFetch(path: string, body?: any) {
 }
 
 async function authedGet(path: string) {
-  const token = await auth.currentUser?.getIdToken();
-  if (!token) throw new Error('Not signed in');
-  const res = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+  const headers = await getAdminAuthHeaders();
+  const res = await fetch(path, { headers });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.success) throw new Error(data.error || 'Request failed');
   return data;

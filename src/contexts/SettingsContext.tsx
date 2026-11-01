@@ -3,6 +3,7 @@ import { db, isFirebaseConfigured } from '../services/firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { BannerSlide } from '../types';
 import { DEFAULT_HERO_BANNERS } from '../constants/banners';
+import { getAdminAuthHeaders } from '../utils/adminAuth';
 
 export interface AboutUsSettings {
   introText?: string;
@@ -105,8 +106,8 @@ const defaultSettings: Settings = {
   logoUrl: '/jiyoo.logo.jpeg',
   developerImageUrl: '/developer.png',
   whatsappNumber: '919739391891',
-  upiId: 'paytm.s27lek5@pty',
-  upiId2: 'paytm.s22fcsb@pty',
+  upiId: '9739391891@ybl',
+  upiId2: '9739391891@paytm',
   qrCodeUrl: null,
   deliveryFee: 40,
   freeDeliveryThreshold: 0,
@@ -121,13 +122,11 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 const sanitizeImageUrl = (url: string | null): string | null => {
   if (!url) return null;
-  // If we are on production (not localhost) and URL points to localhost, ignore it
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
     if (url.includes('localhost') || url.includes('127.0.0.1')) {
       return null;
     }
   }
-  // Auto-migrate legacy image names
   if (url === '/devoloper.jpeg' || url === '/developer-1.jpeg' || url === '/developer-old.jpeg' || url === '/developer-portrait.jpg') {
     return '/developer.png';
   }
@@ -135,9 +134,54 @@ const sanitizeImageUrl = (url: string | null): string | null => {
 };
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [settings, setSettings] = useState<Settings>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('jiyoo_store_settings_v2');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          return {
+            ...defaultSettings,
+            ...parsed,
+            aboutUs: { ...defaultAboutUs, ...(parsed.aboutUs || {}) },
+            heroBanners: Array.isArray(parsed.heroBanners) && parsed.heroBanners.length > 0 ? parsed.heroBanners : getInitialBanners(),
+          };
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return defaultSettings;
+  });
 
   useEffect(() => {
+    // Load server-persisted settings
+    fetch('/api/admin/settings')
+      .then(r => r.json())
+      .then(data => {
+        if (data?.success && data.settings && Object.keys(data.settings).length > 0) {
+          const raw = data.settings;
+          setSettings(prev => {
+            const next: Settings = {
+              ...prev,
+              ...raw,
+              aboutUs: { ...defaultAboutUs, ...(prev.aboutUs || {}), ...(raw.aboutUs || {}) },
+              deliveryFee: typeof raw.deliveryFee === 'number' ? raw.deliveryFee : prev.deliveryFee,
+              logoUrl: sanitizeImageUrl(raw.logoUrl) || prev.logoUrl,
+              developerImageUrl: sanitizeImageUrl(raw.developerImageUrl) || prev.developerImageUrl,
+              heroBanners: Array.isArray(raw.heroBanners) && raw.heroBanners.length > 0 ? raw.heroBanners : prev.heroBanners,
+            };
+            try {
+              localStorage.setItem('jiyoo_store_settings_v2', JSON.stringify(next));
+            } catch {
+              // ignore storage quota errors
+            }
+            return next;
+          });
+        }
+      })
+      .catch(() => {});
+
     if (!isFirebaseConfigured) return;
     const docRef = doc(db, 'settings', 'global');
     
@@ -200,14 +244,30 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   const updateSettings = async (newSettings: Partial<Settings>) => {
     const updated = { ...settings, ...newSettings };
-    // Optimistically update UI
     setSettings(updated);
-    
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('jiyoo_store_settings_v2', JSON.stringify(updated));
+      } catch {
+        // ignore storage quota errors
+      }
+    }
+
+    const headers = await getAdminAuthHeaders(true);
+    const serverRes = await fetch('/api/admin/settings', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(updated),
+    }).catch(() => null);
+
+    // Best-effort mirror to client Firestore
     try {
       await setDoc(doc(db, 'settings', 'global'), updated, { merge: true });
     } catch (err) {
-      console.warn('Could not sync settings to Firestore:', err);
-      throw err;
+      if (!serverRes || !serverRes.ok) {
+        console.warn('Could not sync settings to Firestore:', err);
+        throw err;
+      }
     }
   };
 

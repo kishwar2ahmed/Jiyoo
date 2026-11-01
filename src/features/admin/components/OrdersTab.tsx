@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getAuth } from 'firebase/auth';
-import { Order } from '../../../types';
-import { Search, Eye, X, AlertTriangle, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { Order, OrderAuditLogEntry, OrderAuditIntegrityReport } from '../../../types';
+import { Search, Eye, X, AlertTriangle, ChevronLeft, ChevronRight, RefreshCw, ShieldCheck, ShieldAlert, Lock, Truck, Save, History, Mail, Send } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '../../core/contexts/ToastContext';
-import { logAuditEvent } from '../../../services/auditService';
+import { fetchOrderAuditLogs } from '../../../services/auditService';
+import { getAdminAuthHeaders } from '../../../utils/adminAuth';
 
 function getOrderDate(createdAt: any): Date | null {
   if (!createdAt) return null;
@@ -60,22 +60,93 @@ export function OrdersTab() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [cursorHistory, setCursorHistory] = useState<(string | null)[]>([null]);
 
+  // Server-side per-order audit trail & integrity verification state
+  const [orderAuditLogs, setOrderAuditLogs] = useState<OrderAuditLogEntry[]>([]);
+  const [orderIntegrity, setOrderIntegrity] = useState<OrderAuditIntegrityReport | null>(null);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+
+  // Audit-logged tracking & admin notes state
+  const [trackingCarrier, setTrackingCarrier] = useState('');
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [trackingUrl, setTrackingUrl] = useState('');
+  const [adminNotes, setAdminNotes] = useState('');
+  const [savingTracking, setSavingTracking] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  const handleResendStatusEmail = async (orderId: string) => {
+    try {
+      setSendingEmail(true);
+      const headers = await getAdminAuthHeaders(true);
+      const res = await fetch(`/api/admin/orders/${orderId}/send-status-email`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        if (data.isMock) {
+          showToast(`SMTP not configured: Email preview logged for ${data.recipient || 'customer'}`, 'info');
+        } else {
+          showToast(data.error || data.reason || 'Failed to dispatch status email', 'error');
+        }
+        return;
+      }
+      showToast(`Status notification email dispatched to ${data.recipient}!`, 'success');
+      await loadOrders(cursorHistory[page - 1] || null, true);
+      await loadOrderAuditTrail(orderId);
+    } catch (err) {
+      console.error('Error resending status email:', err);
+      showToast('Failed to send status email', 'error');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const loadOrderAuditTrail = useCallback(async (orderId: string) => {
+    setLoadingAudit(true);
+    try {
+      const result = await fetchOrderAuditLogs(orderId, true);
+      setOrderAuditLogs(result.logs);
+      setOrderIntegrity(result.integrity);
+    } catch (err) {
+      console.warn('Failed to load order audit logs:', err);
+    } finally {
+      setLoadingAudit(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedOrder) {
+      setTrackingCarrier(selectedOrder.trackingCarrier || '');
+      setTrackingNumber(selectedOrder.trackingNumber || '');
+      setTrackingUrl(selectedOrder.trackingUrl || '');
+      setAdminNotes(selectedOrder.adminNotes || '');
+      loadOrderAuditTrail(selectedOrder.id);
+    } else {
+      setOrderAuditLogs([]);
+      setOrderIntegrity(null);
+    }
+  }, [selectedOrder, loadOrderAuditTrail]);
+
   const loadOrders = useCallback(async (cursor: string | null, silent = false) => {
     if (silent) setRefreshing(true); else setLoading(true);
     try {
-      const token = await getAuth().currentUser?.getIdToken();
-      if (!token) throw new Error('Authentication required');
+      const headers = await getAdminAuthHeaders();
       const params = new URLSearchParams({ status: statusFilter, pageSize: '50' });
       if (searchTerm.trim()) params.set('q', searchTerm.trim());
       if (cursor) params.set('cursor', cursor);
-      const res = await fetch(`/api/admin/orders?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`/api/admin/orders?${params.toString()}`, { headers });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to load orders');
-      setOrders(Array.isArray(data.orders) ? data.orders : []);
+      const fetchedOrders: Order[] = Array.isArray(data.orders) ? data.orders : [];
+      setOrders(fetchedOrders);
       setHasMore(Boolean(data.hasMore));
       setNextCursor(data.nextCursor || null);
+      setSelectedOrder(prev => {
+        if (!prev) return null;
+        const updated = fetchedOrders.find(o => o.id === prev.id);
+        return updated ? { ...prev, ...updated } : prev;
+      });
     } catch (err: any) {
       console.error('Failed to load admin orders:', err);
       showToast(err.message || 'Failed to load orders', 'error');
@@ -83,7 +154,7 @@ export function OrdersTab() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [statusFilter, showToast]);
+  }, [statusFilter, searchTerm, showToast]);
 
   useEffect(() => {
     setPage(1);
@@ -91,8 +162,6 @@ export function OrdersTab() {
     loadOrders(null);
   }, [statusFilter, loadOrders]);
 
-  // Lightweight realtime freshness without subscribing the browser to the
-  // entire orders collection. The server still returns a maximum of 50 rows.
   useEffect(() => {
     const timer = window.setInterval(() => {
       if (page === 1 && !searchTerm.trim()) loadOrders(null, true);
@@ -119,9 +188,9 @@ export function OrdersTab() {
     try {
       const order = orders.find(o => o.id === orderId);
       if (!order) return showToast('Order not found', 'error');
-      const token = await getAuth().currentUser?.getIdToken();
+      const headers = await getAdminAuthHeaders(true);
       const res = await fetch(`/api/admin/orders/${orderId}/status`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+        method: 'POST', headers,
         body: JSON.stringify({ status: newOrderStatus }),
       });
       const data = await res.json().catch(() => ({}));
@@ -129,13 +198,14 @@ export function OrdersTab() {
         showToast(data.error || 'Cannot update order status', 'error');
         return;
       }
-      // Reload the current cursor because the order may have moved to another
-      // status queue. This avoids stale rows and preserves server ordering.
       const currentCursor = cursorHistory[page - 1] || null;
       await loadOrders(currentCursor, true);
+      if (selectedOrder?.id === orderId) {
+        loadOrderAuditTrail(orderId);
+      }
       if (order.userId && order.userId !== 'guest') {
         await fetch('/api/send-notification', {
-          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+          method: 'POST', headers,
           body: JSON.stringify({ userId: order.userId, title: 'Order Status Updated', body: `Your order ${orderId} is now ${statusLabel(newOrderStatus)}.`, data: { orderId } }),
         }).catch(() => {});
       }
@@ -148,10 +218,10 @@ export function OrdersTab() {
 
   const updatePaymentStatus = async (orderId: string, newPaymentStatus: string) => {
     try {
-      const token = await getAuth().currentUser?.getIdToken();
+      const headers = await getAdminAuthHeaders(true);
       const endpoint = newPaymentStatus === 'refunded' ? `/api/admin/orders/${orderId}/refund` : `/api/admin/orders/${orderId}/payment-status`;
       const res = await fetch(endpoint, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+        method: 'POST', headers,
         body: newPaymentStatus === 'refunded' ? undefined : JSON.stringify({ status: newPaymentStatus }),
       });
       const data = await res.json().catch(() => ({}));
@@ -160,11 +230,45 @@ export function OrdersTab() {
         return;
       }
       await loadOrders(cursorHistory[page - 1] || null, true);
-      logAuditEvent(newPaymentStatus === 'refunded' ? 'REFUND_ORDER' : 'UPDATE_PAYMENT_STATUS', 'BILLING', `Order ${orderId} payment status -> ${data.paymentStatus || newPaymentStatus}`);
-      showToast(newPaymentStatus === 'refunded' ? 'Refund processed successfully' : 'Payment status updated', 'success');
+      if (selectedOrder?.id === orderId) {
+        loadOrderAuditTrail(orderId);
+      }
+      showToast(newPaymentStatus === 'refunded' ? 'Refund processed & logged in server audit trail' : 'Payment status updated & logged', 'success');
     } catch (err) {
       console.error('Error updating payment status', err);
       showToast('Failed to update payment status', 'error');
+    }
+  };
+
+  const handleSaveTracking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOrder) return;
+    setSavingTracking(true);
+    try {
+      const headers = await getAdminAuthHeaders(true);
+      const res = await fetch(`/api/admin/orders/${selectedOrder.id}/tracking`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          trackingCarrier,
+          trackingNumber,
+          trackingUrl,
+          adminNotes,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        showToast(data.error || 'Failed to save order tracking details', 'error');
+        return;
+      }
+      await loadOrders(cursorHistory[page - 1] || null, true);
+      await loadOrderAuditTrail(selectedOrder.id);
+      showToast(data.unchanged ? 'No changes to save' : 'Tracking & notes updated and recorded in audit log', 'success');
+    } catch (err) {
+      console.error('Error saving tracking details:', err);
+      showToast('Failed to save tracking details', 'error');
+    } finally {
+      setSavingTracking(false);
     }
   };
 
@@ -192,7 +296,7 @@ export function OrdersTab() {
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-brand-black">Order Management</h2>
-          <p className="text-brand-gray-500">50 orders per page · status workflow · newest first within each queue.</p>
+          <p className="text-brand-gray-500">50 orders per page · server-enforced state machine · tamper-evident SHA-256 audit log.</p>
         </div>
         <button onClick={() => loadOrders(cursorHistory[page - 1] || null, true)} disabled={refreshing} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border bg-white text-sm font-semibold hover:bg-brand-gray-50 disabled:opacity-50">
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
@@ -228,7 +332,16 @@ export function OrdersTab() {
                     const legacyStatus = (o.status || '').toLowerCase();
                     const currentPaymentStatus = o.paymentStatus || (['paid', 'completed'].includes(legacyStatus) ? 'paid' : 'unpaid');
                     return <tr key={o.id} className="hover:bg-brand-gray-50/80 transition-colors">
-                      <td className="px-4 py-3"><div className="font-mono font-bold text-xs">{o.orderId || o.id}</div><div className="text-[11px] text-brand-gray-400 mt-0.5">{(() => { const d = getOrderDate(o.createdAt); return d ? format(d, 'MMM d, yyyy HH:mm') : 'N/A'; })()}</div>{o.stockConflict && <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded px-1.5 py-0.5"><AlertTriangle className="w-3 h-3" /> Stock conflict</div>}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-mono font-bold text-xs">{o.orderId || o.id}</div>
+                        <div className="text-[11px] text-brand-gray-400 mt-0.5">{(() => { const d = getOrderDate(o.createdAt); return d ? format(d, 'MMM d, yyyy HH:mm') : 'N/A'; })()}</div>
+                        {o.lastAuditHash && (
+                          <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5" title={`Audit Hash: ${o.lastAuditHash}`}>
+                            <Lock className="w-2.5 h-2.5" /> #{o.auditSequence || 1} · {o.lastAuditHash.slice(0, 8)}
+                          </div>
+                        )}
+                        {o.stockConflict && <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded px-1.5 py-0.5"><AlertTriangle className="w-3 h-3" /> Stock conflict</div>}
+                      </td>
                       <td className="px-4 py-3"><div className="font-medium">{o.shippingDetails?.name || 'Guest Customer'}</div><div className="text-xs text-brand-gray-500">{o.shippingDetails?.phone}</div></td>
                       <td className="px-4 py-3 text-xs font-medium">{o.paymentMethod || 'Cash on Delivery'}</td>
                       <td className="px-4 py-3 font-semibold">₹{o.grandTotal || o.amount}</td>
@@ -236,7 +349,7 @@ export function OrdersTab() {
                       <td className="px-4 py-3"><select value={currentOrderStatus} onChange={e => updateOrderStatus(o.id, e.target.value)} className={`text-xs font-semibold rounded-lg px-2 py-1 border outline-none cursor-pointer ${getOrderStatusColor(currentOrderStatus)}`}>
                         {['AWAITING_WHATSAPP_CONFIRMATION','whatsapp_pending','RECEIVED','pending','confirmed','processing','packed','dispatched','out_for_delivery','delivered','cancelled'].map(s => <option key={s} value={s}>{s === 'AWAITING_WHATSAPP_CONFIRMATION' || s === 'whatsapp_pending' ? '💬 Awaiting WhatsApp' : s === 'RECEIVED' ? '📥 Received' : s === 'pending' ? '🟡 Ordered' : s === 'processing' ? '⚙️ Processing' : s === 'packed' ? '📦 Packed' : s === 'dispatched' ? '🚚 Dispatched / Shipped' : s === 'out_for_delivery' ? '🛵 Out for Delivery' : s === 'delivered' ? '✅ Delivered' : s === 'confirmed' ? '🔵 Confirmed' : '🔴 Cancelled'}</option>)}
                       </select></td>
-                      <td className="px-4 py-3"><button onClick={() => setSelectedOrder(o)} className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg"><Eye className="w-3.5 h-3.5" /> Details</button></td>
+                      <td className="px-4 py-3"><button onClick={() => setSelectedOrder(o)} className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg"><Eye className="w-3.5 h-3.5" /> Details &amp; Audit</button></td>
                     </tr>;
                   })}
                 </tbody>
@@ -250,8 +363,51 @@ export function OrdersTab() {
         )}
       </div>
 
-      {selectedOrder && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"><div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl relative">
-        <div className="flex items-center justify-between border-b pb-4"><div><h3 className="text-lg font-bold">Order Summary</h3><p className="text-xs text-brand-gray-500 font-mono">ID: {selectedOrder.orderId || selectedOrder.id}</p></div><button onClick={() => { setSelectedOrder(null); setShowAdvancedDetails(false); }} className="p-2 text-brand-gray-400 hover:text-brand-black rounded-full hover:bg-brand-gray-100"><X className="w-5 h-5" /></button></div>
+      {selectedOrder && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"><div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl relative">
+        <div className="flex items-center justify-between border-b pb-4">
+          <div>
+            <h3 className="text-lg font-bold">Order Summary &amp; Transaction Integrity</h3>
+            <p className="text-xs text-brand-gray-500 font-mono">ID: {selectedOrder.orderId || selectedOrder.id}</p>
+          </div>
+          <button onClick={() => { setSelectedOrder(null); setShowAdvancedDetails(false); }} className="p-2 text-brand-gray-400 hover:text-brand-black rounded-full hover:bg-brand-gray-100">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Cryptographic Integrity Verification Banner */}
+        {orderIntegrity && (
+          <div className={`rounded-xl border p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+            orderIntegrity.verified
+              ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900'
+              : 'bg-rose-50 border-rose-200 text-rose-900'
+          }`}>
+            <div className="flex items-start gap-2.5">
+              {orderIntegrity.verified ? (
+                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              ) : (
+                <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              )}
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wider">
+                  {orderIntegrity.verified
+                    ? 'Transaction Integrity Verified · SHA-256 Hash Chain Intact'
+                    : 'Integrity Alert · Unlogged or Out-of-Band Modification Detected'}
+                </div>
+                <p className="text-xs opacity-80 mt-0.5">
+                  {orderIntegrity.verified
+                    ? `All ${orderIntegrity.entryCount} order event(s) are cryptographically chained on the server. Direct client-side Firestore writes are blocked.`
+                    : orderIntegrity.tamperReason || 'Order state does not match the latest server-side audit signature.'}
+                </p>
+              </div>
+            </div>
+            {orderIntegrity.headHash && (
+              <div className="font-mono text-[11px] bg-white/80 px-2.5 py-1 rounded-lg border border-current/15 shrink-0">
+                HEAD: {orderIntegrity.headHash.slice(0, 12)}…
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid sm:grid-cols-2 gap-4 text-sm bg-brand-gray-50 p-4 rounded-xl border">
           <div className="space-y-1">
             <span className="text-xs text-brand-gray-500 block uppercase font-bold">Delivery Address {(selectedOrder.shippingDetails as any)?.addressType ? `(${(selectedOrder.shippingDetails as any).addressType})` : ''}</span>
@@ -275,13 +431,188 @@ export function OrdersTab() {
             <p>Method: <strong>{selectedOrder.paymentMethod || 'COD'}</strong></p>
             <p>Order Status: <strong>{statusLabel(selectedOrder.orderStatus || selectedOrder.status || 'pending')}</strong></p>
             <p>Payment Status: <strong>{selectedOrder.paymentStatus || 'unpaid'}</strong></p>
+            <p>Grand Total: <strong>₹{selectedOrder.grandTotal || selectedOrder.amount}</strong></p>
             {(selectedOrder as any).verificationCode && <p className="font-mono text-xs text-emerald-800">Verification: {(selectedOrder as any).verificationCode}</p>}
           </div>
         </div>
-        <div><h4 className="text-sm font-bold mb-3">Order Items ({selectedOrder.items.length})</h4><div className="divide-y border rounded-xl overflow-hidden">{selectedOrder.items.map((item, idx) => <div key={idx} className="p-3 flex items-center justify-between bg-white text-sm"><div className="flex items-center gap-3">{item.image && <img src={item.image} alt={item.name} className="w-10 h-10 object-contain bg-white rounded-lg border shrink-0" />}<div><p className="font-semibold">{item.name}</p>{(item.selectedWeight || item.selectedCut) && <p className="text-xs text-brand-gray-500">{item.selectedWeight && `Weight: ${item.selectedWeight} `}{item.selectedCut && `Cut: ${item.selectedCut}`}</p>}</div></div><span className="font-bold">×{item.quantity} · ₹{item.price}</span></div>)}</div></div>
-        <button type="button" onClick={() => setShowAdvancedDetails(v => !v)} className="w-full flex items-center justify-between rounded-xl border border-brand-gray-200 px-4 py-3 text-sm font-semibold text-brand-gray-700 hover:bg-brand-gray-50"><span>Advanced details</span><span className="text-xs text-brand-gray-400">{showAdvancedDetails ? 'Hide' : 'Show'}</span></button>
-        {showAdvancedDetails && <div className="rounded-xl border border-brand-gray-200 bg-brand-gray-50 p-4 text-xs space-y-2"><p><strong>Payment reference:</strong> {selectedOrder.razorpay_payment_id || selectedOrder.razorpayPaymentId || 'Not available'}</p><p><strong>Gateway order:</strong> {selectedOrder.razorpay_order_id || selectedOrder.razorpayOrderId || 'Not available'}</p><p><strong>Inventory reservation:</strong> {selectedOrder.reservationId || selectedOrder.inventoryReservationId || 'Not available'}</p><p><strong>Refund status:</strong> {selectedOrder.refundStatus || 'Not requested'}</p>{Array.isArray(selectedOrder.statusHistory) && selectedOrder.statusHistory.length > 0 && <div><strong>Status history</strong><div className="mt-2 space-y-1">{selectedOrder.statusHistory.map((entry: any, idx: number) => <div key={idx} className="flex justify-between gap-3"><span>{statusLabel(entry.status || entry.toStatus || 'unknown')}</span><span className="text-brand-gray-400">{entry.changedAt?.seconds ? format(new Date(entry.changedAt.seconds * 1000), 'MMM d, HH:mm') : ''}</span></div>)}</div></div>}</div>}
+
+        <div>
+          <h4 className="text-sm font-bold mb-3">Order Items ({selectedOrder.items.length})</h4>
+          <div className="divide-y border rounded-xl overflow-hidden">
+            {selectedOrder.items.map((item, idx) => (
+              <div key={idx} className="p-3 flex items-center justify-between bg-white text-sm">
+                <div className="flex items-center gap-3">
+                  {item.image && <img src={item.image} alt={item.name} className="w-10 h-10 object-contain bg-white rounded-lg border shrink-0" />}
+                  <div>
+                    <p className="font-semibold">{item.name}</p>
+                    {(item.selectedWeight || item.selectedCut) && (
+                      <p className="text-xs text-brand-gray-500">
+                        {item.selectedWeight && `Weight: ${item.selectedWeight} `}
+                        {item.selectedCut && `Cut: ${item.selectedCut}`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <span className="font-bold">×{item.quantity} · ₹{item.price}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Audit-Logged Shipment Tracking & Admin Notes Form */}
+        <form onSubmit={handleSaveTracking} className="rounded-xl border border-brand-gray-200 bg-brand-gray-50/70 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-brand-gray-700 flex items-center gap-1.5">
+              <Truck className="w-4 h-4 text-emerald-600" />
+              Shipment Tracking &amp; Admin Notes (Server Audit-Logged)
+            </h4>
+            <button
+              type="submit"
+              disabled={savingTracking}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-black text-white text-xs font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50"
+            >
+              <Save className="w-3.5 h-3.5" />
+              {savingTracking ? 'Recording...' : 'Save & Log Changes'}
+            </button>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[11px] font-semibold text-brand-gray-600 mb-1">Courier / Carrier</label>
+              <input
+                type="text"
+                value={trackingCarrier}
+                onChange={e => setTrackingCarrier(e.target.value)}
+                placeholder="e.g. Dunzo, Porter, Delhivery"
+                className="w-full px-2.5 py-1.5 text-xs bg-white border border-brand-gray-200 rounded-lg outline-none focus:border-emerald-600"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-brand-gray-600 mb-1">Tracking / AWB Number</label>
+              <input
+                type="text"
+                value={trackingNumber}
+                onChange={e => setTrackingNumber(e.target.value)}
+                placeholder="Tracking ID"
+                className="w-full px-2.5 py-1.5 text-xs bg-white border border-brand-gray-200 rounded-lg outline-none focus:border-emerald-600 font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-brand-gray-600 mb-1">Tracking Link URL</label>
+              <input
+                type="url"
+                value={trackingUrl}
+                onChange={e => setTrackingUrl(e.target.value)}
+                placeholder="https://..."
+                className="w-full px-2.5 py-1.5 text-xs bg-white border border-brand-gray-200 rounded-lg outline-none focus:border-emerald-600"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-brand-gray-600 mb-1">Internal Fulfillment Notes</label>
+            <input
+              type="text"
+              value={adminNotes}
+              onChange={e => setAdminNotes(e.target.value)}
+              placeholder="Dispatch batch, rider phone, or special handling note..."
+              className="w-full px-2.5 py-1.5 text-xs bg-white border border-brand-gray-200 rounded-lg outline-none focus:border-emerald-600"
+            />
+          </div>
+        </form>
+
+        {/* Server-Side Per-Order Immutable Audit Trail */}
+        <div className="rounded-xl border border-brand-gray-200 overflow-hidden">
+          <div className="bg-brand-gray-50 px-4 py-3 border-b border-brand-gray-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-emerald-600" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-brand-black">
+                Immutable Server-Side Order Audit Log ({orderAuditLogs.length})
+              </h4>
+            </div>
+            <button
+              type="button"
+              onClick={() => loadOrderAuditTrail(selectedOrder.id)}
+              disabled={loadingAudit}
+              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-1"
+            >
+              <RefreshCw className={`w-3 h-3 ${loadingAudit ? 'animate-spin' : ''}`} /> Verify Chain
+            </button>
+          </div>
+          <div className="divide-y divide-brand-gray-100 max-h-72 overflow-y-auto bg-white">
+            {loadingAudit ? (
+              <div className="p-6 text-center text-xs text-brand-gray-500">Verifying cryptographic order audit chain…</div>
+            ) : orderAuditLogs.length === 0 ? (
+              <div className="p-6 text-center text-xs text-brand-gray-400">No audit entries recorded for this order yet.</div>
+            ) : (
+              orderAuditLogs.map((entry) => {
+                const entryDate = getOrderDate(entry.createdAt);
+                const changeKeys = entry.changes ? Object.keys(entry.changes) : [];
+                return (
+                  <div key={entry.id || entry.sequence} className="p-3.5 text-xs space-y-1.5 hover:bg-brand-gray-50/60">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-[11px] px-2 py-0.5 rounded bg-brand-black text-white">
+                          #{entry.sequence}
+                        </span>
+                        <span className="font-mono font-bold text-brand-black">
+                          {entry.eventType || entry.action}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          {entry.actorRole}
+                        </span>
+                      </div>
+                      <span className="font-mono text-[11px] text-brand-gray-400">
+                        {entryDate ? format(entryDate, 'MMM d, yyyy HH:mm:ss') : String(entry.createdAt || '')}
+                      </span>
+                    </div>
+                    <p className="text-brand-gray-700">{entry.details}</p>
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-brand-gray-500">
+                      <span>
+                        Status: <strong className="text-brand-black">{entry.previousStatus || 'NONE'} → {entry.newStatus}</strong>
+                      </span>
+                      <span>·</span>
+                      <span>
+                        Payment: <strong className="text-brand-black">{entry.previousPaymentStatus || 'NONE'} → {entry.newPaymentStatus}</strong>
+                      </span>
+                      <span>·</span>
+                      <span>Actor: <strong className="text-brand-black">{entry.actor}</strong></span>
+                      {entry.source && (
+                        <>
+                          <span>·</span>
+                          <span className="font-mono text-[10px] bg-brand-gray-100 px-1.5 py-0.5 rounded">{entry.source}</span>
+                        </>
+                      )}
+                    </div>
+                    {changeKeys.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {changeKeys.map((field) => {
+                          const diff = entry.changes?.[field];
+                          if (!diff) return null;
+                          return (
+                            <span key={field} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-brand-gray-100 text-brand-gray-700 font-mono text-[10px]">
+                              {field}: {String(diff.from ?? 'null')} → {String(diff.to ?? 'null')}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {entry.integrityHash && (
+                      <div className="font-mono text-[10px] text-brand-gray-400 flex items-center gap-2 pt-0.5">
+                        <span>prev: {String(entry.previousHash || 'GENESIS').slice(0, 10)}</span>
+                        <span>→</span>
+                        <span className="text-emerald-700 font-semibold">sha256: {entry.integrityHash.slice(0, 16)}…</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <button type="button" onClick={() => setShowAdvancedDetails(v => !v)} className="w-full flex items-center justify-between rounded-xl border border-brand-gray-200 px-4 py-3 text-sm font-semibold text-brand-gray-700 hover:bg-brand-gray-50"><span>Gateway &amp; Reservation References</span><span className="text-xs text-brand-gray-400">{showAdvancedDetails ? 'Hide' : 'Show'}</span></button>
+        {showAdvancedDetails && <div className="rounded-xl border border-brand-gray-200 bg-brand-gray-50 p-4 text-xs space-y-2"><p><strong>Payment reference:</strong> {selectedOrder.razorpay_payment_id || selectedOrder.razorpayPaymentId || 'Not available'}</p><p><strong>Gateway order:</strong> {selectedOrder.razorpay_order_id || selectedOrder.razorpayOrderId || 'Not available'}</p><p><strong>Inventory reservation:</strong> {selectedOrder.reservationId || selectedOrder.inventoryReservationId || 'Not available'}</p><p><strong>Refund status:</strong> {selectedOrder.refundStatus || 'Not requested'}</p></div>}
       </div></div>}
     </div>
   );
 }
+

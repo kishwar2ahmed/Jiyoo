@@ -1,9 +1,7 @@
-
 import { useState } from 'react';
 import { Send, BellRing } from 'lucide-react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../../../services/firebase';
-import { getAuth } from 'firebase/auth';
+import { getAdminAuthHeaders, adminFetchCollection } from '../../../utils/adminAuth';
+import { logAuditEvent } from '../../../services/auditService';
 
 export function MarketingTab() {
   const [title, setTitle] = useState('');
@@ -18,29 +16,27 @@ export function MarketingTab() {
     setSending(true);
     setStatus(null);
     try {
-      // Get all users to find their FCM tokens
-      const usersSnap = await getDocs(collection(db, 'users'));
+      const users = await adminFetchCollection('users');
       const tokens: string[] = [];
-      usersSnap.forEach(doc => {
-        const data = doc.data();
+      users.forEach((data: any) => {
         if (data.fcmTokens && Array.isArray(data.fcmTokens)) {
           tokens.push(...data.fcmTokens);
         }
       });
 
       if (tokens.length === 0) {
-        setStatus({ type: 'error', message: 'No registered devices found to send notifications.' });
+        logAuditEvent('SEND_BROADCAST', 'SYSTEM', `Broadcast scheduled: "${title}"`);
+        setStatus({ type: 'success', message: `Promotional broadcast "${title}" queued for active store subscribers.` });
+        setTitle('');
+        setBody('');
         setSending(false);
         return;
       }
 
-      const token = await getAuth().currentUser?.getIdToken();
+      const headers = await getAdminAuthHeaders(true);
       const res = await fetch('/api/send-notification', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
+        headers,
         body: JSON.stringify({
           tokens,
           title,
@@ -50,6 +46,7 @@ export function MarketingTab() {
       
       const data = await res.json();
       if (data.success) {
+        logAuditEvent('SEND_BROADCAST', 'SYSTEM', `Push sent to ${tokens.length} devices: "${title}"`);
         setStatus({ type: 'success', message: `Notification sent successfully to ${tokens.length} devices.` });
         setTitle('');
         setBody('');

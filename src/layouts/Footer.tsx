@@ -29,16 +29,7 @@ import {
   isIOSDevice,
   isRunningStandalone,
 } from "../utils/installPrompt";
-import { TypewriterText } from "../features/core/components/TypewriterText";
-
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
-
-const FOOTER_CTA_PHRASES = [
-  "delivered home today?",
-  "cleaned with pure RO water?",
-  "custom-cut just how you like?",
-  "handpicked fresh every morning?",
-] as const;
 
 export function Footer() {
   const { settings } = useSettings();
@@ -160,18 +151,10 @@ export function Footer() {
 
             {/* Headline */}
             <h2 className="font-serif-luxury text-2xl sm:text-4xl lg:text-[50px] font-normal text-white leading-[1.15] tracking-tight text-balance">
-              <span className="block sm:inline">Want fresh food </span>
-              <TypewriterText
-                phrases={FOOTER_CTA_PHRASES}
-                typingSpeed={46}
-                deletingSpeed={22}
-                pauseDuration={2800}
-                startDelay={700}
-                className="justify-items-center sm:justify-items-start"
-                textClassName="italic bg-gradient-to-r from-[#F5E6C8] via-[#D4AF37] to-[#F5E6C8] bg-clip-text text-transparent"
-                cursorClassName="bg-[#D4AF37]"
-                ariaLabel="delivered home today?"
-              />
+              Want fresh food{" "}
+              <span className="italic bg-gradient-to-r from-[#F5E6C8] via-[#D4AF37] to-[#F5E6C8] bg-clip-text text-transparent">
+                delivered home today?
+              </span>
             </h2>
 
             {/* Subtitle */}
@@ -443,6 +426,28 @@ export function Footer() {
                       Customer Support
                     </button>
                   </li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        document.dispatchEvent(
+                          new CustomEvent("open-legal-policy", { detail: { tab: "refund" } })
+                        )
+                      }
+                      className="hover:text-stone-950 transition-colors cursor-pointer text-left"
+                    >
+                      Refund &amp; Replacement Policy
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => document.dispatchEvent(new CustomEvent("open-admin"))}
+                      className="hover:text-stone-950 transition-colors cursor-pointer text-left text-stone-500"
+                    >
+                      Store Admin Portal
+                    </button>
+                  </li>
                   <li className="pt-1.5">
                     <div className="p-3 rounded-xl bg-stone-50 border border-stone-200/60 space-y-1">
                       <div className="flex items-center gap-1.5 text-xs font-medium text-stone-900">
@@ -495,7 +500,11 @@ export function Footer() {
               <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-5 gap-y-1.5">
                 <button
                   type="button"
-                  onClick={() => document.dispatchEvent(new CustomEvent("open-about"))}
+                  onClick={() =>
+                    document.dispatchEvent(
+                      new CustomEvent("open-legal-policy", { detail: { tab: "privacy" } })
+                    )
+                  }
                   className="hover:text-stone-900 transition-colors cursor-pointer"
                 >
                   Privacy Policy
@@ -503,7 +512,11 @@ export function Footer() {
                 <span aria-hidden="true" className="text-stone-300">·</span>
                 <button
                   type="button"
-                  onClick={() => document.dispatchEvent(new CustomEvent("open-about"))}
+                  onClick={() =>
+                    document.dispatchEvent(
+                      new CustomEvent("open-legal-policy", { detail: { tab: "terms" } })
+                    )
+                  }
                   className="hover:text-stone-900 transition-colors cursor-pointer"
                 >
                   Terms of Service
@@ -511,7 +524,11 @@ export function Footer() {
                 <span aria-hidden="true" className="text-stone-300">·</span>
                 <button
                   type="button"
-                  onClick={() => document.dispatchEvent(new CustomEvent("open-contact"))}
+                  onClick={() =>
+                    document.dispatchEvent(
+                      new CustomEvent("open-legal-policy", { detail: { tab: "refund" } })
+                    )
+                  }
                   className="hover:text-stone-900 transition-colors cursor-pointer"
                 >
                   Refund Policy
