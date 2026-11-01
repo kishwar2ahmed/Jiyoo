@@ -290,7 +290,13 @@ function AppContent() {
           isAnyOverlayOpen ? "pointer-events-none select-none overflow-hidden" : ""
         }`}
       >
-        <main className="flex-grow pt-[calc(7.25rem+env(safe-area-inset-top))] sm:pt-[calc(7.75rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))] pb-0">
+        <main
+          className={`flex-grow pb-0 ${
+            activePage === 'wholesale'
+              ? 'pt-[calc(3.5rem+env(safe-area-inset-top))] sm:pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))]'
+              : 'pt-[calc(7.25rem+env(safe-area-inset-top))] sm:pt-[calc(7.75rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))]'
+          }`}
+        >
           {activePage === 'wholesale' ? (
             <WholesalePage
               onBackToRetail={openRetailPage}

@@ -16,7 +16,7 @@ export function VelvetWhatsAppIcon({ className = "w-4 h-4" }: { className?: stri
 }
 
 interface VelvetWhatsAppButtonProps {
-  onClick?: (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => void;
+  onClick?: (e: React.MouseEvent<any>) => void;
   href?: string;
   target?: string;
   rel?: string;
@@ -112,7 +112,7 @@ export const VelvetWhatsAppButton: React.FC<VelvetWhatsAppButtonProps> = ({
     size === "modal"
       ? "h-[50px] sm:h-[52px] w-auto max-w-full aspect-[1975/472] object-contain pointer-events-none select-none transition-transform duration-200"
       : size === "compact"
-      ? "h-[34px] sm:h-[36px] w-auto max-w-[155px] sm:max-w-[165px] aspect-[1975/472] object-contain pointer-events-none select-none transition-transform duration-200"
+      ? "h-[36px] sm:h-[40px] w-auto max-w-[158px] sm:max-w-[172px] aspect-[1975/472] object-contain pointer-events-none select-none transition-transform duration-200"
       : "w-full max-w-[180px] sm:w-[165px] h-[44px] sm:h-[42px] aspect-[1975/472] object-contain pointer-events-none select-none transition-transform duration-200";
 
   const content = (

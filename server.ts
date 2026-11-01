@@ -2312,6 +2312,7 @@ async function reconcileRazorpayOrder(razorpayOrderId: string, paymentId?: strin
       razorpay_payment_id: paymentId,
       reservationId: pending.reservationId || null,
       shippingDetails: pending.shippingDetails || {},
+      customerEmail: pending.customerEmail || pending.shippingDetails?.email || null,
       userId: pending.userId,
       orderType: pending.orderType || 'retail',
       ...(pending.wholesaleZoneId ? { wholesaleZoneId: pending.wholesaleZoneId, wholesaleZoneLabel: pending.wholesaleZoneLabel } : {}),
@@ -4199,9 +4200,11 @@ app.use(compression() as unknown as express.RequestHandler);
       deliveryInstructions: z.string().trim().max(300).optional().default(''),
       address: z.string().trim().min(5, 'Complete delivery street address is mandatory for WhatsApp orders.').max(500),
       pincode: z.string().trim().min(6, 'Valid 6-digit postal PIN code is mandatory for WhatsApp orders.').max(12),
+      email: z.string().trim().max(160).optional(),
       firstName: z.string().max(80).optional(),
       lastName: z.string().max(80).optional(),
     }),
+    customerEmail: z.string().trim().max(160).nullable().optional(),
   });
 
   app.post('/api/whatsapp/prepare-order', orderLimiter, optionalAuth, async (req, res) => {
@@ -4380,12 +4383,14 @@ app.use(compression() as unknown as express.RequestHandler);
           orderType,
           isGuestWhatsApp: !authUser?.uid,
           userId: authUser?.uid || null,
+          customerEmail: authUser?.email || parsed.data.customerEmail || shippingDetails.email || null,
           shippingDetails: {
             name: shippingDetails.name,
             firstName: shippingDetails.firstName || shippingDetails.name,
             lastName: shippingDetails.lastName || '',
             phone: normalizedPhone,
             whatsappPhone: shippingDetails.whatsappPhone || normalizedPhone,
+            email: shippingDetails.email || authUser?.email || '',
             houseNo: shippingDetails.houseNo || '',
             street: shippingDetails.street || '',
             area: resolvedArea,
@@ -5887,7 +5892,8 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
           deliveryFee: effectiveDeliveryFee,
           amount: grandTotal,
           grandTotal,
-          shippingDetails: { ...shippingDetails, phoneNormalized: normalizePhone(shippingDetails.phone) },
+          customerEmail: authUser?.email || parseResult.data.customerEmail || shippingDetails.email || null,
+          shippingDetails: { ...shippingDetails, email: shippingDetails.email || authUser?.email || '', phoneNormalized: normalizePhone(shippingDetails.phone) },
           paymentMethod,
           orderStatus: initialStatus,
           status: initialStatus,
@@ -6363,7 +6369,8 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
               deliveryFee: effectiveDeliveryFee,
               amount: totalAmount,
               currency: 'INR',
-              shippingDetails: { ...(shippingDetails || {}), phoneNormalized: normalizePhone(shippingDetails?.phone) },
+              customerEmail: authUser?.email || parseResult.data.customerEmail || shippingDetails?.email || null,
+              shippingDetails: { ...(shippingDetails || {}), email: shippingDetails?.email || authUser?.email || '', phoneNormalized: normalizePhone(shippingDetails?.phone) },
               userId,
               reservationId,
               reservationExpiresAt: new Date(reservationExpiresAtMs).toISOString(),
@@ -6552,6 +6559,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
             razorpay_order_id,
             razorpay_payment_id,
             reservationId: pending.reservationId || null,
+            customerEmail: pending.customerEmail || authUser?.email || pending.shippingDetails?.email || null,
             shippingDetails: pending.shippingDetails || {},
             userId: pending.userId || null,
             orderType: pending.orderType || 'retail',
@@ -6947,6 +6955,59 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
     if (res.headersSent) return next(err);
     res.status(500).json({ success: false, error: 'Internal server error' });
   });
+
+  // Real-time Firestore listener for order status modifications (triggers automated SMTP email when status updates in Firestore)
+  if (!process.env.VERCEL && hasServiceAccountCredentials) {
+    try {
+      const db = getFirestore();
+      let isInitialOrderSnapshot = true;
+      const lastObservedStatusByOrder = new Map<string, string>();
+      db.collection('orders').onSnapshot(
+        (snapshot) => {
+          for (const change of snapshot.docChanges()) {
+            const docId = change.doc.id;
+            const data = change.doc.data() as any;
+            const currentStatus = String(data?.orderStatus || data?.status || 'pending').trim();
+            const previousStatus = lastObservedStatusByOrder.get(docId);
+            lastObservedStatusByOrder.set(docId, currentStatus);
+
+            if (isInitialOrderSnapshot) continue;
+            if (change.type === 'modified' && previousStatus && previousStatus !== currentStatus) {
+              // Skip if this status was already emailed by the HTTP handler
+              if (data?.statusEmailsSent && data.statusEmailsSent[currentStatus]) {
+                continue;
+              }
+              sendOrderStatusUpdateEmail({
+                orderId: docId,
+                newStatus: currentStatus,
+                previousStatus,
+                reason: data?.statusChangeReason || data?.cancelReason || null,
+                actor: 'firestore:status-listener',
+                db,
+                auth: getAuth(),
+                smtpConfig: {
+                  host: env.SMTP_HOST,
+                  port: env.SMTP_PORT,
+                  user: env.SMTP_USER,
+                  pass: env.SMTP_PASS,
+                  from: env.SMTP_FROM,
+                },
+                storeName: 'JIYOO',
+              }).catch((err) => {
+                console.error(`[Firestore Order Listener] Failed to send status email for ${docId}:`, err);
+              });
+            }
+          }
+          isInitialOrderSnapshot = false;
+        },
+        (listenErr) => {
+          console.warn('[Firestore Order Listener] Real-time listener inactive (relying on API route triggers):', listenErr?.message || listenErr);
+        }
+      );
+    } catch (initListenErr) {
+      console.warn('[Firestore Order Listener] Could not attach real-time listener:', initListenErr);
+    }
+  }
 
   // On Vercel there is no persistent process to listen on a port - the
   // platform invokes the exported app per-request instead (see api/index.ts).

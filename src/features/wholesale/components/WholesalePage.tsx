@@ -725,8 +725,8 @@ export function WholesalePage({
                     </div>
 
                     {/* Action Controls: Add to Cart & Maroon Velvet WhatsApp Order */}
-                    <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 pt-1">
-                      <div className="relative flex items-center gap-1.5 flex-1 min-w-[140px] justify-center">
+                    <div className="grid grid-cols-2 items-center gap-2 pt-1">
+                      <div className="relative flex items-center gap-1.5 min-w-0 justify-center">
                         <AnimatePresence>
                           {qtyInCart > 0 && (
                             <motion.button
@@ -746,14 +746,14 @@ export function WholesalePage({
                                 }
                               }}
                               aria-label="Decrease lot quantity"
-                              className="w-[34px] h-[34px] rounded-full flex items-center justify-center bg-[#1C1917] hover:bg-[#292524] text-[#FAF2E1] border border-[#C5A880]/70 shadow-sm cursor-pointer shrink-0"
+                              className="w-[32px] h-[32px] rounded-full flex items-center justify-center bg-[#1C1917] hover:bg-[#292524] text-[#FAF2E1] border border-[#C5A880]/70 shadow-sm cursor-pointer shrink-0"
                             >
                               <Minus className="w-3.5 h-3.5" strokeWidth={2.6} />
                             </motion.button>
                           )}
                         </AnimatePresence>
 
-                        <div className="relative inline-flex items-center justify-center w-full">
+                        <div className="relative inline-flex items-center justify-center w-full min-w-0">
                           <VelvetyBalloonButton
                             onClick={(e) => handleAddToCart(e, product)}
                             justAdded={isJustAdded}
@@ -777,7 +777,7 @@ export function WholesalePage({
                         </div>
                       </div>
 
-                      <div className="flex-1 min-w-[145px] flex items-center justify-center">
+                      <div className="min-w-0 flex items-center justify-center">
                         <VelvetWhatsAppButton
                           onClick={(e) => handleWhatsAppOrder(e, product)}
                           label="Order via WhatsApp"

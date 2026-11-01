@@ -558,76 +558,82 @@ export function ProductDetailModal({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 pt-2">
-                    {/* Quantity Selector */}
-                    <div className="bg-brand-gray-50/80 p-1 rounded-2xl flex items-center border border-brand-gray-100 h-[52px]">
+                  <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 pt-2">
+                    <div className="flex items-center justify-between sm:justify-start gap-2.5 shrink-0">
+                      {/* Quantity Selector */}
+                      <div className="bg-brand-gray-50/80 p-1 rounded-2xl flex items-center border border-brand-gray-100 h-[50px] sm:h-[52px]">
+                        <button
+                          onClick={handleDecrease}
+                          disabled={quantity <= 1 || isOutOfStock}
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-brand-black hover:bg-brand-white active:scale-90 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        <span className="w-10 text-center font-semibold text-brand-black text-sm overflow-hidden inline-flex items-center justify-center tabular-nums">
+                          <AnimatePresence mode="popLayout" initial={false}>
+                            <motion.span
+                              key={`modal-qty-${quantity}`}
+                              initial={{ y: 8, opacity: 0, scale: 0.85 }}
+                              animate={{ y: 0, opacity: 1, scale: 1 }}
+                              exit={{ y: -8, opacity: 0, scale: 0.85 }}
+                              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                              className="inline-block"
+                            >
+                              {quantity}
+                            </motion.span>
+                          </AnimatePresence>
+                        </span>
+                        <button
+                          onClick={handleIncrease}
+                          disabled={isOutOfStock}
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-brand-black hover:bg-brand-white active:scale-90 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Wishlist Icon */}
                       <button
-                        onClick={handleDecrease}
-                        disabled={quantity <= 1 || isOutOfStock}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-brand-black hover:bg-brand-white active:scale-90 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                        onClick={() => toggleWishlist(String(product.id))}
+                        aria-label="Toggle wishlist"
+                        className="w-[50px] h-[50px] sm:w-[52px] sm:h-[52px] bg-brand-gray-50/80 border border-brand-gray-100 hover:bg-brand-gray-100 rounded-2xl flex items-center justify-center text-brand-black transition-all shrink-0 active:scale-95"
                       >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <span className="w-10 text-center font-semibold text-brand-black text-sm overflow-hidden inline-flex items-center justify-center tabular-nums">
-                        <AnimatePresence mode="popLayout" initial={false}>
-                          <motion.span
-                            key={`modal-qty-${quantity}`}
-                            initial={{ y: 8, opacity: 0, scale: 0.85 }}
-                            animate={{ y: 0, opacity: 1, scale: 1 }}
-                            exit={{ y: -8, opacity: 0, scale: 0.85 }}
-                            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                            className="inline-block"
-                          >
-                            {quantity}
-                          </motion.span>
-                        </AnimatePresence>
-                      </span>
-                      <button
-                        onClick={handleIncrease}
-                        disabled={isOutOfStock}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-brand-black hover:bg-brand-white active:scale-90 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
-                      >
-                        <Plus className="w-4 h-4" />
+                        <Heart
+                          className="w-5 h-5 transition-transform active:scale-125"
+                          fill={
+                            wishlist.includes(String(product.id))
+                              ? "#EF4444"
+                              : "none"
+                          }
+                          stroke={
+                            wishlist.includes(String(product.id))
+                              ? "#EF4444"
+                              : "currentColor"
+                          }
+                        />
                       </button>
                     </div>
 
-                    {/* Wishlist Icon */}
-                    <button
-                      onClick={() => toggleWishlist(String(product.id))}
-                      className="w-[52px] h-[52px] bg-brand-gray-50/80 border border-brand-gray-100 hover:bg-brand-gray-100 rounded-2xl flex items-center justify-center text-brand-black transition-all shrink-0 active:scale-95"
-                    >
-                      <Heart
-                        className="w-5 h-5 transition-transform active:scale-125"
-                        fill={
-                          wishlist.includes(String(product.id))
-                            ? "#EF4444"
-                            : "none"
-                        }
-                        stroke={
-                          wishlist.includes(String(product.id))
-                            ? "#EF4444"
-                            : "currentColor"
-                        }
+                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2.5 sm:gap-3 flex-1 min-w-0">
+                      {/* Add to Bag CTA */}
+                      <VelvetyBalloonButton
+                        onClick={handleAddToCart}
+                        disabled={isOutOfStock}
+                        justAdded={justAdded}
+                        label={isOutOfStock ? "Sold Out" : "Add to Bag"}
+                        size="modal"
+                        className="w-full sm:w-auto"
                       />
-                    </button>
 
-                    {/* Add to Bag CTA */}
-                    <VelvetyBalloonButton
-                      onClick={handleAddToCart}
-                      disabled={isOutOfStock}
-                      justAdded={justAdded}
-                      label={isOutOfStock ? "Sold Out" : "Add to Bag"}
-                      size="modal"
-                      className="flex-1 max-w-[240px]"
-                    />
-
-                    {/* WhatsApp Direct Order CTA in Imperial Maroon Velvet */}
-                    <VelvetWhatsAppButton
-                      onClick={handleWhatsAppOrder}
-                      disabled={isOutOfStock}
-                      label={isOutOfStock ? "Out of Stock" : "Order via WhatsApp"}
-                      size="modal"
-                    />
+                      {/* WhatsApp Direct Order CTA in Imperial Maroon Velvet */}
+                      <VelvetWhatsAppButton
+                        onClick={handleWhatsAppOrder}
+                        disabled={isOutOfStock}
+                        label={isOutOfStock ? "Out of Stock" : "Order via WhatsApp"}
+                        size="modal"
+                        className="w-full sm:w-auto"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

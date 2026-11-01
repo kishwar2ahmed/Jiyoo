@@ -9,7 +9,6 @@ import {
 import { ArrowRight } from 'lucide-react';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { sanitizeWhatsAppNumber } from '../../../utils/whatsapp';
-import { WhatsAppIcon } from '../../core/components/SocialIcons';
 import { TypewriterText } from '../../core/components/TypewriterText';
 import { VelvetWhatsAppButton } from '../../product/components/VelvetWhatsAppButton';
 import { HeroSlideshow } from './HeroSlideshow';
@@ -249,7 +248,7 @@ export function Hero({
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.68, delay: 0.46, ease: EASE_OUT_EXPO }}
-                className="mt-7 flex flex-row items-center gap-3.5"
+                className="mt-7 flex flex-wrap items-center gap-3.5"
               >
                 <motion.button
                   type="button"
@@ -257,7 +256,7 @@ export function Hero({
                   whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.015 }}
                   whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
                   transition={{ duration: 0.16, ease: EASE_OUT_EXPO }}
-                  className="group relative overflow-hidden inline-flex items-center justify-center gap-3 px-6 py-3.5 text-xs font-semibold tracking-[0.11em] uppercase text-[#FAF9F5] bg-[#1C1917] hover:bg-[#292524] rounded-lg shadow-[0_10px_24px_-8px_rgba(28,25,23,0.35)] transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C1917]"
+                  className="group relative overflow-hidden inline-flex items-center justify-center gap-3 h-[50px] sm:h-[52px] px-7 text-xs font-semibold tracking-[0.12em] uppercase text-[#FAF9F5] bg-[#1C1917] hover:bg-[#292524] rounded-full border border-[#C5A880]/40 shadow-[0_10px_24px_-8px_rgba(28,25,23,0.38)] transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C1917]"
                 >
                   <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-500 ease-out group-hover:translate-x-full" />
                   <span className="relative z-10">Shop Catalog</span>

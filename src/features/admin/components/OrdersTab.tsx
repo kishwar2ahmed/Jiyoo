@@ -422,17 +422,45 @@ export function OrdersTab() {
             {(selectedOrder.shippingDetails as any)?.landmark && <p className="text-xs text-brand-gray-600">Landmark: {(selectedOrder.shippingDetails as any).landmark}</p>}
             <p className="text-xs">{selectedOrder.shippingDetails?.address}</p>
             {selectedOrder.shippingDetails?.pincode && <p className="font-mono text-xs font-semibold">PIN: {selectedOrder.shippingDetails.pincode}</p>}
+            {((selectedOrder as any).customerEmail || (selectedOrder.shippingDetails as any)?.email) && (
+              <p className="text-xs text-brand-gray-700 flex items-center gap-1 pt-0.5">
+                <Mail className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate">{(selectedOrder as any).customerEmail || (selectedOrder.shippingDetails as any)?.email}</span>
+              </p>
+            )}
             {(selectedOrder.shippingDetails as any)?.deliveryInstructions && (
               <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">Note: {(selectedOrder.shippingDetails as any).deliveryInstructions}</p>
             )}
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <span className="text-xs text-brand-gray-500 block uppercase font-bold">Payment &amp; Status</span>
             <p>Method: <strong>{selectedOrder.paymentMethod || 'COD'}</strong></p>
             <p>Order Status: <strong>{statusLabel(selectedOrder.orderStatus || selectedOrder.status || 'pending')}</strong></p>
             <p>Payment Status: <strong>{selectedOrder.paymentStatus || 'unpaid'}</strong></p>
             <p>Grand Total: <strong>₹{selectedOrder.grandTotal || selectedOrder.amount}</strong></p>
             {(selectedOrder as any).verificationCode && <p className="font-mono text-xs text-emerald-800">Verification: {(selectedOrder as any).verificationCode}</p>}
+            <div className="pt-2 border-t border-brand-gray-200/80 flex flex-col gap-1.5">
+              {(selectedOrder as any).lastStatusEmailSent?.sentAt ? (
+                <p className="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
+                  <Mail className="w-3 h-3 shrink-0" />
+                  Auto-emailed ({statusLabel((selectedOrder as any).lastStatusEmailSent.status)}) to {(selectedOrder as any).lastStatusEmailSent.recipientEmail}
+                </p>
+              ) : (
+                <p className="text-[11px] text-brand-gray-500 flex items-center gap-1">
+                  <Mail className="w-3 h-3 shrink-0" />
+                  Automated SMTP email triggers on every status update
+                </p>
+              )}
+              <button
+                type="button"
+                disabled={sendingEmail}
+                onClick={() => handleResendStatusEmail(selectedOrder.id)}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold transition-colors disabled:opacity-50 w-fit"
+              >
+                <Send className="w-3.5 h-3.5" />
+                {sendingEmail ? 'Sending Status Email…' : 'Send / Resend Status Email'}
+              </button>
+            </div>
           </div>
         </div>
 

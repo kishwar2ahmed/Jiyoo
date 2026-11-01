@@ -478,7 +478,7 @@ export const ProductCard = React.memo(function ProductCard({
               </AnimatePresence>
 
               {/* Velvet Butterfly Pill Button - Permanent, Crisp & Authentic */}
-              <div className="relative inline-flex items-center">
+              <div className="relative inline-flex items-center justify-end min-w-0 flex-1 sm:flex-initial">
                 <VelvetyBalloonButton
                   onClick={handleAddToCart}
                   disabled={isOutOfStock}
