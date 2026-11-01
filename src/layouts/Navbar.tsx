@@ -800,15 +800,15 @@ export function Navbar({
           {/* Row 1: Menu + Logo | Retail/Wholesale Switch | User+Cart  */}
           {/* Row 2: Full-Width Search Bar (Only on Retail Page)        */}
           {/* ========================================================= */}
-          <div className="flex flex-col gap-2 lg:hidden">
+          <div className="flex flex-col gap-2 lg:hidden w-full min-w-0">
             {/* Row 1: Brand Identity, Premium Retail | Wholesale Switch & Actions */}
-            <div className="flex items-center justify-between gap-1.5 w-full">
+            <div className="flex items-center justify-between gap-1 sm:gap-2 w-full min-w-0">
               {/* Left Group: Menu Toggle & Brand Logo */}
-              <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 shrink-0">
+              <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 shrink">
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen((prev) => !prev)}
-                  className="p-1.5 -ml-1 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors cursor-pointer shrink-0"
+                  className="p-1 sm:p-1.5 -ml-0.5 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors cursor-pointer shrink-0"
                   aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
                   aria-expanded={mobileMenuOpen}
                 >
@@ -820,7 +820,7 @@ export function Navbar({
                 </button>
 
                 <div
-                  className="cursor-pointer flex items-center gap-1.5 min-w-0"
+                  className="cursor-pointer flex items-center gap-1 sm:gap-1.5 min-w-0"
                   onClick={() => {
                     setMobileMenuOpen(false);
                     if (activePage === "wholesale") {
@@ -833,9 +833,9 @@ export function Navbar({
                   <img
                     src="/jiyoo.logo.jpeg"
                     alt={settings.storeName || "JIYOO"}
-                    className="h-6.5 sm:h-7 w-auto object-contain rounded-lg shrink-0"
+                    className="h-6 sm:h-7 w-6 sm:w-7 object-contain rounded-lg shrink-0"
                   />
-                  <span className="font-serif-luxury text-sm sm:text-base font-bold tracking-wider text-brand-black block leading-tight truncate">
+                  <span className="font-serif-luxury text-[13px] sm:text-base font-bold tracking-wide sm:tracking-wider text-brand-black block leading-tight truncate">
                     JIYOO
                   </span>
                 </div>
@@ -854,7 +854,7 @@ export function Navbar({
                     onRetailClick?.();
                   }}
                   aria-pressed={activePage === "retail"}
-                  className={`relative px-2 sm:px-2.5 py-1 rounded-md text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider transition-colors duration-200 cursor-pointer whitespace-nowrap z-10 ${
+                  className={`relative px-1.5 sm:px-2.5 py-1 rounded-md text-[9px] sm:text-[10.5px] font-bold uppercase tracking-normal sm:tracking-wider transition-colors duration-200 cursor-pointer whitespace-nowrap z-10 ${
                     activePage === "retail"
                       ? "text-[#FAF9F5]"
                       : "text-[#57534E] hover:text-[#1C1917]"
@@ -876,7 +876,7 @@ export function Navbar({
                     onWholesaleClick?.();
                   }}
                   aria-pressed={activePage === "wholesale"}
-                  className={`relative px-2 sm:px-2.5 py-1 rounded-md text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider transition-colors duration-200 cursor-pointer whitespace-nowrap z-10 ${
+                  className={`relative px-1.5 sm:px-2.5 py-1 rounded-md text-[9px] sm:text-[10.5px] font-bold uppercase tracking-normal sm:tracking-wider transition-colors duration-200 cursor-pointer whitespace-nowrap z-10 ${
                     activePage === "wholesale"
                       ? "text-[#FAF9F5]"
                       : "text-[#57534E] hover:text-[#1C1917]"
@@ -894,13 +894,13 @@ export function Navbar({
               </div>
 
               {/* Right Group: User Account & High-Contrast Luxury Cart Pill */}
-              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false);
                     onUserClick();
                   }}
-                  className="p-1.5 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors flex items-center cursor-pointer shrink-0"
+                  className="p-1 sm:p-1.5 text-stone-900 hover:bg-stone-200/50 rounded-lg transition-colors flex items-center justify-center cursor-pointer shrink-0"
                   aria-label="Account"
                 >
                   {user ? (
@@ -908,18 +908,18 @@ export function Navbar({
                       <img
                         src={user.picture}
                         alt={user.name || user.displayName || "User"}
-                        className="w-6 h-6 rounded-full border border-stone-300"
+                        className="w-6 h-6 rounded-full border border-stone-300 shrink-0"
                         referrerPolicy="no-referrer"
                       />
                     ) : (
-                      <div className="w-6 h-6 rounded-full bg-stone-200 border border-stone-300 flex items-center justify-center text-[10px] font-bold text-stone-900">
+                      <div className="w-6 h-6 rounded-full bg-stone-200 border border-stone-300 flex items-center justify-center text-[10px] font-bold text-stone-900 shrink-0">
                         {(user.name || user.displayName || user.email || "M")
                           .slice(0, 2)
                           .toUpperCase()}
                       </div>
                     )
                   ) : (
-                    <User className="w-5 h-5" strokeWidth={1.75} />
+                    <User className="w-5 h-5 shrink-0" strokeWidth={1.75} />
                   )}
                 </button>
 
@@ -929,10 +929,10 @@ export function Navbar({
                     setMobileMenuOpen(false);
                     onCartClick();
                   }}
-                  className={`relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-300 cursor-pointer shrink-0 border ${
+                  className={`relative inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full transition-all duration-300 cursor-pointer shrink-0 border ${
                     cartCount > 0
-                      ? "bg-[#1C1917] text-[#FAF9F5] border-[#C5A880] shadow-[0_4px_14px_rgba(28,25,23,0.22)]"
-                      : "bg-[#1C1917] text-[#FAF9F5] border-[#C5A880]/60 shadow-2xs"
+                      ? "bg-[#1C1917] text-[#FAF9F5] border-[#C5A880] shadow-[0_4px_14px_rgba(28,25,23,0.25)]"
+                      : "bg-[#1C1917] text-[#FAF9F5] border-[#C5A880]/80 shadow-xs"
                   }`}
                   aria-label={`Cart (${cartCount} items)`}
                 >
@@ -941,7 +941,7 @@ export function Navbar({
                       <motion.span
                         key={`mobile-cart-halo-${cartPulseKey}`}
                         initial={{ scale: 0.85, opacity: 0.85 }}
-                        animate={{ scale: 1.55, opacity: 0 }}
+                        animate={{ scale: 1.45, opacity: 0 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
                         className="pointer-events-none absolute inset-0 rounded-full border-2 border-[#C5A880]"
@@ -957,29 +957,26 @@ export function Navbar({
                         : {}
                     }
                     transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
-                    className="flex items-center justify-center"
+                    className="inline-flex items-center justify-center shrink-0"
                   >
-                    <ShoppingBag className="w-4 h-4 text-[#E5C99B]" strokeWidth={2} />
+                    <ShoppingBag className="w-4 h-4 text-[#E5C99B] shrink-0" strokeWidth={2.2} />
                   </motion.div>
 
-                  <span className="min-w-[16px] text-center font-mono text-[11px] font-bold leading-none tabular-nums text-[#FAF9F5]">
-                    <AnimatePresence mode="popLayout" initial={false}>
-                      <motion.span
-                        key={cartCount}
-                        initial={{ y: 8, opacity: 0, scale: 0.8 }}
-                        animate={{ y: 0, opacity: 1, scale: 1 }}
-                        exit={{ y: -8, opacity: 0, scale: 0.8 }}
-                        transition={{
-                          type: "spring",
-                          stiffness: 480,
-                          damping: 28,
-                          mass: 0.6,
-                        }}
-                        className="inline-block tabular-nums"
-                      >
-                        {cartCount}
-                      </motion.span>
-                    </AnimatePresence>
+                  <span className="relative inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[#FAF9F5]/15 font-mono text-[11px] font-bold leading-none tabular-nums text-[#FAF9F5] shrink-0">
+                    <motion.span
+                      key={cartCount}
+                      initial={{ scale: 0.8, opacity: 0.6 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 480,
+                        damping: 28,
+                        mass: 0.6,
+                      }}
+                      className="inline-block leading-none tabular-nums"
+                    >
+                      {cartCount}
+                    </motion.span>
                   </span>
                 </button>
               </div>
