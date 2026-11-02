@@ -216,7 +216,7 @@ export function BannersTab() {
     const updated = [diwaliSlide, ...banners.map((b, idx) => ({ ...b, order: idx + 1 }))];
     try {
       await updateBanners(updated);
-      showToast('Special Diwali Sale banner added with luminous amber spotlight');
+      showToast('✨ Special Diwali Sale banner added with luminous amber spotlight');
     } catch (err) {
       console.error(err);
       showToast('Failed to add banner');
@@ -454,9 +454,9 @@ export function BannersTab() {
                     <div
                       className={`relative aspect-[2048/768] max-h-[260px] rounded-xl overflow-hidden transition-all duration-500 ${
                         isSimDiwali
-                          ? 'border-2 border-amber-400 ring-1 ring-amber-400/80 shadow-sm bg-black'
+                          ? 'border-2 border-amber-400 ring-2 ring-amber-400/80 shadow-[0_0_30px_rgba(245,158,11,0.5)] bg-black'
                           : isSimWhatsApp
-                          ? 'border-2 border-emerald-700/60 ring-1 ring-emerald-600/40 shadow-sm bg-[#F6EFE6]'
+                          ? 'border-2 border-emerald-700/60 ring-1.5 ring-emerald-600/40 shadow-[0_0_30px_rgba(16,185,129,0.3)] bg-[#F6EFE6]'
                           : 'border border-white/10 bg-black'
                       }`}
                     >
@@ -624,7 +624,7 @@ export function BannersTab() {
                 exit={{ opacity: 0, y: -8 }}
                 className={`bg-brand-white rounded-2xl border transition-all p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
                   isBannerFeatured
-                    ? 'border-amber-400/90 ring-1 ring-amber-400/50 shadow-xs bg-amber-500/5'
+                    ? 'border-amber-400/90 ring-1 ring-amber-400/50 shadow-[0_0_20px_rgba(245,158,11,0.18)] bg-gradient-to-r from-amber-500/5 to-transparent'
                     : banner.isActive !== false
                     ? 'border-brand-gray-200 hover:border-brand-gold/40 shadow-xs'
                     : 'border-brand-gray-200/60 bg-brand-gray-50/70 opacity-75'
@@ -668,7 +668,7 @@ export function BannersTab() {
                   {/* 16:9 Thumbnail Preview */}
                   <div
                     className={`relative w-28 sm:w-36 aspect-[16/9] rounded-xl overflow-hidden bg-stone-900 shrink-0 ${
-                      isBannerFeatured ? 'ring-2 ring-amber-400 shadow-xs' : 'border border-brand-gray-200'
+                      isBannerFeatured ? 'ring-2 ring-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.35)]' : 'border border-brand-gray-200'
                     }`}
                   >
                     <img
@@ -678,8 +678,8 @@ export function BannersTab() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                     <span
-                      className={`absolute bottom-1 left-1.5 text-[9px] font-semibold px-1.5 py-0.5 rounded tracking-wide ${
-                        isBannerFeatured ? 'bg-amber-950 text-amber-200 border border-amber-400/50' : 'bg-black/85 text-white'
+                      className={`absolute bottom-1 left-1.5 text-[9px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wider backdrop-blur-xs ${
+                        isBannerFeatured ? 'bg-amber-950/85 text-amber-200 border border-amber-400/50' : 'bg-black/70 text-white'
                       }`}
                     >
                       {banner.badge}
@@ -772,7 +772,7 @@ export function BannersTab() {
       {/* Add / Edit Banner Modal Dialog */}
       <AnimatePresence>
         {isModalOpen && editingBanner && (
-          <div className="fixed inset-0 z-[110] bg-black/65 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}

@@ -19,7 +19,7 @@ export function InstallAppModal({ isOpen, onClose, isIOS }: InstallAppModalProps
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-stone-950/65"
+            className="absolute inset-0 bg-brand-black/60 backdrop-blur-sm"
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.97, y: 40 }}

@@ -87,13 +87,13 @@ export function DeveloperPresentation({
           exit={{ opacity: 0, transition: { duration: 0.8, ease: easing } }}
           style={{ perspective: "2000px" }}
         >
-          {/* Overlay Scrim */}
+          {/* Overlay with Heartbeat & Ripple */}
           <motion.div
-            className="absolute inset-0 bg-[#18181B]/80 backdrop-blur-xl"
+            className="absolute inset-0 bg-[#2A1114]/90 backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 1, ease: easing }}
             onClick={onClose}
           >
             <div
@@ -270,8 +270,8 @@ export function DeveloperPresentation({
                 </h2>
               </div>
 
-              {/* Bento Grid Services */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-8 relative z-20">
+              {/* Services Grid */}
+              <div className="grid gap-4 my-8 relative z-20">
                 {services.map((service, idx) => (
                   <motion.div
                     key={idx}
@@ -279,26 +279,26 @@ export function DeveloperPresentation({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{
                       duration: 0.8,
-                      delay: 1 + idx * 0.1,
+                      delay: 1 + idx * 0.12,
                       ease: easing,
                     }}
-                    whileHover={{ y: -4, scale: 1.01 }}
-                    className={`p-5 rounded-2xl border border-[#DDD5CB]/80 bg-white/40 backdrop-blur-md hover:bg-white/80 hover:border-[#5C2328]/30 hover:shadow-[0_10px_30px_rgba(92,35,40,0.08)] transition-all duration-500 group cursor-default ${
-                      idx === 4 ? "sm:col-span-2" : ""
-                    }`}
+                    className="group relative bg-[#F9F7F4] border border-[#DDD5CB]/60 rounded-2xl p-5 flex items-start gap-5 transition-all duration-700 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(42,17,20,0.08)] hover:border-[#5C2328]/30 hover:bg-[#FCFAF8] overflow-hidden cursor-default"
                   >
-                    <div className="flex items-start gap-4">
-                      <div className="p-2.5 rounded-xl bg-[#EFECE6] text-[#5C2328] group-hover:bg-[#5C2328] group-hover:text-[#F5F1EB] transition-colors duration-500">
-                        <service.icon className="w-5 h-5" strokeWidth={1.5} />
-                      </div>
-                      <div>
-                        <h4 className="text-base font-serif text-[#1E1E1C] mb-1 group-hover:text-[#5C2328] transition-colors">
-                          {service.title}
-                        </h4>
-                        <p className="text-xs text-[#71717A] font-sans leading-relaxed">
-                          {service.desc}
-                        </p>
-                      </div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#F5F1EB]/50 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none" />
+
+                    <div className="w-10 h-10 rounded-full bg-[#F5F1EB] border border-[#DDD5CB] flex items-center justify-center shrink-0 transition-transform duration-500 group-hover:rotate-6 group-hover:scale-110 group-hover:border-[#5C2328]/40 group-hover:text-[#5C2328]">
+                      <service.icon
+                        className="w-4 h-4 text-[#85786F] group-hover:text-[#5C2328] transition-colors duration-500"
+                        strokeWidth={1.5}
+                      />
+                    </div>
+                    <div>
+                      <h4 className="text-sm md:text-base font-serif text-[#1E1E1C] mb-1 group-hover:text-[#5C2328] transition-colors duration-500">
+                        {service.title}
+                      </h4>
+                      <p className="text-xs md:text-sm text-[#85786F] font-sans leading-relaxed group-hover:text-[#53624C] transition-colors duration-500">
+                        {service.desc}
+                      </p>
                     </div>
                   </motion.div>
                 ))}
@@ -306,31 +306,31 @@ export function DeveloperPresentation({
 
               {/* Bottom CTA */}
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1, delay: 1.6, ease: easing }}
-                className="mt-auto pt-6 border-t border-[#DDD5CB] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                transition={{
+                  duration: 1,
+                  delay: 1.8,
+                  type: "spring",
+                  stiffness: 60,
+                  damping: 15,
+                }}
+                className="mt-auto pt-6"
               >
-                <div>
-                  <p className="text-sm font-serif italic text-[#71717A]">
-                    Interested in working together?
-                  </p>
-                  <p className="text-xs font-mono uppercase tracking-wider text-[#1E1E1C] mt-0.5">
-                    Available for select projects
-                  </p>
-                </div>
-
                 <a
                   href="https://www.instagram.com/yo_yo_kishwar_lucky?igsh=MWlieDNzbjY0bGJ3NA=="
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group relative inline-flex items-center gap-3 bg-[#1E1E1C] text-[#F5F1EB] px-6 py-3.5 rounded-full text-xs font-mono uppercase tracking-widest overflow-hidden transition-all duration-500 hover:bg-[#5C2328] hover:shadow-[0_10px_20px_rgba(92,35,40,0.2)] hover:scale-105 active:scale-95"
+                  className="group relative inline-flex items-center gap-4 bg-[#1E1E1C] text-[#F5F1EB] px-8 py-4 rounded-full overflow-hidden transition-all duration-500 hover:shadow-[0_12px_24px_rgba(42,17,20,0.25)] hover:-translate-y-1"
                 >
-                  <InstagramIcon className="w-4 h-4 relative z-10 text-white" />
-                  <span className="relative z-10">Let's Connect</span>
-                  <div className="relative z-10 w-5 h-5 rounded-full bg-white/10 flex items-center justify-center group-hover:translate-x-1 transition-transform duration-300">
+                  <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
+                  <InstagramIcon className="relative z-10 w-4 h-4 text-[#F5F1EB]" />
+                  <span className="relative z-10 font-mono uppercase tracking-[0.1em] text-xs font-medium group-hover:text-white transition-colors duration-300">
+                    Let's Connect
+                  </span>
+                  <div className="relative z-10 w-8 h-8 rounded-full bg-[#F5F1EB]/10 flex items-center justify-center group-hover:bg-[#F5F1EB] transition-colors duration-500">
                     <ArrowRight
-                      className="w-3 h-3 text-[#F5F1EB]"
+                      className="w-4 h-4 text-[#F5F1EB] group-hover:text-[#1E1E1C] group-hover:translate-x-0.5 transition-all duration-500"
                       strokeWidth={2}
                     />
                   </div>

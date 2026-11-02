@@ -121,20 +121,23 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
               <h1 className="font-serif-luxury text-3xl md:text-4xl tracking-widest text-[#1C1917] font-semibold">
                 {settings.storeName?.split(' ')[0] || "JIYOO"}
               </h1>
-              <p className="text-xs text-stone-500 font-normal mt-1">
+              <p className="text-xs text-[#78716C] font-normal mt-1 tracking-widest uppercase">
                 Fine Living &amp; Artisanal Pantry
               </p>
             </motion.div>
 
             {/* Animated Progress Bar (Ultra-slim Luxury Hairline) */}
             <div className="w-full max-w-[210px] mb-3.5 px-2">
-              <div className="h-[2px] w-full bg-stone-200 rounded-full overflow-hidden relative">
+              <div className="h-[2px] w-full bg-stone-300/40 rounded-full overflow-hidden relative">
                 <motion.div
-                  className="h-full bg-stone-900 rounded-full relative"
+                  className="h-full bg-gradient-to-r from-[#00D2FF] via-[#0EA5E9] to-[#0284C7] rounded-full relative shadow-[0_0_8px_rgba(14,165,233,0.85),0_0_3px_rgba(56,189,248,1)]"
                   initial={{ width: "0%" }}
                   animate={{ width: "100%" }}
-                  transition={{ duration: 0.46, ease: [0.22, 1, 0.36, 1] }}
-                />
+                  transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {/* Subtle leading light glint */}
+                  <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_#00D2FF] opacity-90 pointer-events-none" />
+                </motion.div>
               </div>
             </div>
 

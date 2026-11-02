@@ -66,7 +66,7 @@ export function ArchitecturalButterfly({
           <img
             src={BUTTERFLY_ASSET}
             alt="JIYOO Blue Butterfly"
-            className="w-full h-full object-contain filter drop-shadow-[0_3px_6px_rgba(0,0,0,0.22)] rotate-6"
+            className="w-full h-full object-contain filter drop-shadow-[0_4px_14px_rgba(14,165,233,0.45)] drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)] rotate-6"
             loading="lazy"
           />
         </div>
@@ -294,7 +294,7 @@ export function ArchitecturalButterfly({
           <img
             src={BUTTERFLY_ASSET}
             alt="JIYOO Blue Butterfly"
-            className="w-full h-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.25)] select-none pointer-events-none"
+            className="w-full h-full object-contain filter drop-shadow-[0_6px_16px_rgba(14,165,233,0.5)] drop-shadow-[0_2px_5px_rgba(0,0,0,0.35)] select-none pointer-events-none"
             loading="lazy"
             draggable={false}
           />

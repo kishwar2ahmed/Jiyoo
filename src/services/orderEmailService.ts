@@ -128,7 +128,7 @@ export function getStatusPresentation(status: string): StatusPresentation {
     case 'whatsapp_pending':
       return {
         label: 'Awaiting WhatsApp Confirmation',
-        badge: 'WhatsApp Pending',
+        badge: '💬 WhatsApp Pending',
         color: '#047857',
         bgColor: '#ECFDF5',
         borderColor: '#A7F3D0',
@@ -358,8 +358,7 @@ export function buildOrderStatusEmailHtml(params: {
   // Carrier tracking callout if available
   const effectiveCarrier = trackingCarrier || order?.trackingCarrier;
   const effectiveTrackingNum = trackingNumber || order?.trackingNumber;
-  const rawTrackingUrl = String(trackingUrl || order?.trackingUrl || '').trim();
-  const effectiveTrackingUrl = /^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(rawTrackingUrl) ? rawTrackingUrl : '';
+  const effectiveTrackingUrl = trackingUrl || order?.trackingUrl;
 
   const trackingBoxHtml = (effectiveCarrier || effectiveTrackingNum || effectiveTrackingUrl)
     ? `
@@ -370,7 +369,7 @@ export function buildOrderStatusEmailHtml(params: {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;color:#1C1917;">
           ${effectiveCarrier ? `<tr><td style="padding:2px 0;color:#78716C;width:120px;">Carrier / Fleet:</td><td style="padding:2px 0;font-weight:600;">${sanitizeEmailHtml(effectiveCarrier)}</td></tr>` : ''}
           ${effectiveTrackingNum ? `<tr><td style="padding:2px 0;color:#78716C;">Waybill / AWB:</td><td style="padding:2px 0;font-family:monospace;font-weight:700;">${sanitizeEmailHtml(effectiveTrackingNum)}</td></tr>` : ''}
-          ${effectiveTrackingUrl ? `<tr><td style="padding:4px 0;" colspan="2"><a href="${sanitizeEmailHtml(effectiveTrackingUrl)}" style="color:#047857;font-weight:600;text-decoration:underline;">Track live consignment</a></td></tr>` : ''}
+          ${effectiveTrackingUrl ? `<tr><td style="padding:4px 0;" colspan="2"><a href="${sanitizeEmailHtml(effectiveTrackingUrl)}" style="color:#047857;font-weight:600;text-decoration:underline;">Click Here to Track Live Consignment &rarr;</a></td></tr>` : ''}
         </table>
       </div>
     `
@@ -518,15 +517,15 @@ export function buildOrderStatusEmailHtml(params: {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
           <tr>
             <td align="center" style="padding-bottom:12px;">
-              <a href="${trackOrderUrl}" target="_blank" style="display:inline-block;width:100%;box-sizing:border-box;background:#1C1917;color:#FFFFFF;text-align:center;padding:14px 20px;font-size:13px;font-weight:600;letter-spacing:0.3px;text-decoration:none;border-radius:10px;">
-                Track Live Order Status
+              <a href="${trackOrderUrl}" target="_blank" style="display:inline-block;width:100%;box-sizing:border-box;background:#1C1917;color:#FAF9F5;text-align:center;padding:14px 20px;font-size:13px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;text-decoration:none;border-radius:10px;">
+                Track Live Order Status &rarr;
               </a>
             </td>
           </tr>
           <tr>
             <td align="center">
-              <a href="${whatsappSupportUrl}" target="_blank" style="display:inline-block;width:100%;box-sizing:border-box;background:#25D366;color:#FFFFFF;text-align:center;padding:12px 20px;font-size:12px;font-weight:600;letter-spacing:0.3px;text-decoration:none;border-radius:10px;">
-                Message WhatsApp Concierge
+              <a href="${whatsappSupportUrl}" target="_blank" style="display:inline-block;width:100%;box-sizing:border-box;background:#25D366;color:#FFFFFF;text-align:center;padding:12px 20px;font-size:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;text-decoration:none;border-radius:10px;">
+                💬 Message WhatsApp Concierge
               </a>
             </td>
           </tr>

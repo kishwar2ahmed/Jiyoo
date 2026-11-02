@@ -57,8 +57,11 @@ export function WholesaleCurtainTransition({
               ease: ARCHITECTURAL_EASE,
             }}
             style={{ willChange: "transform" }}
-            className="absolute top-0 left-0 right-0 h-[50vh] supports-[height:50dvh]:h-[50dvh] bg-white border-b border-stone-200 flex flex-col items-center justify-end pb-5 sm:pb-7 md:pb-9 px-4 overflow-hidden shadow-sm"
+            className="absolute top-0 left-0 right-0 h-[50vh] supports-[height:50dvh]:h-[50dvh] bg-gradient-to-b from-[#FAF9F5] via-[#F7F4EC] to-[#F2EDE2] border-b border-[#0EA5E9]/45 flex flex-col items-center justify-end pb-5 sm:pb-7 md:pb-9 px-4 overflow-hidden shadow-[0_8px_30px_rgba(28,25,23,0.08)]"
           >
+            {/* Subtle warm ivory architectural radial light */}
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_100%,rgba(14,165,233,0.06)_0%,transparent_65%)]" />
+
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{
@@ -68,13 +71,13 @@ export function WholesaleCurtainTransition({
               transition={{ duration: 0.22, ease: ARCHITECTURAL_EASE }}
               className="relative z-10 flex flex-col items-center text-center max-w-full"
             >
-              <span className="font-serif-luxury font-medium text-stone-900 text-[clamp(1rem,2.2vw,1.4rem)] tracking-wide leading-none whitespace-nowrap">
-                JIYOO Premium
+              <span className="font-serif-luxury font-bold uppercase text-[#1C1917] text-[clamp(0.9rem,2.1vw,1.35rem)] tracking-[0.28em] sm:tracking-[0.36em] leading-none whitespace-nowrap">
+                JIYOO PREMIUM
               </span>
             </motion.div>
           </motion.div>
 
-          {/* CENTER HORIZONTAL SPLIT LINE — Crisp Architectural Hairline Seam */}
+          {/* CENTER HORIZONTAL SPLIT LINE — Signature Glowing Butterfly Blue Seam */}
           <motion.div
             initial={{ scaleX: 0.2, opacity: 0 }}
             animate={
@@ -89,10 +92,13 @@ export function WholesaleCurtainTransition({
             style={{ willChange: "transform, opacity" }}
             className="absolute top-1/2 left-0 right-0 -translate-y-1/2 z-20 flex items-center justify-center pointer-events-none"
           >
-            <div className="w-full h-[1px] bg-stone-300" />
+            {/* Ambient Butterfly Blue Halo */}
+            <div className="w-full h-[6px] bg-gradient-to-r from-transparent via-[#0EA5E9]/45 to-transparent blur-[3px] absolute" />
+            {/* Razor-Sharp Butterfly Blue Laser Seam */}
+            <div className="w-full h-[2px] bg-gradient-to-r from-[#0284C7]/30 via-[#00D2FF] to-[#0284C7]/30 shadow-[0_0_16px_rgba(0,210,255,0.95),0_0_6px_rgba(14,165,233,1)]" />
           </motion.div>
 
-          {/* BOTTOM ARCHITECTURAL SHUTTER (50dvh to 100dvh) */}
+          {/* BOTTOM ARCHITECTURAL SHUTTER (50dvh to 100dvh) — Houses ONLY "WHOLESALE STORE" safely below the seam */}
           <motion.div
             initial={{ y: "0%" }}
             animate={{ y: phase === "opening" ? "100%" : "0%" }}
@@ -101,8 +107,10 @@ export function WholesaleCurtainTransition({
               ease: ARCHITECTURAL_EASE,
             }}
             style={{ willChange: "transform" }}
-            className="absolute bottom-0 left-0 right-0 h-[50vh] supports-[height:50dvh]:h-[50dvh] bg-stone-50 border-t border-stone-200 flex flex-col items-center justify-start pt-5 sm:pt-7 md:pt-9 px-4 overflow-hidden shadow-sm"
+            className="absolute bottom-0 left-0 right-0 h-[50vh] supports-[height:50dvh]:h-[50dvh] bg-gradient-to-t from-[#FAF9F5] via-[#F7F4EC] to-[#F2EDE2] border-t border-[#0EA5E9]/45 flex flex-col items-center justify-start pt-5 sm:pt-7 md:pt-9 px-4 overflow-hidden shadow-[0_-8px_30px_rgba(28,25,23,0.08)]"
           >
+            {/* Subtle warm ivory architectural radial light */}
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(14,165,233,0.06)_0%,transparent_65%)]" />
 
             <motion.div
               initial={{ opacity: 0, y: -8 }}

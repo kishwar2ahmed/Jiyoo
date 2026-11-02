@@ -276,7 +276,7 @@ export function AuthModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.3 } }}
-          className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 overflow-y-auto"
+          className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto "
         >
           {/* Background overlay click to close */}
           <div className="absolute inset-0" onClick={onClose} />
@@ -290,7 +290,7 @@ export function AuthModal({
             animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, scale: 0.95, y: 10, filter: "blur(10px)" }}
             transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-md bg-white border border-stone-200/90 rounded-2xl p-6 sm:p-8 shadow-2xl z-10 max-h-[90dvh] overflow-y-auto custom-scrollbar"
+            className="relative w-full max-w-md bg-white border border-stone-200/90 rounded-[2.5rem] p-6 sm:p-8 shadow-2xl z-10 max-h-[90dvh] overflow-y-auto custom-scrollbar"
           >
             {/* Close Button */}
             {!hideClose && (
@@ -669,7 +669,7 @@ export function AuthModal({
                     type="button"
                     onClick={handleGoogleSignIn}
                     disabled={isLoading}
-                    className="w-full flex items-center justify-center gap-2 py-3 px-3 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-800 rounded-xl font-medium text-xs transition-colors shadow-2xs active:scale-[0.98]"
+                    className="w-full flex items-center justify-center gap-2 py-3 px-3 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-800 rounded-xl font-medium text-xs transition-all shadow-2xs hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0">
                       <path
@@ -833,7 +833,7 @@ export function AuthModal({
                     <button
                       type="submit"
                       disabled={isLoading}
-                      className="group relative flex w-full h-12 text-xs font-semibold tracking-wider text-white bg-stone-900 hover:bg-stone-800 transition-colors cursor-pointer rounded-xl overflow-hidden shadow-xs active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                      className="group relative flex w-full h-[56px] text-[11px] font-bold uppercase tracking-[0.15em] text-[#FAF9F5] bg-[#1C1917] transition-all duration-500 cursor-pointer rounded-full overflow-hidden shadow-[0_5px_15px_-5px_rgba(28,25,23,0.3)] hover:shadow-[0_8px_20px_-5px_rgba(28,25,23,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] disabled:opacity-50 disabled:cursor-not-allowed mt-4"
                     >
                       <span className="absolute inset-0 w-full h-full bg-[#292524] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                       <span className="relative z-10 flex items-center justify-center gap-2 w-full h-full">

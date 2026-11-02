@@ -2,12 +2,14 @@
 
 .font-serif-luxury {
   font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
-  letter-spacing: -0.02em;
+  font-feature-settings: "kern" 1, "liga" 1, "dlig" 1;
+  font-kerning: normal;
 }
 
 .font-brand-display {
-  font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  letter-spacing: -0.025em;
+  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+  font-feature-settings: "kern" 1, "liga" 1;
+  font-kerning: normal;
 }
 
 .font-sans-clean {
@@ -18,53 +20,65 @@
 /* Master Luxury Price Typography System */
 .font-price-luxury {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  font-feature-settings: "tnum" 1, "kern" 1;
+  font-feature-settings: "tnum" 1, "kern" 1, "cv02" 1, "cv03" 1, "cv04" 1;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 .price-currency-glyph {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-feature-settings: "kern" 1;
   display: inline-block;
   margin-right: 0.08em;
   letter-spacing: -0.02em;
-  font-weight: 600;
+  font-weight: 700;
   opacity: 0.95;
+  transform: translateY(-0.015em);
 }
 
 .editorial-hero-headline {
-  font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  font-size: clamp(1.75rem, 4.2vw, 3.85rem);
-  line-height: 1.14;
-  letter-spacing: -0.03em;
-  font-weight: 600;
+  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  font-size: clamp(1.25rem, 4.2vw, 4.25rem);
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+  font-feature-settings: "kern" 1, "liga" 1, "dlig" 1;
+  font-kerning: normal;
   text-wrap: balance;
 }
 
-/* Crisp Gallery & Structural Canvas Surfaces */
+@keyframes jiyooCaretPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.12;
+  }
+}
+
+/* Natural fine linen / subtle paper texture overlay */
 .bg-paper-texture {
-  background-color: #FFFFFF;
+  background-color: #FAF9F5;
 }
 
 .bg-warm-canvas {
-  background-color: #FAFAFA;
+  background-color: #F8F6F0;
 }
 
 .bg-matte-card {
   background-color: #FFFFFF;
-  box-shadow: 0 1px 3px 0 rgba(24, 24, 27, 0.04);
+  box-shadow: 0 1px 3px 0 rgba(28, 25, 23, 0.03), 0 4px 12px 0 rgba(28, 25, 23, 0.02);
 }
 
 .border-subtle-warm {
-  border-color: #E4E4E7;
+  border-color: #E7E3DA;
 }
 
 @theme {
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
   --font-serif: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', monospace;
   --color-brand-black: #1C1917;
   --color-brand-gray-900: #292524;
   --color-brand-gray-800: #44403C;
@@ -77,7 +91,7 @@
 
 body {
   font-family: var(--font-sans);
-  background-color: #FFFFFF;
+  background-color: #FAF9F5;
   color: #1C1917;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

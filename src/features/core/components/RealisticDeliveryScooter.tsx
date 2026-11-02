@@ -99,7 +99,7 @@ export const RealisticDeliveryScooter = React.memo(function RealisticDeliverySco
 
   return (
     <span
-      className={`inline-flex items-center justify-center align-middle relative select-none transition-transform duration-300 ${className}`}
+      className={`inline-flex items-center justify-center align-middle relative select-none transition-transform duration-300 group-hover:scale-110 ${className}`}
       aria-label="Express Delivery Truck"
       title="Express Fresh Delivery"
     >

@@ -1185,10 +1185,10 @@ export function CartModal({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
             transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-0 w-full h-[100dvh] max-h-[100dvh] bg-white z-50 flex flex-col overflow-hidden overscroll-contain"
+            className="fixed inset-0 w-full h-[100dvh] max-h-[100dvh] bg-[#FAF9F5] z-50 flex flex-col overflow-hidden overscroll-contain"
           >
             {/* Header */}
-            <div className="shrink-0 border-b border-[#E7E3DA] bg-white z-20 pt-[env(safe-area-inset-top)]">
+            <div className="shrink-0 border-b border-[#E7E3DA] bg-white/95 backdrop-blur-md z-20 pt-[env(safe-area-inset-top)]">
               <div className="max-w-6xl mx-auto w-full flex items-center justify-between gap-2 px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                   <button
@@ -1379,7 +1379,7 @@ export function CartModal({
                                           {item.name}
                                         </h3>
                                         {(item.selectedWeight || item.badge) && (
-                                          <span className="inline-block mt-1 px-2 py-0.5 rounded bg-stone-100 border border-stone-200 text-xs text-stone-600 font-medium">
+                                          <span className="inline-block mt-1 px-2 py-0.5 rounded bg-stone-100 border border-stone-200 text-[10px] font-mono uppercase tracking-wider text-stone-700">
                                             {item.selectedWeight || item.badge}
                                           </span>
                                         )}
@@ -1400,12 +1400,12 @@ export function CartModal({
                                         suffix="each"
                                       />
                                       {(item as any).wholesaleMinQty && (item as any).wholesaleMinQty > 1
-                                        ? <span className="text-xs text-stone-500">· MOQ {(item as any).wholesaleMinQty}</span>
+                                        ? <span className="text-[10px] text-stone-500 font-mono">· MOQ {(item as any).wholesaleMinQty}</span>
                                         : null}
                                     </div>
                                   </div>
                                   <div className="flex items-center justify-between gap-2 mt-2.5 sm:mt-3.5">
-                                    <div className="flex items-center gap-2 sm:gap-3 bg-stone-50 rounded-xl p-1 border border-stone-200">
+                                    <div className="flex items-center gap-2 sm:gap-3 bg-[#FAF9F5] rounded-xl p-1 border border-[#E7E3DA]">
                                       <button
                                         onClick={() => {
                                           const minQty = Number((item as any).wholesaleMinQty) || 1;
@@ -1572,12 +1572,12 @@ export function CartModal({
 
                       <div className="space-y-4">
                         {orderType === "wholesale" ? (
-                          <div className="p-3.5 bg-[#161412] text-white border border-[#C5A880]/40 rounded-xl space-y-1.5">
+                          <div className="p-3.5 bg-[#161412] text-[#FAF9F5] border border-[#C5A880]/40 rounded-xl space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <span className="text-xs text-[#E5C99B] font-medium">
+                              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#E5C99B] font-bold">
                                 Wholesale Trade Dispatch Active
                               </span>
-                              <span className="text-xs text-emerald-400 font-medium">
+                              <span className="text-[10px] font-mono text-emerald-400 font-semibold">
                                 Pan-India &amp; Hyderabad Cold Chain
                               </span>
                             </div>

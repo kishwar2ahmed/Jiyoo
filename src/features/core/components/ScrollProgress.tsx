@@ -20,7 +20,7 @@ export const ScrollProgress: React.FC = () => {
       aria-hidden="true"
     >
       <motion.div
-        className="h-full w-full bg-stone-900 origin-left"
+        className="h-full w-full bg-gradient-to-r from-[#00D2FF] via-[#0EA5E9] to-[#0284C7] origin-left shadow-[0_0_12px_rgba(14,165,233,0.95),0_0_4px_rgba(56,189,248,1)]"
         style={{ scaleX }}
       />
     </div>

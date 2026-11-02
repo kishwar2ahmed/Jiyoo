@@ -62,7 +62,7 @@ export function DashboardTab() {
     { label: 'Total Revenue', value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`, sub: `${stats.paidOrdersCount} paid / fulfilled orders`, icon: DollarSign, color: 'text-emerald-700', bg: 'bg-emerald-100' },
     { label: 'Total Orders', value: stats.totalOrders.toString(), sub: `${stats.pendingOrdersCount} active in queue`, icon: ShoppingBag, color: 'text-blue-700', bg: 'bg-blue-100' },
     { label: 'Registered Accounts', value: stats.totalUsers.toString(), sub: 'Active store members', icon: Users, color: 'text-amber-700', bg: 'bg-amber-100' },
-    { label: 'Live Catalog Products', value: stats.totalProducts.toString(), sub: 'Retail & Wholesale active', icon: Package, color: 'text-stone-800', bg: 'bg-stone-200' },
+    { label: 'Live Catalog Products', value: stats.totalProducts.toString(), sub: 'Retail & Wholesale active', icon: Package, color: 'text-purple-700', bg: 'bg-purple-100' },
   ];
 
   return (

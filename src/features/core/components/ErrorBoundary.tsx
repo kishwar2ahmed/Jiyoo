@@ -56,9 +56,7 @@ export class ErrorBoundary extends Component<Props, State> {
             boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05)',
             border: '1px solid #E7E3DA'
           }}>
-            <div className="w-10 h-10 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center mx-auto mb-3 text-stone-700 text-sm font-semibold">
-              !
-            </div>
+            <div style={{ fontSize: '32px', marginBottom: '12px' }}>✨</div>
             <h1 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '8px', color: '#1C1917' }}>
               JIYOO Storefront
             </h1>

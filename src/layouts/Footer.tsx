@@ -80,7 +80,7 @@ export function Footer() {
     }
   };
 
-  const selectCategoryAndScroll = (categoryId: string, subcategoryId?: string) => {
+  const selectCategoryAndScroll = (categoryId: string) => {
     try {
       sessionStorage.setItem("jiyoo_pending_category", categoryId);
     } catch {
@@ -88,11 +88,7 @@ export function Footer() {
     }
     document.dispatchEvent(new CustomEvent("open-retail"));
     setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent("select-category", {
-          detail: subcategoryId ? { categoryId, subcategoryId } : categoryId,
-        })
-      );
+      window.dispatchEvent(new CustomEvent("select-category", { detail: categoryId }));
       scrollToProducts();
     }, 60);
   };
@@ -149,7 +145,7 @@ export function Footer() {
             {/* Kicker with Animated 3D Express Delivery Truck */}
             <div className="mb-3 sm:mb-5 inline-flex items-center justify-center gap-2.5">
               <RealisticDeliveryScooter className="w-9 h-7.5 sm:w-11 sm:h-9 shrink-0" />
-              <span className="text-xs text-stone-300 font-medium font-sans-clean">
+              <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.2em] sm:tracking-[0.24em] text-[#C5A880] font-medium font-sans-clean">
                 Fresh Daily Delivery in Bengaluru
               </span>
             </div>
@@ -157,7 +153,7 @@ export function Footer() {
             {/* Headline */}
             <h2 className="font-serif-luxury text-2xl sm:text-4xl lg:text-[50px] font-normal text-white leading-[1.15] tracking-tight text-balance">
               Want fresh food{" "}
-              <span className="italic text-[#E5C99B]">
+              <span className="italic bg-gradient-to-r from-[#F5E6C8] via-[#D4AF37] to-[#F5E6C8] bg-clip-text text-transparent">
                 delivered home today?
               </span>
             </h2>
@@ -174,7 +170,7 @@ export function Footer() {
                 href="https://wa.me/919739391891?text=Hi%20Jiyoo,%20I%20would%20like%20to%20place%20an%20order"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-white text-stone-950 font-sans-clean font-medium text-sm sm:text-base hover:bg-stone-100 active:scale-[0.98] transition-all duration-300 shadow-sm cursor-pointer"
+                className="group inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-white text-stone-950 font-sans-clean font-medium text-sm sm:text-base hover:bg-stone-100 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 shadow-[0_12px_30px_rgba(255,255,255,0.18)] cursor-pointer"
               >
                 <WhatsAppIcon className="w-5 h-5 shrink-0" />
                 <span>Order on WhatsApp</span>
@@ -183,7 +179,7 @@ export function Footer() {
               <button
                 type="button"
                 onClick={scrollToProducts}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white/[0.08] hover:bg-white/[0.14] text-white font-sans-clean font-medium text-sm sm:text-base border border-white/15 hover:border-white/30 active:scale-[0.98] transition-all duration-300 cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white/[0.08] hover:bg-white/[0.14] text-white font-sans-clean font-medium text-sm sm:text-base border border-white/15 hover:border-white/30 backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 cursor-pointer"
               >
                 <span>Shop Fresh Items</span>
                 <ArrowUpRight className="w-4 h-4 text-stone-300 shrink-0" />
@@ -359,7 +355,7 @@ export function Footer() {
                   <li>
                     <button
                       type="button"
-                      onClick={() => selectCategoryAndScroll("meat", "seafood")}
+                      onClick={() => selectCategoryAndScroll("meat")}
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
                       Fish, Prawns &amp; Seafood
@@ -428,33 +424,7 @@ export function Footer() {
                       onClick={() => document.dispatchEvent(new CustomEvent("open-contact"))}
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
-                      Contact Us &amp; Support
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        document.dispatchEvent(
-                          new CustomEvent("open-legal-policy", { detail: { tab: "privacy" } })
-                        )
-                      }
-                      className="hover:text-stone-950 transition-colors cursor-pointer text-left"
-                    >
-                      Privacy Policy
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        document.dispatchEvent(
-                          new CustomEvent("open-legal-policy", { detail: { tab: "terms" } })
-                        )
-                      }
-                      className="hover:text-stone-950 transition-colors cursor-pointer text-left"
-                    >
-                      Terms &amp; Conditions
+                      Customer Support
                     </button>
                   </li>
                   <li>
@@ -467,7 +437,7 @@ export function Footer() {
                       }
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
-                      Shipping, Return &amp; Refund Policy
+                      Refund &amp; Replacement Policy
                     </button>
                   </li>
 
@@ -502,7 +472,7 @@ export function Footer() {
             {/* Official Payment Trust Strip */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pb-6 mb-6 border-b border-stone-100 text-center sm:text-left">
               <span className="text-[10px] sm:text-[11px] font-sans-clean uppercase tracking-[0.18em] text-stone-500 font-medium">
-                Safe &amp; Verified Payments (UPI / Card / NetBanking)
+                Safe &amp; Verified Payments
               </span>
               <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-5 opacity-85 hover:opacity-100 transition-opacity">
                 <GooglePayIcon className="h-4 w-auto" />
@@ -542,7 +512,7 @@ export function Footer() {
                   }
                   className="hover:text-stone-900 transition-colors cursor-pointer"
                 >
-                  Terms &amp; Conditions
+                  Terms of Service
                 </button>
                 <span aria-hidden="true" className="text-stone-300">·</span>
                 <button
@@ -554,18 +524,10 @@ export function Footer() {
                   }
                   className="hover:text-stone-900 transition-colors cursor-pointer"
                 >
-                  Shipping, Return &amp; Refund Policy
+                  Refund Policy
                 </button>
                 <span aria-hidden="true" className="text-stone-300">·</span>
-                <button
-                  type="button"
-                  onClick={() => document.dispatchEvent(new CustomEvent("open-contact"))}
-                  className="hover:text-stone-900 transition-colors cursor-pointer"
-                >
-                  Contact Us
-                </button>
-                <span aria-hidden="true" className="text-stone-300">·</span>
-                <span>FSSAI Lic. 21226112000732</span>
+                <span>FSSAI Checked</span>
               </div>
             </div>
 
@@ -603,13 +565,11 @@ export function Footer() {
                   delay: i * 0.12,
                   ease: EASE_OUT_EXPO,
                 }}
-                className={`font-serif-luxury font-bold text-[14vw] sm:text-[15vw] leading-none uppercase inline-block select-none transform-gpu ${
+                className={`font-serif-luxury font-bold text-[14vw] sm:text-[15vw] leading-none text-stone-300/40 uppercase inline-block select-none transform-gpu ${
                   letter === "O" && i === 4 ? "relative" : ""
                 }`}
               >
-                <span className="bg-gradient-to-b from-[#1C1917]/80 via-[#5C2328]/65 to-[#C5A880]/25 bg-clip-text text-transparent">
-                  {letter}
-                </span>
+                {letter}
                 {letter === "O" && i === 4 && (
                   <ArchitecturalButterfly prefersReducedMotion={prefersReducedMotion} />
                 )}

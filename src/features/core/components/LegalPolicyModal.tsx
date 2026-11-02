@@ -16,13 +16,8 @@ import {
 import { useSettings } from "../../../contexts/SettingsContext";
 import { useModalBackButton } from "../hooks/useModalBackButton";
 import { FssaiLogo } from "./FssaiLogo";
-import { SEO } from "../../../components/SEO";
-import {
-  generateOrganizationSchema,
-  generateBreadcrumbSchema,
-} from "../../../utils/schemaGenerator";
 
-export type LegalPolicyTab = "privacy" | "terms" | "refund" | "shipping";
+export type LegalPolicyTab = "privacy" | "terms" | "refund";
 
 interface LegalPolicyModalProps {
   isOpen: boolean;
@@ -41,11 +36,11 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({
 
   useEffect(() => {
     if (isOpen && initialTab) {
-      setActiveTab(initialTab === "shipping" ? "refund" : initialTab);
+      setActiveTab(initialTab);
     }
   }, [isOpen, initialTab]);
 
-  const storeName = settings.storeName || "JIYOO";
+  const storeName = settings.storeName || "JIYOO Premium Products";
   const marketedBy = settings.aboutUs?.marketedBy || "SHAM'S™";
 
   const tabs: { id: LegalPolicyTab; label: string; subtitle: string; icon: React.FC<{ className?: string }> }[] = [
@@ -57,67 +52,28 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({
     },
     {
       id: "terms",
-      label: "Terms & Conditions",
+      label: "Terms of Service",
       subtitle: "Retail & Wholesale Governance",
       icon: FileText,
     },
     {
       id: "refund",
-      label: "Shipping, Return & Refund Policy",
-      subtitle: "Express Dispatch & 100% Freshness Guarantee",
+      label: "Refund & Cancellation",
+      subtitle: "100% Freshness & Replacement",
       icon: RefreshCcw,
     },
   ];
-
-  const policySeoMeta = {
-    privacy: {
-      title: "Privacy Policy — DPDP Act 2023 Compliant | JIYOO",
-      description:
-        "Read JIYOO's official Privacy Policy compliant with India's Digital Personal Data Protection (DPDP) Act 2023. Learn how we protect your personal data and payment security.",
-      canonicalPath: "/?policy=privacy",
-    },
-    terms: {
-      title: "Terms & Conditions — Retail & B2B Wholesale | JIYOO",
-      description:
-        "Official Terms & Conditions governing retail express delivery and B2B wholesale trade orders at JIYOO (FSSAI Lic. 21226112000732, Bengaluru, India).",
-      canonicalPath: "/?policy=terms",
-    },
-    refund: {
-      title: "Shipping, Return & Refund Policy — 100% Freshness Guarantee | JIYOO",
-      description:
-        "JIYOO's transparent Shipping, Return, Replacement & Refund Policy. Same-day 60-minute express delivery in Bengaluru, Pan-India cold-chain wholesale shipping, and no-questions-asked doorstep freshness replacement.",
-      canonicalPath: "/?policy=refund",
-    },
-    shipping: {
-      title: "Shipping, Return & Refund Policy — 100% Freshness Guarantee | JIYOO",
-      description:
-        "JIYOO's transparent Shipping, Return, Replacement & Refund Policy. Same-day 60-minute express delivery in Bengaluru and Pan-India cold-chain wholesale shipping.",
-      canonicalPath: "/?policy=shipping",
-    },
-  }[activeTab];
 
   return (
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-6">
-          <SEO
-            title={policySeoMeta.title}
-            description={policySeoMeta.description}
-            canonicalPath={policySeoMeta.canonicalPath}
-            schema={[
-              generateOrganizationSchema(),
-              generateBreadcrumbSchema([
-                { name: "Home", url: "/" },
-                { name: policySeoMeta.title, url: policySeoMeta.canonicalPath },
-              ]),
-            ]}
-          />
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-[#1C1917]/75"
+            className="absolute inset-0 bg-[#1C1917]/70 backdrop-blur-sm"
           />
 
           <motion.div
@@ -288,7 +244,7 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({
                         4. Your Rights Under the DPDP Act 2023 (Access, Correction &amp; Erasure)
                       </h3>
                       <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
-                        You have the right to view, update, or request complete deletion of your account profile, saved delivery addresses, and order history at any time from your <strong>Account Center &gt; Privacy Center</strong> or by contacting our Data Protection &amp; Grievance Officer below.
+                        You have the right to view, update, or request complete deletion of your account profile, saved delivery addresses, and order history at any time from your <strong>Account Center &rarr; Privacy Center</strong> or by contacting our Data Protection &amp; Grievance Officer below.
                       </p>
                     </div>
                   </div>
@@ -422,20 +378,10 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({
                   <div className="bg-white rounded-xl border border-[#E7E3DA] p-5 space-y-4">
                     <div>
                       <h3 className="text-sm font-serif font-bold text-[#1C1917] mb-1.5">
-                        Shipping &amp; Cold-Chain Delivery Policy
-                      </h3>
-                      <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
-                        <strong>Bengaluru Retail Express Shipping:</strong> Orders placed between 7:00 AM and 9:30 PM are dispatched from our North Bengaluru Cold-Chain Hub and delivered within <strong>30–60 minutes</strong> across serviceable PIN codes. Standard delivery fee is ₹40 (or free above promotional thresholds).<br />
-                        <strong>Pan-India Wholesale &amp; B2B Dispatch:</strong> Sealed master cartons and commercial lots are dispatched via temperature-controlled reefer logistics (2°C–4°C) within 12–24 hours of order confirmation with live airway/lorry receipt tracking.
-                      </p>
-                    </div>
-
-                    <div className="pt-3 border-t border-stone-100">
-                      <h3 className="text-sm font-serif font-bold text-[#1C1917] mb-1.5">
                         Order Cancellation Policy
                       </h3>
                       <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
-                        You may cancel any retail order directly from <strong>Account Center &gt; My Orders</strong> at no charge while the order status is <em>Ordered (Pending)</em> or <em>Awaiting WhatsApp Confirmation</em>. Once custom meat cutting or cold-chain dispatch has commenced, cancellations require contacting Customer Support.
+                        You may cancel any retail order directly from <strong>Account Center &rarr; My Orders</strong> at no charge while the order status is <em>Ordered (Pending)</em> or <em>Awaiting WhatsApp Confirmation</em>. Once custom meat cutting or cold-chain dispatch has commenced, cancellations require contacting Customer Support.
                       </p>
                     </div>
 

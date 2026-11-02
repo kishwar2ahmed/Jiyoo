@@ -133,9 +133,9 @@ const OrderTrackingTimeline = ({ order }: { order: any }) => {
               </p>
             )}
           </div>
-          {order.trackingUrl && /^https?:\/\//i.test(String(order.trackingUrl).trim()) && (
+          {order.trackingUrl && (
             <a
-              href={String(order.trackingUrl).trim()}
+              href={order.trackingUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-semibold text-xs hover:bg-emerald-800 transition-colors"
@@ -741,14 +741,14 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
     }
     if (['shipped', 'dispatched'].includes(status)) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-sky-50 text-sky-800 border border-sky-200 rounded-full text-xs font-semibold">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-full text-xs font-semibold">
           <RealisticDeliveryScooter className="w-6 h-5 shrink-0" /> Dispatched
         </span>
       );
     }
     if (['out_for_delivery'].includes(status)) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-semibold">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-xs font-semibold">
           <RealisticDeliveryScooter className="w-6 h-5 shrink-0" /> Out for Delivery
         </span>
       );
@@ -1594,7 +1594,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                                   <img
                                     src={getOptimizedImageUrl(p.image, 200, 80)}
                                     alt={p.name}
-                                    className="w-full h-full object-contain transition-transform"
+                                    className="w-full h-full object-contain group-hover:scale-105 transition-transform"
                                     loading="lazy"
                                   />
                                 </div>
@@ -1802,8 +1802,8 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                     <div className="bg-white rounded-2xl p-6 sm:p-8 border border-stone-200 shadow-sm space-y-6">
                       <div className="flex items-start justify-between gap-4 border-b border-stone-100 pb-5">
                         <div>
-                          <span className="text-xs font-medium text-stone-500">
-                            Consumer Data Protection (DPDP Act 2023)
+                          <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-700 font-semibold">
+                            DPDP Act 2023 · Consumer Data Protection
                           </span>
                           <h3 className="text-xl font-serif font-bold text-stone-900 mt-1">
                             Privacy, Legal &amp; Refund Policies
@@ -1823,11 +1823,11 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                           onClick={() => document.dispatchEvent(new CustomEvent('open-legal-policy', { detail: { tab: 'privacy' } }))}
                           className="text-left p-5 rounded-xl border border-stone-200 hover:border-stone-900 bg-stone-50/60 hover:bg-white transition-all cursor-pointer group"
                         >
-                          <div className="text-xs font-medium text-stone-500 mb-1">
+                          <div className="text-xs font-mono uppercase tracking-wider text-emerald-700 font-semibold mb-1">
                             Data Charter
                           </div>
                           <div className="text-base font-serif font-bold text-stone-900 group-hover:text-emerald-800">
-                            Privacy Policy
+                            Privacy Policy &rarr;
                           </div>
                           <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">
                             Information we collect, zero third-party data selling, and encrypted payment processing.
@@ -1839,11 +1839,11 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                           onClick={() => document.dispatchEvent(new CustomEvent('open-legal-policy', { detail: { tab: 'terms' } }))}
                           className="text-left p-5 rounded-xl border border-stone-200 hover:border-stone-900 bg-stone-50/60 hover:bg-white transition-all cursor-pointer group"
                         >
-                          <div className="text-xs font-medium text-stone-500 mb-1">
+                          <div className="text-xs font-mono uppercase tracking-wider text-amber-800 font-semibold mb-1">
                             Store Governance
                           </div>
                           <div className="text-base font-serif font-bold text-stone-900 group-hover:text-amber-900">
-                            Terms of Service
+                            Terms of Service &rarr;
                           </div>
                           <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">
                             FSSAI &amp; MSME compliance, Bangalore express retail delivery &amp; pan-India wholesale trade terms.
@@ -1855,11 +1855,11 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                           onClick={() => document.dispatchEvent(new CustomEvent('open-legal-policy', { detail: { tab: 'refund' } }))}
                           className="text-left p-5 rounded-xl border border-stone-200 hover:border-stone-900 bg-stone-50/60 hover:bg-white transition-all cursor-pointer group"
                         >
-                          <div className="text-xs font-medium text-stone-500 mb-1">
+                          <div className="text-xs font-mono uppercase tracking-wider text-purple-700 font-semibold mb-1">
                             Freshness Promise
                           </div>
-                          <div className="text-base font-serif font-bold text-stone-900 group-hover:text-stone-900">
-                            Refund Policy
+                          <div className="text-base font-serif font-bold text-stone-900 group-hover:text-purple-800">
+                            Refund Policy &rarr;
                           </div>
                           <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">
                             Open-box doorstep inspection, 2-hour perishable replacement &amp; automated Razorpay/UPI refunds.

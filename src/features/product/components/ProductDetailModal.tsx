@@ -24,12 +24,6 @@ import { preloadProductCutout } from "../../core/components/FlyingItemsLayer";
 import { VelvetyBalloonButton } from "./VelvetyBalloonButton";
 import { VelvetWhatsAppButton } from "./VelvetWhatsAppButton";
 import { PriceDisplay } from "../../core/components/PriceDisplay";
-import { SEO } from "../../../components/SEO";
-import { TrustStrip } from "../../../components/TrustStrip";
-import {
-  generateProductSchema,
-  generateBreadcrumbSchema,
-} from "../../../utils/schemaGenerator";
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -213,42 +207,17 @@ export function ProductDetailModal({
     }, 50);
   };
 
-  const slugOrId = product.slug || String(product.id);
-  const productCanonicalPath = `/?category=${encodeURIComponent(product.categoryId)}&product=${encodeURIComponent(slugOrId)}`;
-
   return (
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-10">
-          <SEO
-            title={`Buy ${product.name} Online in India (${currentUnit || "Fresh"}) | JIYOO`}
-            description={
-              product.description ||
-              `Order fresh ${product.name} (${currentUnit || "Fresh Pack"}) online at JIYOO for ₹${currentPrice}. FSSAI Certified (21226112000732), 100% pure & authentic with express delivery in Bengaluru & India.`
-            }
-            keywords={`${product.name}, buy ${product.name} online India, ${product.categoryId} online Bengaluru, JIYOO ${product.name}`}
-            canonicalPath={productCanonicalPath}
-            ogImage={activeImage || product.image}
-            ogType="product"
-            schema={[
-              generateProductSchema(product),
-              generateBreadcrumbSchema([
-                { name: "Home", url: "/" },
-                {
-                  name: product.categoryId.toUpperCase(),
-                  url: `/?category=${encodeURIComponent(product.categoryId)}`,
-                },
-                { name: product.name, url: productCanonicalPath },
-              ]),
-            ]}
-          />
           {/* Backdrop blur */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-stone-950/65"
+            className="absolute inset-0 bg-brand-black/40 backdrop-blur-md"
           />
 
           {/* Modal Container */}
@@ -257,7 +226,7 @@ export function ProductDetailModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 30, stiffness: 350 }}
-            className="relative bg-brand-white w-full max-w-4xl max-h-[90dvh] md:max-h-[85dvh] rounded-2xl shadow-2xl overflow-y-auto overflow-x-hidden border border-brand-gray-100 flex flex-col z-10"
+            className="relative bg-brand-white w-full max-w-4xl max-h-[90dvh] md:max-h-[85dvh] rounded-[32px] shadow-2xl overflow-y-auto overflow-x-hidden border border-brand-gray-100 flex flex-col z-10"
           >
 
             {/* WhatsApp order handoff: the order is already created server-side; never ask the customer to self-attest payment/order completion. */}
@@ -280,7 +249,7 @@ export function ProductDetailModal({
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="absolute top-6 right-6 z-30 w-10 h-10 bg-white hover:bg-stone-100 text-stone-900 border border-stone-200 rounded-full flex items-center justify-center shadow-xs transition-colors"
+              className="absolute top-6 right-6 z-30 w-10 h-10 bg-brand-white/80 backdrop-blur-md hover:bg-brand-white text-brand-black rounded-full flex items-center justify-center shadow-md transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -294,7 +263,7 @@ export function ProductDetailModal({
                       key={activeImage || product.image}
                       ref={modalImgRef}
                       src={getOptimizedImageUrl(activeImage || product.image, 800, 85)}
-                      alt={`${product.name} - Buy Online in India | JIYOO`}
+                      alt={product.name}
                       initial={{ opacity: 0, scale: 0.98 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 1.015 }}
@@ -363,7 +332,7 @@ export function ProductDetailModal({
                         (activeImage || product.image) === img ? 'border-brand-black' : 'border-transparent opacity-70 hover:opacity-100'
                       }`}
                     >
-                      <img src={getOptimizedImageUrl(img as string, 100, 80)} alt={`${product.name} - View ${i + 1} - Buy Online in India | JIYOO`} loading="lazy" className="w-full h-full object-contain" />
+                      <img src={getOptimizedImageUrl(img as string, 100, 80)} alt={`${product.name} ${i + 1}`} className="w-full h-full object-contain" />
                     </button>
                   ))}
                 </div>
@@ -393,24 +362,24 @@ export function ProductDetailModal({
                   </div>
 
                   {/* Product Name */}
-                  <h2 className="font-serif-luxury text-2xl sm:text-3xl lg:text-[34px] font-semibold text-brand-black tracking-tight mb-2.5 leading-[1.15]">
+                  <h1 className="text-2xl sm:text-3xl font-semibold text-brand-black tracking-tight mb-2 leading-tight">
                     {product.name}
-                  </h2>
+                  </h1>
 
                   {/* Subtext info */}
-                  <div className="flex flex-wrap items-center gap-2.5 text-xs sm:text-sm text-brand-gray-500 mb-6">
+                  <div className="flex items-center gap-3 text-sm text-brand-gray-500 mb-6">
                     {product.origin && (
-                      <span className="bg-brand-gray-50 border border-brand-gray-200/80 text-brand-black px-2.5 py-1 rounded-lg font-medium">
+                      <span className="bg-brand-gray-50 px-2.5 py-1 rounded-lg">
                         Origin: {product.origin}
                       </span>
                     )}
                     {isMeat && product.cutType && (
-                      <span className="bg-brand-gray-50 border border-brand-gray-200/80 text-brand-black px-2.5 py-1 rounded-lg font-medium">
+                      <span className="bg-brand-gray-50 px-2.5 py-1 rounded-lg">
                         Cut: {product.cutType}
                       </span>
                     )}
                     {product.freshnessBadge && (
-                      <span className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200/60 text-emerald-900 px-2.5 py-1 rounded-lg text-xs font-semibold">
+                      <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-850 px-2.5 py-1 rounded-lg text-xs font-semibold">
                         <PremiumShieldMark className="w-3.5 h-3.5 shrink-0" variant="emerald" />
                         <span>{product.freshnessBadge}</span>
                       </span>
@@ -658,9 +627,6 @@ export function ProductDetailModal({
                       />
                     </div>
                   </div>
-
-                  {/* Indian E-Commerce Trust & Compliance Strip */}
-                  <TrustStrip variant="compact" />
                 </div>
               </div>
             </div>
@@ -696,8 +662,8 @@ export function ProductDetailModal({
                               300,
                               80,
                             )}
-                            alt={`${relatedProduct.name} - Buy Online in India | JIYOO`}
-                            className="w-full h-full object-contain transition-transform duration-300"
+                            alt={relatedProduct.name}
+                            className="w-full h-full object-contain transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                             loading="lazy"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;

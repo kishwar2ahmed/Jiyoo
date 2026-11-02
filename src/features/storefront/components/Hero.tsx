@@ -94,7 +94,7 @@ export function Hero({
       ref={heroRef}
       onPointerMove={handleHeroPointerMove}
       onPointerLeave={handleHeroPointerLeave}
-      className="relative w-full bg-gradient-to-b from-[#FAF8F3] via-white to-[#FCFBF8] border-b border-[#E5DEC9] overflow-hidden"
+      className="relative w-full bg-[#FAF9F5] border-b border-[#E7E3DA] overflow-hidden"
     >
       {/* Bespoke Warm Botanical & Architectural Contour Backdrop */}
       <motion.div
@@ -102,31 +102,79 @@ export function Hero({
         style={{ y: ambientY, x: contourShiftX }}
         className="pointer-events-none absolute inset-0 overflow-hidden will-change-transform"
       >
-        <div className="absolute -top-32 right-[-8%] w-[560px] h-[560px] rounded-full bg-[radial-gradient(circle,rgba(197,168,128,0.14)_0%,rgba(255,255,255,0)_70%)]" />
-        <div className="absolute bottom-[-20%] left-[-6%] w-[480px] h-[480px] rounded-full bg-[radial-gradient(circle,rgba(235,226,208,0.45)_0%,rgba(255,255,255,0)_72%)]" />
+        <div className="absolute -top-32 right-[-8%] w-[540px] h-[540px] rounded-full bg-[radial-gradient(circle,rgba(214,204,186,0.34)_0%,rgba(250,249,245,0)_70%)]" />
+        <div className="absolute bottom-[-20%] left-[-6%] w-[460px] h-[460px] rounded-full bg-[radial-gradient(circle,rgba(229,222,208,0.36)_0%,rgba(250,249,245,0)_72%)]" />
+        <svg
+          className="absolute right-0 top-0 h-full w-full max-w-[960px] opacity-[0.28] text-[#D8D1C5]"
+          viewBox="0 0 960 640"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <motion.path
+            d="M420 -40C520 120 710 180 980 150"
+            stroke="currentColor"
+            strokeWidth="1"
+            initial={{ pathLength: prefersReducedMotion ? 1 : 0, opacity: 0 }}
+            animate={{ pathLength: 1, opacity: 1 }}
+            transition={{ duration: 1.6, ease: EASE_OUT_EXPO }}
+          />
+          <motion.path
+            d="M540 -60C610 170 770 290 1020 310"
+            stroke="currentColor"
+            strokeWidth="0.75"
+            strokeDasharray="4 6"
+            initial={{ pathLength: prefersReducedMotion ? 1 : 0, opacity: 0 }}
+            animate={{ pathLength: 1, opacity: 1 }}
+            transition={{ duration: 1.9, delay: 0.15, ease: EASE_OUT_EXPO }}
+          />
+          <motion.path
+            d="M320 680C460 470 690 390 1000 440"
+            stroke="currentColor"
+            strokeWidth="1"
+            initial={{ pathLength: prefersReducedMotion ? 1 : 0, opacity: 0 }}
+            animate={{ pathLength: 1, opacity: 1 }}
+            transition={{ duration: 1.8, delay: 0.25, ease: EASE_OUT_EXPO }}
+          />
+        </svg>
       </motion.div>
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-12 pt-2.5 pb-3 sm:pt-8 sm:pb-10 lg:pt-14 lg:pb-16">
+      <div className="relative z-10 max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-12 pt-2 pb-2.5 sm:pt-8 sm:pb-10 lg:pt-14 lg:pb-16">
         <motion.div
           style={{ opacity: heroOpacity }}
-          className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 sm:gap-6 lg:gap-10 items-center"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-6 lg:gap-10 items-center"
         >
           {/* Left Column on Desktop / Top Strip Above Banner on Mobile */}
           <div className="order-1 lg:order-1 lg:col-span-6 xl:col-span-6 flex flex-col justify-between">
             {/* Desktop Editorial Headline & Value Prop */}
             <div className="hidden lg:block">
-              {/* Restrained Editorial Eyebrow with Champagne-Gold Accent Line */}
-              <div className="mb-4 flex items-center gap-2.5 text-xs sm:text-sm text-[#57534E] font-sans">
-                <span className="inline-block w-6 h-[1.5px] bg-[#C5A880]" aria-hidden="true" />
-                <span className="text-[#1C1917] font-bold tracking-[0.14em] uppercase text-xs">JIYOO RESERVE</span>
-                <span aria-hidden="true" className="text-[#C5A880]">•</span>
-                <span className="font-serif-luxury italic text-base text-[#6B4C35]">Fresh Harvest &amp; Custom Cuts</span>
-              </div>
+              {/* Unboxed Bold Editorial Eyebrow (JIYOO PREMIUM) with Champagne-Gold Pulse */}
+              <motion.div
+                style={{ y: eyebrowY }}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.55, ease: EASE_OUT_EXPO }}
+                className="mb-3 sm:mb-4 flex items-center gap-2.5 text-xs sm:text-sm text-[#1C1917] font-sans-clean"
+              >
+                <span className="relative flex h-2 w-2 items-center justify-center" aria-hidden="true">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C5A880] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#8A5A36]" />
+                </span>
+                <span className="font-extrabold tracking-[0.18em] uppercase text-[#1C1917]">
+                  JIYOO PREMIUM
+                </span>
+                <motion.span
+                  aria-hidden="true"
+                  initial={{ scaleX: 0, opacity: 0 }}
+                  animate={{ scaleX: 1, opacity: 1 }}
+                  transition={{ duration: 0.85, delay: 0.25, ease: EASE_OUT_EXPO }}
+                  className="h-[1px] w-12 bg-gradient-to-r from-[#C5A880] to-transparent origin-left"
+                />
+              </motion.div>
 
-              {/* Word-by-Word Kinetic Display Headline with Solid Typography */}
+              {/* Word-by-Word Mask-Clipped Kinetic Display Headline with Editorial Typewriter & Underline */}
               <motion.h1
                 style={{ y: headlineY, scale: headlineScale }}
-                className="editorial-hero-headline font-semibold text-[#1C1917] origin-left"
+                className="editorial-hero-headline font-medium text-[#1C1917] origin-left"
               >
                 <span className="flex flex-wrap gap-x-[0.25em] pb-0.5">
                   {HEADLINE_LINE_1.map((word, index) => (
@@ -154,58 +202,86 @@ export function Hero({
                   ))}
                 </span>
 
-                <span className="relative block pt-0.5 pb-2.5">
+                <motion.span
+                  initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.78, delay: 0.26, ease: EASE_OUT_EXPO }}
+                  className="relative block pt-0.5 pb-2.5"
+                >
                   <TypewriterText
                     phrases={HERO_TYPEWRITER_PHRASES}
                     typingSpeed={44}
                     deletingSpeed={22}
                     pauseDuration={2900}
                     startDelay={1100}
-                    textClassName="italic font-normal text-[#6B4C35] tracking-tight"
-                    cursorClassName="bg-[#8C6D46]"
+                    textClassName="italic font-normal bg-gradient-to-r from-[#57534E] via-[#8A5A36] to-[#57534E] bg-clip-text text-transparent tracking-[-0.01em]"
+                    cursorClassName="bg-[#8A5A36]"
                     ariaLabel="fresh custom-cut meats, delivered fast."
                   />
-                </span>
+
+                  {/* Scroll-linked & Entrance-drawn Editorial Accent Hairline */}
+                  <motion.span
+                    aria-hidden="true"
+                    style={{ scaleX: horizonScaleX }}
+                    initial={{ scaleX: 0, opacity: 0 }}
+                    animate={{ scaleX: 1, opacity: 1 }}
+                    transition={{ duration: 1.05, delay: 0.52, ease: EASE_OUT_EXPO }}
+                    className="pointer-events-none absolute left-0 bottom-0 h-[1.5px] w-full max-w-[360px] bg-gradient-to-r from-[#8A5A36]/70 via-[#C5A880]/60 to-transparent origin-left"
+                  />
+                </motion.span>
               </motion.h1>
 
               {/* Concise Editorial Value Proposition */}
-              <p className="mt-4 text-base text-[#57534E] font-sans font-normal leading-[1.7] max-w-[56ch] text-left">
+              <motion.p
+                style={{ y: subcopyY }}
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.68, delay: 0.38, ease: EASE_OUT_EXPO }}
+                className="mt-4 text-base text-[#44403C] font-sans-clean font-normal leading-[1.68] max-w-[58ch] text-left"
+              >
                 Fresh imported fruits, farm-fresh daily vegetables, and clean custom-cut meats made just how you like.
-              </p>
+              </motion.p>
 
               {/* Primary & Secondary Conversion Actions */}
-              <div className="mt-7 flex flex-wrap items-center gap-3.5">
-                <button
+              <motion.div
+                style={{ y: ctaY }}
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.68, delay: 0.46, ease: EASE_OUT_EXPO }}
+                className="mt-7 flex flex-wrap items-center gap-3.5"
+              >
+                <motion.button
                   type="button"
                   onClick={handleExploreCatalog}
-                  className="group relative overflow-hidden inline-flex items-center justify-center gap-2.5 h-12 px-7 text-xs font-bold uppercase tracking-[0.12em] text-[#F5E6C8] bg-[#1C1917] hover:bg-black border border-[#C5A880]/70 rounded-full shadow-[0_10px_24px_-6px_rgba(28,25,23,0.3)] transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0"
+                  whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.015 }}
+                  whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
+                  transition={{ duration: 0.16, ease: EASE_OUT_EXPO }}
+                  className="group relative overflow-hidden inline-flex items-center justify-center gap-3 h-[50px] sm:h-[52px] px-7 text-xs font-semibold tracking-[0.12em] uppercase text-[#FAF9F5] bg-[#1C1917] hover:bg-[#292524] rounded-full border border-[#C5A880]/40 shadow-[0_10px_24px_-8px_rgba(28,25,23,0.38)] transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C1917]"
                 >
-                  <span>Shop Catalog</span>
+                  <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-500 ease-out group-hover:translate-x-full" />
+                  <span className="relative z-10">Shop Catalog</span>
                   <ArrowRight
-                    className="w-3.5 h-3.5 text-[#E5C99B] transition-transform duration-200 ease-out group-hover:translate-x-1"
-                    strokeWidth={2.2}
+                    className="relative z-10 w-3.5 h-3.5 transition-transform duration-200 ease-out group-hover:translate-x-1"
+                    strokeWidth={1.75}
                   />
-                </button>
+                </motion.button>
 
                 <VelvetWhatsAppButton
                   href={whatsappHref}
                   label="Order via WhatsApp"
                   size="modal"
                 />
-              </div>
+              </motion.div>
             </div>
 
             {/* Mobile Strip Above Banner: Bold JIYOO PREMIUM + Velvet Maroon WhatsApp Pill Button + Compact Editorial Typewriter */}
             <div className="block lg:hidden pb-0.5">
-              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-2xl bg-gradient-to-r from-[#FAF6EE] via-[#FDFBF7] to-[#FAF6EE] border border-[#E2D6C1] shadow-[0_4px_14px_-6px_rgba(28,25,23,0.08)]">
+              <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#C5A880] shrink-0" aria-hidden="true" />
-                    <span className="font-serif-luxury font-bold text-xs sm:text-sm tracking-[0.16em] uppercase text-[#1C1917] block truncate">
-                      JIYOO PREMIUM
-                    </span>
-                  </div>
-                  <div className="min-h-[1.15rem] flex items-center overflow-hidden mt-0.5">
+                  <span className="font-extrabold text-xs sm:text-sm tracking-[0.15em] uppercase text-[#1C1917] block truncate">
+                    JIYOO PREMIUM
+                  </span>
+                  <div className="min-h-[1.15rem] flex items-center overflow-hidden">
                     <TypewriterText
                       phrases={MOBILE_HERO_TYPEWRITER_PHRASES}
                       typingSpeed={42}

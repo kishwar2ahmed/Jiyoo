@@ -201,7 +201,7 @@ export function PromotionsTab() {
 
       {/* Create Coupon Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/65 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl border border-brand-gray-100 animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center border-b border-brand-gray-100 pb-3">
               <h3 className="font-bold text-lg text-brand-black">Create Discount Coupon</h3>

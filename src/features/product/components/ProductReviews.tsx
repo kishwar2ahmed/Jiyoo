@@ -52,15 +52,12 @@ export function ProductReviews({ productId }: { productId: string | number }) {
     return () => unsub();
   }, [productId]);
 
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     if (!comment.trim()) return;
     
     setIsSubmitting(true);
-    setSubmitError(null);
     try {
       const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error('Please log in again to submit a review.');
@@ -69,20 +66,14 @@ export function ProductReviews({ productId }: { productId: string | number }) {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ productId: String(productId), rating, comment: comment.trim() })
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to submit review');
-      }
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || 'Failed to submit review');
       setReviews(prev => [data.review as Review, ...prev]);
       setComment('');
       setRating(5);
       setShowForm(false);
-      showToast('Thank you! Your verified review has been published.', 'success');
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to submit review:", err);
-      const message = err?.message || 'Unable to submit review right now.';
-      setSubmitError(message);
-      showToast(message, 'info');
     } finally {
       setIsSubmitting(false);
     }
@@ -179,21 +170,12 @@ export function ProductReviews({ productId }: { productId: string | number }) {
                   id="comment"
                   rows={3}
                   value={comment}
-                  onChange={(e) => {
-                    setComment(e.target.value);
-                    if (submitError) setSubmitError(null);
-                  }}
+                  onChange={(e) => setComment(e.target.value)}
                   placeholder="Share your thoughts about this product..."
                   className="w-full bg-white border border-brand-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-black resize-none"
                   required
                 />
               </div>
-
-              {submitError && (
-                <div className="mb-4 px-3.5 py-2.5 rounded-xl bg-amber-50 border border-amber-200/80 text-xs font-medium text-amber-900 leading-relaxed">
-                  {submitError}
-                </div>
-              )}
               
               <div className="flex justify-end gap-2">
                 <button

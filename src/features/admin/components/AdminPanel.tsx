@@ -951,7 +951,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
 
       {/* Security & 2FA Management Modal */}
       {showSecurityModal && (
-        <div className="fixed inset-0 z-[120] bg-black/65 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-white rounded-2xl border border-stone-200 shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-stone-200 pb-4 mb-4">
               <div className="flex items-center gap-2.5">

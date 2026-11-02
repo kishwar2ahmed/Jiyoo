@@ -137,42 +137,18 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    const checkUrlAndHash = () => {
-      const params = new URLSearchParams(window.location.search);
-      const viewParam = params.get('view');
-      const policyParam = params.get('policy');
-      const modalParam = params.get('modal');
-      const hash = window.location.hash;
-
-      if (hash === '#admin') {
+    const checkHash = () => {
+      if (window.location.hash === '#admin') {
         setIsAdminOpen(true);
-      } else if (hash === '#wholesale' || viewParam === 'wholesale') {
+      } else if (window.location.hash === '#wholesale') {
         setActivePage('wholesale');
-      } else if (hash === '#privacy-policy' || policyParam === 'privacy') {
-        setLegalTab('privacy');
-        setIsLegalOpen(true);
-      } else if (hash === '#terms' || policyParam === 'terms') {
-        setLegalTab('terms');
-        setIsLegalOpen(true);
-      } else if (
-        hash === '#refund-policy' ||
-        hash === '#shipping-policy' ||
-        policyParam === 'refund' ||
-        policyParam === 'shipping'
-      ) {
-        setLegalTab('refund');
-        setIsLegalOpen(true);
-      } else if (hash === '#contact' || modalParam === 'contact') {
-        setIsContactOpen(true);
-      } else if (hash === '#about' || modalParam === 'about') {
-        setIsAboutOpen(true);
-      } else if (hash === '' && viewParam !== 'wholesale') {
+      } else if (window.location.hash === '') {
         setActivePage('retail');
       }
     };
-    checkUrlAndHash();
-    window.addEventListener('hashchange', checkUrlAndHash);
-    return () => window.removeEventListener('hashchange', checkUrlAndHash);
+    checkHash();
+    window.addEventListener('hashchange', checkHash);
+    return () => window.removeEventListener('hashchange', checkHash);
   }, []);
 
   // Hierarchical 4-Tier Back Button Navigation Stack:
@@ -349,7 +325,7 @@ function AppContent() {
 
       <div
         aria-hidden={isAnyOverlayOpen}
-        className={`relative z-10 bg-paper-texture shadow-[0_24px_60px_-15px_rgba(28,25,23,0.16),0_1px_0_rgba(231,227,218,0.9)] ${
+        className={`relative z-10 bg-paper-texture shadow-[0_20px_50px_rgba(0,0,0,0.5)] ${
           isAnyOverlayOpen ? "pointer-events-none select-none overflow-hidden" : ""
         }`}
       >
@@ -361,7 +337,7 @@ function AppContent() {
           }`}
         >
           {activePage === 'wholesale' ? (
-            <Suspense fallback={<div className="min-h-screen bg-white" />}>
+            <Suspense fallback={<div className="min-h-screen bg-[#FAF9F5]" />}>
               <WholesalePage
                 onBackToRetail={openRetailPage}
                 onOpenCart={() => setIsCartOpen(true)}
