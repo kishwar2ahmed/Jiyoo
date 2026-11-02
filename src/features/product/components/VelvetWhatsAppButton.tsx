@@ -128,7 +128,7 @@ export const VelvetWhatsAppButton: React.FC<VelvetWhatsAppButtonProps> = ({
       />
 
       {/* 2. Exact Maroon Velvet WhatsApp Pill Asset from User Reference */}
-      <div className="relative inline-flex items-center justify-center rounded-full overflow-hidden transform-gpu drop-shadow-[0_6px_16px_rgba(65,8,22,0.35)]">
+      <div className="relative inline-flex items-center justify-center rounded-full overflow-hidden transform-gpu drop-shadow-[0_4px_10px_rgba(0,0,0,0.22)]">
         <img
           src={WHATSAPP_PILL_IMAGE_SRC}
           alt={label}

@@ -12,7 +12,7 @@ export interface PresetBannerOption {
 export const PRESET_BANNER_IMAGES: PresetBannerOption[] = [
   {
     id: 'preset-diwali-special',
-    label: '✨ Special Diwali Sale (Featured Festive)',
+    label: 'Special Diwali Sale (Featured Festive)',
     url: '/banners/diwali_special_sale.webp',
     defaultBadge: 'Festive Special',
     defaultTitle: 'Special Diwali Sale',
@@ -20,7 +20,7 @@ export const PRESET_BANNER_IMAGES: PresetBannerOption[] = [
   },
   {
     id: 'preset-whatsapp-order',
-    label: '💬 Order via WhatsApp (COD & Online Payments Coming Soon)',
+    label: 'Order via WhatsApp (COD & Online Payments Coming Soon)',
     url: '/banners/whatsapp_order_banner.webp',
     defaultBadge: 'WhatsApp Order',
     defaultTitle: 'Order via WhatsApp',

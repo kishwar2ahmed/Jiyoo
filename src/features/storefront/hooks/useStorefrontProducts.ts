@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { collection, query, limit, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../../../services/firebase';
 import { Product } from '../../../types';
@@ -244,6 +244,12 @@ export function mergeCatalogRecords(
             500,
             80
           ),
+          images:
+            Array.isArray(record.images) && record.images.length > 0
+              ? record.images
+              : Array.isArray(existingBase.images) && existingBase.images.length > 0
+              ? existingBase.images
+              : [record.image || existingBase.image].filter(Boolean),
         }
       : {
           ...record,
@@ -381,11 +387,19 @@ function startSharedCatalogSubscription() {
     return;
   }
 
+  // Fetch server-persisted database immediately so edits and pricing appear instantly
+  fetchBackendCatalogFallbackShared();
+
   const q = query(collection(db, 'products'), limit(500));
   activeFirestoreUnsub = onSnapshot(
     q,
     (snap) => {
       retryAttempt = 0;
+      if (snap.empty) {
+        // Firestore is initialized but has 0 documents yet; ensure server database is loaded
+        fetchBackendCatalogFallbackShared();
+        return;
+      }
       const rawDocs: Array<Record<string, any>> = [];
       snap.forEach((docSnap) => {
         const data = docSnap.data();
@@ -517,16 +531,25 @@ export function useStorefrontProducts() {
   }, []);
 
   const baselineCatalog = getAuthoritativeBaseline();
-  const currentProducts =
+  const allProducts =
     snapshot.catalogStatus === 'SUCCESS_EMPTY'
       ? []
       : snapshot.dbProducts.length > 0
       ? snapshot.dbProducts
       : baselineCatalog;
 
+  // Keep Retail Storefront (currentProducts) completely separate from Wholesale trade lots
+  const currentProducts = useMemo(
+    () =>
+      allProducts.filter(
+        (p) => !p.wholesaleEligible && !String(p.id).startsWith('w_')
+      ),
+    [allProducts]
+  );
+
   return {
     currentProducts,
-    dbProducts: snapshot.dbProducts,
+    dbProducts: allProducts,
     isProductsLoading: snapshot.isProductsLoading,
     catalogStatus: snapshot.catalogStatus,
     catalogError: snapshot.catalogError,

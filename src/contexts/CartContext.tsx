@@ -53,6 +53,86 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+interface CartActionsContextType {
+  addToCart: (product: CartProduct, quantity?: number) => void;
+  removeFromCart: (id: string | number) => void;
+  updateQuantity: (id: string | number, quantity: number) => void;
+  triggerFlyingItem: (item: Omit<FlyingItem, 'id'>) => void;
+}
+
+const CartActionsContext = createContext<CartActionsContextType>({
+  addToCart: () => {},
+  removeFromCart: () => {},
+  updateQuantity: () => {},
+  triggerFlyingItem: () => {},
+});
+
+export function useCartActions() {
+  return useContext(CartActionsContext);
+}
+
+// Fine-grained per-item quantity store so ProductCards only re-render when their own quantity changes
+const cartQuantityMap = new Map<string, number>();
+const itemQuantityListeners = new Map<string, Set<() => void>>();
+
+function syncCartQuantityStore(items: CartItem[]) {
+  const nextMap = new Map<string, number>();
+  for (const item of items) {
+    const key = String(item.id);
+    nextMap.set(key, (nextMap.get(key) || 0) + item.quantity);
+  }
+  const changedKeys = new Set<string>();
+  nextMap.forEach((qty, key) => {
+    if (cartQuantityMap.get(key) !== qty) {
+      changedKeys.add(key);
+    }
+  });
+  cartQuantityMap.forEach((_qty, key) => {
+    if (!nextMap.has(key)) {
+      changedKeys.add(key);
+    }
+  });
+  if (changedKeys.size === 0) return;
+  cartQuantityMap.clear();
+  nextMap.forEach((qty, key) => cartQuantityMap.set(key, qty));
+  changedKeys.forEach((key) => {
+    const listeners = itemQuantityListeners.get(key);
+    if (listeners) {
+      listeners.forEach((cb) => cb());
+    }
+  });
+}
+
+export function useCartItemQuantity(cartItemId: string): number {
+  const subscribe = React.useCallback(
+    (onStoreChange: () => void) => {
+      let set = itemQuantityListeners.get(cartItemId);
+      if (!set) {
+        set = new Set();
+        itemQuantityListeners.set(cartItemId, set);
+      }
+      set.add(onStoreChange);
+      return () => {
+        const currentSet = itemQuantityListeners.get(cartItemId);
+        if (currentSet) {
+          currentSet.delete(onStoreChange);
+          if (currentSet.size === 0) {
+            itemQuantityListeners.delete(cartItemId);
+          }
+        }
+      };
+    },
+    [cartItemId]
+  );
+
+  const getSnapshot = React.useCallback(
+    () => cartQuantityMap.get(cartItemId) || 0,
+    [cartItemId]
+  );
+
+  return React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
 interface FlyingItemsContextType {
   flyingItems: FlyingItem[];
   triggerFlyingItem: (item: Omit<FlyingItem, 'id'>) => void;
@@ -113,7 +193,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (!local) return [];
       const parsed = JSON.parse(local);
       // Validate cart data against schema to prevent prototype pollution and type issues
-      return z.array(CartItemSchema).parse(parsed).map(normalizeCartItem);
+      const initial = z.array(CartItemSchema).parse(parsed).map(normalizeCartItem);
+      syncCartQuantityStore(initial);
+      return initial;
     } catch (e) {
       // If validation fails, return empty cart (don't trust corrupted data)
       console.warn('Cart data validation failed, starting fresh:', (e as any).message);
@@ -121,6 +203,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   });
   useEffect(() => {
+    syncCartQuantityStore(items);
     const timer = window.setTimeout(() => {
       try {
         localStorage.setItem('jiyoo_cart', JSON.stringify(items));
@@ -196,7 +279,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         // syncAdminClaims() / POST /api/admin/users/:uid/role in server.ts).
         // Never derived from an email list or a Firestore field the client
         // itself can write.
-        let isAdminClaim = isOwnerAdminEmail(firebaseUser.email);
+        let isAdminClaim = firebaseUser.emailVerified === true && isOwnerAdminEmail(firebaseUser.email);
         try {
           const tokenResult = await firebaseUser.getIdTokenResult();
           if (tokenResult.claims.admin === true) {
@@ -401,6 +484,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
 
+  const actionsContextValue = React.useMemo(() => ({
+    addToCart,
+    removeFromCart,
+    updateQuantity,
+    triggerFlyingItem,
+  }), [addToCart, removeFromCart, updateQuantity, triggerFlyingItem]);
+
   const flyingContextValue = React.useMemo(() => ({
     flyingItems,
     triggerFlyingItem,
@@ -432,9 +522,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CartContext.Provider value={contextValue}>
-      <FlyingItemsContext.Provider value={flyingContextValue}>
-        {children}
-      </FlyingItemsContext.Provider>
+      <CartActionsContext.Provider value={actionsContextValue}>
+        <FlyingItemsContext.Provider value={flyingContextValue}>
+          {children}
+        </FlyingItemsContext.Provider>
+      </CartActionsContext.Provider>
     </CartContext.Provider>
   );
 

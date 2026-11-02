@@ -270,7 +270,7 @@ export function PremiumSocialBar() {
                       </span>
                     </div>
 
-                    <div className="transition-transform duration-300 group-hover:scale-110 drop-shadow-sm shrink-0">
+                    <div className="shrink-0">
                       {item.icon({ className: 'w-7 h-7 sm:w-8 sm:h-8' })}
                     </div>
                   </div>

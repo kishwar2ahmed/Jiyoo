@@ -100,6 +100,7 @@ const LEGACY_PRODUCT_IMAGE_MIGRATIONS: Record<string, string> = {
   '/products/s_red_grape.jpg': '/products/s_red_grape_jiyoo.jpg',
   '/products/f_red_ice_guava.jpg': '/products/rediceguava.jpeg',
   '/products/f_ice_guava.jpg': '/products/rediceguava.jpeg',
+  '/products/limpopo-orange-citrus.jpg': '/assets/aistudio/image_d02558fa.png',
 };
 
 export function resolveProductImage(url: string | undefined | null): string | undefined | null {

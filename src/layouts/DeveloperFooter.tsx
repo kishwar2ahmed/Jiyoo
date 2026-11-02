@@ -66,52 +66,35 @@ export function DeveloperFooter() {
 
             {/* Typography */}
             <div className="flex flex-col justify-center">
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-                className="flex flex-col md:flex-row md:gap-1.5 md:items-baseline"
-              >
+              <div className="flex flex-col md:flex-row md:gap-1.5 md:items-baseline">
                 <h2 className="text-xs md:text-sm font-serif tracking-tight text-[#1E1E1C] leading-tight group-hover:text-[#5C2328] transition-colors duration-500">
-                  Designed with{" "}
-                  <span
-                    role="img"
-                    aria-label="heart"
-                    className="inline-block text-red-500"
-                  >
-                    ❤️
-                  </span>{" "}
-                  <span className="text-[#85786F] italic transition-transform duration-500 group-hover:translate-x-1 inline-block">
+                  Designed with ❤️{" "}
+                  <span className="text-[#71717A] italic inline-block">
                     by Kishwar Ahmed
                   </span>
                 </h2>
-              </motion.div>
+              </div>
 
-              <motion.p
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                transition={{ duration: 0.8, delay: 0.4 }}
-                className="text-[#53624C] font-mono text-[8.5px] uppercase tracking-[0.2em] mt-0.5 mix-blend-color-burn group-hover:text-[#1E1E1C] transition-colors duration-500"
-              >
-                Premium Digital Experiences
-              </motion.p>
+              <p className="text-[#85786F] font-sans text-[10px] mt-0.5 tracking-wide uppercase font-semibold group-hover:text-[#1E1E1C] transition-colors duration-500">
+                Elevating digital experiences
+              </p>
             </div>
           </div>
 
           {/* RIGHT: Action Button */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="flex-shrink-0"
-          >
-            <div className="w-7 h-7 rounded-full border border-[#DDD5CB] flex items-center justify-center transition-all duration-500 group-hover:border-[#1E1E1C] group-hover:bg-[#1E1E1C] group-hover:shadow-[0_4px_12px_rgba(30,30,28,0.15)] group-hover:scale-105">
+          <div className="flex-shrink-0">
+            <div className="w-6 h-6 rounded-full border border-[#DDD5CB] flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:border-[#5C2328] group-hover:bg-[#5C2328] group-hover:scale-110 group-hover:shadow-md">
               <ArrowRight
-                className="w-3 h-3 text-[#1E1E1C] transition-all duration-500 group-hover:text-[#F5F1EB] group-hover:translate-x-0.5"
+                className="w-2.5 h-2.5 text-[#1E1E1C] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:text-[#F5F1EB] group-hover:translate-x-0.5"
                 strokeWidth={1.5}
               />
             </div>
-          </motion.div>
+          </div>
+        </div>
+
+        {/* Bottom Hairline Accent */}
+        <div className="relative z-10 w-full h-[1px] bg-[#E6DFD5] overflow-hidden">
+          <div className="w-full h-full bg-[#5C2328] origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]" />
         </div>
       </motion.button>
 

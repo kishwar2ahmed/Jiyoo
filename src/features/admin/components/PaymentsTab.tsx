@@ -220,7 +220,7 @@ export function PaymentsTab() {
         <div className="bg-white p-5 rounded-xl border border-brand-gray-200 shadow-sm flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <span className="text-xs font-semibold text-brand-gray-500 uppercase tracking-wider">Total Sales</span>
-            <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+            <div className="p-2 bg-stone-100 text-stone-800 rounded-lg">
               <ArrowUpRight className="w-5 h-5" />
             </div>
           </div>
@@ -432,7 +432,7 @@ export function PaymentsTab() {
                             <option value="failed">Failed</option>
                           </select>
                           {paymentStatus === 'refunded' && (
-                            <span className="text-xs text-purple-700 font-medium">Refunded (via Orders tab)</span>
+                            <span className="text-xs text-stone-700 font-medium">Refunded (via Orders tab)</span>
                           )}
                         </div>
                       </td>

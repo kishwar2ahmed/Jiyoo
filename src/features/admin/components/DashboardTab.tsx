@@ -62,7 +62,7 @@ export function DashboardTab() {
     { label: 'Total Revenue', value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`, sub: `${stats.paidOrdersCount} paid / fulfilled orders`, icon: DollarSign, color: 'text-emerald-700', bg: 'bg-emerald-100' },
     { label: 'Total Orders', value: stats.totalOrders.toString(), sub: `${stats.pendingOrdersCount} active in queue`, icon: ShoppingBag, color: 'text-blue-700', bg: 'bg-blue-100' },
     { label: 'Registered Accounts', value: stats.totalUsers.toString(), sub: 'Active store members', icon: Users, color: 'text-amber-700', bg: 'bg-amber-100' },
-    { label: 'Live Catalog Products', value: stats.totalProducts.toString(), sub: 'Retail & Wholesale active', icon: Package, color: 'text-purple-700', bg: 'bg-purple-100' },
+    { label: 'Live Catalog Products', value: stats.totalProducts.toString(), sub: 'Retail & Wholesale active', icon: Package, color: 'text-stone-800', bg: 'bg-stone-200' },
   ];
 
   return (
@@ -88,7 +88,7 @@ export function DashboardTab() {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-brand-gray-500">{stat.label}</p>
-              <p className="text-2xl font-bold text-brand-black mt-0.5">{stat.value}</p>
+              <p className="text-2xl font-price-luxury font-extrabold text-brand-black mt-0.5 tabular-nums tracking-tight">{stat.value}</p>
               <p className="text-xs text-brand-gray-400 mt-1">{stat.sub}</p>
             </div>
           </div>
@@ -131,7 +131,7 @@ export function DashboardTab() {
                         <div className="text-xs text-brand-gray-400">{o.shippingDetails?.phone || ''}</div>
                       </td>
                       <td className="px-6 py-3 text-xs font-medium text-brand-gray-700">{o.paymentMethod || 'Cash on Delivery'}</td>
-                      <td className="px-6 py-3 font-bold text-brand-black">₹{Number(o.grandTotal ?? o.amount ?? 0).toLocaleString('en-IN')}</td>
+                      <td className="px-6 py-3 font-price-luxury font-bold text-brand-black tabular-nums">₹{Number(o.grandTotal ?? o.amount ?? 0).toLocaleString('en-IN')}</td>
                       <td className="px-6 py-3">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                           isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'

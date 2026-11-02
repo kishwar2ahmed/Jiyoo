@@ -134,10 +134,10 @@ export function UsersTab() {
                     </td>
                     <td className="px-4 py-3 text-brand-gray-600 font-mono text-xs">{u.email}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      <span className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
                         u.role === 'admin' 
-                          ? 'bg-purple-100 text-purple-700 border border-purple-200' 
-                          : 'bg-brand-gray-100 text-brand-gray-700'
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                          : 'bg-stone-100 text-stone-700'
                       }`}>
                         {u.role || 'user'}
                       </span>

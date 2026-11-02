@@ -260,7 +260,14 @@ export async function adminSaveDoc(col: string, id: string, data: Record<string,
   if (!res.ok || !body.success) {
     throw new Error(body.error || 'Failed to save document');
   }
-  setDoc(doc(db, col, id), data, { merge: true }).catch(() => {});
+  // Only mirror to client-side Firestore if the user is signed into Firebase Auth with an owner admin email
+  if (auth.currentUser && auth.currentUser.emailVerified && isOwnerAdminEmail(auth.currentUser.email)) {
+    try {
+      await setDoc(doc(db, col, id), data, { merge: true });
+    } catch {
+      // Server write already succeeded; ignore optional client-side mirror error
+    }
+  }
 }
 
 export async function adminDeleteDoc(col: string, id: string): Promise<void> {
@@ -273,7 +280,13 @@ export async function adminDeleteDoc(col: string, id: string): Promise<void> {
   if (!res.ok || !body.success) {
     throw new Error(body.error || 'Failed to delete document');
   }
-  deleteDoc(doc(db, col, id)).catch(() => {});
+  if (auth.currentUser && auth.currentUser.emailVerified && isOwnerAdminEmail(auth.currentUser.email)) {
+    try {
+      await deleteDoc(doc(db, col, id));
+    } catch {
+      // Server delete already succeeded; ignore optional client-side mirror error
+    }
+  }
 }
 
 export async function adminFetchCollection<T = any>(col: string): Promise<T[]> {

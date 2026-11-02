@@ -85,7 +85,7 @@ export function ImageUpload({ label, value, defaultImage, onChange, circular = f
           >
             <div className={`relative overflow-hidden border border-brand-gray-200 bg-brand-gray-50 flex items-center justify-center ${circular ? 'w-32 h-32 rounded-full mx-auto' : 'w-full h-48 rounded-xl'}`}>
               <img src={displayImage} alt={label} className="w-full h-full object-contain p-2" />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-sm">
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}

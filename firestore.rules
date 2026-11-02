@@ -35,7 +35,10 @@ service cloud.firestore {
       // real admin status only ever comes from the custom claim above.
       allow create: if isOwner(userId) &&
         request.resource.data.get('role', 'user') != 'admin' &&
-        request.resource.data.get('admin', false) == false;
+        request.resource.data.get('admin', false) == false &&
+        (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 200)) &&
+        (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() <= 30)) &&
+        (!('picture' in request.resource.data) || request.resource.data.picture == null || (request.resource.data.picture is string && request.resource.data.picture.size() <= 500000));
       // Admins may update any profile (role changes are actually granted via
       // the /api/admin/users/:uid/role endpoint, which sets the real custom
       // claim through the Admin SDK and mirrors this field for display).
@@ -44,7 +47,10 @@ service cloud.firestore {
         (isOwner(userId) &&
           request.resource.data.get('role', 'user') == resource.data.get('role', 'user') &&
           request.resource.data.get('admin', false) == resource.data.get('admin', false) &&
-          request.resource.data.get('email', resource.data.get('email', '')) == resource.data.get('email', ''));
+          request.resource.data.get('email', resource.data.get('email', '')) == resource.data.get('email', '') &&
+          (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 200)) &&
+          (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() <= 30)) &&
+          (!('picture' in request.resource.data) || request.resource.data.picture == null || (request.resource.data.picture is string && request.resource.data.picture.size() <= 500000)));
       allow delete: if isAdmin();
 
       match /addresses/{addressId} {
@@ -112,6 +118,11 @@ service cloud.firestore {
     }
 
     match /_images/{imageId} {
+      allow read, write: if false;
+    }
+
+    match /media_uploads/{fileId} {
+      // Server-only binary media persistence mirror for billing-free uploads.
       allow read, write: if false;
     }
 
@@ -193,6 +204,11 @@ service cloud.firestore {
       // draft/expired/unpublished campaigns are never exposed to customers.
       allow read: if isAdmin();
       allow write: if isAdmin();
+    }
+
+    match /test/{docId} {
+      allow read: if true;
+      allow write: if false;
     }
 
     match /{document=**} {

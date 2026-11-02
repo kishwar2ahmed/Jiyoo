@@ -22,6 +22,7 @@ import { useModalBackButton } from '../../core/hooks/useModalBackButton';
 import { PremiumShieldMark } from '../../core/components/PremiumShieldMark';
 import { InstagramIcon, WhatsAppIcon, OFFICIAL_INSTAGRAM_URL } from '../../core/components/SocialIcons';
 import { useStorefrontProducts } from '../../storefront/hooks/useStorefrontProducts';
+import { PriceDisplay } from '../../core/components/PriceDisplay';
 
 const normalizeOrderStatus = (rawStatus?: string): string => {
   const s = String(rawStatus || 'pending').trim().toLowerCase();
@@ -501,20 +502,50 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
       const reader = new FileReader();
       reader.onload = async (ev) => {
         try {
-          const dataUrl = ev.target?.result as string;
-          
-          const storageRef = ref(storage, `users/${user.id}/profile_${Date.now()}.webp`);
-          await uploadString(storageRef, dataUrl, 'data_url');
-          const downloadUrl = await getDownloadURL(storageRef);
-          
-          if (auth.currentUser) {
-            await updateProfile(auth.currentUser, { photoURL: downloadUrl });
+          const rawDataUrl = ev.target?.result as string;
+          if (!rawDataUrl) throw new Error('Could not read file');
+
+          // Compress avatar to 256x256 JPEG so it works cleanly even without paid Cloud Storage
+          const compressedDataUrl = await new Promise<string>((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const size = Math.min(img.width, img.height);
+              canvas.width = 256;
+              canvas.height = 256;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                const ox = (img.width - size) / 2;
+                const oy = (img.height - size) / 2;
+                ctx.drawImage(img, ox, oy, size, size, 0, 0, 256, 256);
+                resolve(canvas.toDataURL('image/jpeg', 0.82));
+              } else {
+                resolve(rawDataUrl);
+              }
+            };
+            img.onerror = () => resolve(rawDataUrl);
+            img.src = rawDataUrl;
+          });
+
+          let finalUrl = compressedDataUrl;
+          try {
+            const storageRef = ref(storage, `users/${user.id}/profile_${Date.now()}.webp`);
+            await uploadString(storageRef, compressedDataUrl, 'data_url');
+            finalUrl = await getDownloadURL(storageRef);
+            if (auth.currentUser && finalUrl.startsWith('http')) {
+              await updateProfile(auth.currentUser, { photoURL: finalUrl });
+            }
+          } catch {
+            // Firebase Cloud Storage requires Blaze billing plan; gracefully use compressed avatar data URL
+            finalUrl = compressedDataUrl;
           }
-          
-          await updateDoc(doc(db, 'users', user.id), { picture: downloadUrl });
+
+          await setDoc(doc(db, 'users', user.id), { picture: finalUrl }, { merge: true });
           showToast("Profile image updated successfully!", "success");
         } catch (err) {
-          console.error("Storage upload error:", err);
+          console.error("Profile image update error:", err);
           showToast("Failed to upload profile image.", "error");
         } finally {
           setIsUploading(false);
@@ -710,14 +741,14 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
     }
     if (['shipped', 'dispatched'].includes(status)) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-full text-xs font-semibold">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-sky-50 text-sky-800 border border-sky-200 rounded-full text-xs font-semibold">
           <RealisticDeliveryScooter className="w-6 h-5 shrink-0" /> Dispatched
         </span>
       );
     }
     if (['out_for_delivery'].includes(status)) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-xs font-semibold">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-semibold">
           <RealisticDeliveryScooter className="w-6 h-5 shrink-0" /> Out for Delivery
         </span>
       );
@@ -816,10 +847,6 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="p-4 border-t border-stone-200 space-y-2">
-          <button onClick={() => { document.dispatchEvent(new CustomEvent('open-admin')); onClose(); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors font-semibold cursor-pointer">
-            <Shield className="w-4 h-4 text-emerald-700" />
-            <span className="text-sm font-medium">Admin Panel</span>
-          </button>
           <button onClick={() => { document.dispatchEvent(new CustomEvent('open-contact')); onClose(); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors font-semibold">
             <HelpCircle className="w-4 h-4 text-emerald-600" />
             <span className="text-sm font-medium">Help &amp; Support</span>
@@ -1162,8 +1189,9 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                               <div className="flex items-center gap-3 justify-between md:justify-end">
                                 <div className="text-right">
                                   <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block">Order Total</span>
-                                  <span className="text-base font-extrabold text-emerald-700">₹{order.amount || 0}</span>
+                                  <PriceDisplay amount={order.amount || 0} size="base" weight="extrabold" />
                                 </div>
+
                                 <button
                                   onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
                                   className="px-3 py-1.5 bg-white border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 hover:bg-stone-50 transition-colors flex items-center gap-1 shadow-2xs"
@@ -1227,8 +1255,12 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                                         </p>
                                       </div>
                                     </div>
-                                    <div className="font-bold text-stone-900">
-                                      ₹{(item.price || item.numericPrice || 0) * item.quantity}
+                                    <div>
+                                      <PriceDisplay
+                                        amount={(item.price || item.numericPrice || 0) * item.quantity}
+                                        size="sm"
+                                        weight="extrabold"
+                                      />
                                     </div>
                                   </div>
                                 ))}
@@ -1272,32 +1304,37 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                                   </div>
 
                                   {/* Bill Summary */}
-                                  <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 space-y-1">
+                                  <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 space-y-1.5">
                                     <h4 className="font-bold text-stone-900 flex items-center gap-1.5 mb-1 text-xs">
                                       <ShoppingBag className="w-3.5 h-3.5 text-emerald-600" />
                                       Bill Summary
                                     </h4>
-                                    <div className="flex justify-between text-stone-600">
+                                    <div className="flex justify-between items-center text-stone-600">
                                       <span>Items Subtotal</span>
-                                      <span className="font-semibold text-stone-800">₹{subtotalVal}</span>
+                                      <PriceDisplay amount={subtotalVal} size="xs" weight="bold" />
                                     </div>
                                     {discountVal > 0 && (
-                                      <div className="flex justify-between text-emerald-700">
+                                      <div className="flex justify-between items-center text-emerald-700">
                                         <span>Discount {order.couponCode ? `(${order.couponCode})` : ''}</span>
-                                        <span className="font-semibold">-₹{discountVal}</span>
+                                        <span className="font-price-luxury font-bold tabular-nums">-₹{discountVal}</span>
                                       </div>
                                     )}
-                                    <div className="flex justify-between text-stone-600">
+                                    <div className="flex justify-between items-center text-stone-600">
                                       <span>Delivery Fee</span>
-                                      <span className="font-semibold text-stone-800">{deliveryFeeVal > 0 ? `₹${deliveryFeeVal}` : 'FREE'}</span>
+                                      {deliveryFeeVal > 0 ? (
+                                        <PriceDisplay amount={deliveryFeeVal} size="xs" weight="bold" />
+                                      ) : (
+                                        <span className="text-emerald-700 font-bold text-xs uppercase tracking-wide">FREE</span>
+                                      )}
                                     </div>
-                                    <div className="flex justify-between text-stone-900 font-bold pt-1 border-t border-stone-200">
+                                    <div className="flex justify-between items-baseline text-stone-900 font-bold pt-1.5 border-t border-stone-200">
                                       <span>Grand Total</span>
-                                      <span className="text-emerald-700">₹{order.amount || 0}</span>
+                                      <PriceDisplay amount={order.amount || 0} size="sm" weight="extrabold" />
                                     </div>
                                   </div>
                                 </div>
                               )}
+
 
                               {isExpanded && (
                                 <div className="mt-4 border-t border-stone-100 pt-3">
@@ -1557,7 +1594,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                                   <img
                                     src={getOptimizedImageUrl(p.image, 200, 80)}
                                     alt={p.name}
-                                    className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                                    className="w-full h-full object-contain transition-transform"
                                     loading="lazy"
                                   />
                                 </div>
@@ -1765,8 +1802,8 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                     <div className="bg-white rounded-2xl p-6 sm:p-8 border border-stone-200 shadow-sm space-y-6">
                       <div className="flex items-start justify-between gap-4 border-b border-stone-100 pb-5">
                         <div>
-                          <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-700 font-semibold">
-                            DPDP Act 2023 · Consumer Data Protection
+                          <span className="text-xs font-medium text-stone-500">
+                            Consumer Data Protection (DPDP Act 2023)
                           </span>
                           <h3 className="text-xl font-serif font-bold text-stone-900 mt-1">
                             Privacy, Legal &amp; Refund Policies
@@ -1786,11 +1823,11 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                           onClick={() => document.dispatchEvent(new CustomEvent('open-legal-policy', { detail: { tab: 'privacy' } }))}
                           className="text-left p-5 rounded-xl border border-stone-200 hover:border-stone-900 bg-stone-50/60 hover:bg-white transition-all cursor-pointer group"
                         >
-                          <div className="text-xs font-mono uppercase tracking-wider text-emerald-700 font-semibold mb-1">
+                          <div className="text-xs font-medium text-stone-500 mb-1">
                             Data Charter
                           </div>
                           <div className="text-base font-serif font-bold text-stone-900 group-hover:text-emerald-800">
-                            Privacy Policy &rarr;
+                            Privacy Policy
                           </div>
                           <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">
                             Information we collect, zero third-party data selling, and encrypted payment processing.
@@ -1802,11 +1839,11 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                           onClick={() => document.dispatchEvent(new CustomEvent('open-legal-policy', { detail: { tab: 'terms' } }))}
                           className="text-left p-5 rounded-xl border border-stone-200 hover:border-stone-900 bg-stone-50/60 hover:bg-white transition-all cursor-pointer group"
                         >
-                          <div className="text-xs font-mono uppercase tracking-wider text-amber-800 font-semibold mb-1">
+                          <div className="text-xs font-medium text-stone-500 mb-1">
                             Store Governance
                           </div>
                           <div className="text-base font-serif font-bold text-stone-900 group-hover:text-amber-900">
-                            Terms of Service &rarr;
+                            Terms of Service
                           </div>
                           <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">
                             FSSAI &amp; MSME compliance, Bangalore express retail delivery &amp; pan-India wholesale trade terms.
@@ -1818,11 +1855,11 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                           onClick={() => document.dispatchEvent(new CustomEvent('open-legal-policy', { detail: { tab: 'refund' } }))}
                           className="text-left p-5 rounded-xl border border-stone-200 hover:border-stone-900 bg-stone-50/60 hover:bg-white transition-all cursor-pointer group"
                         >
-                          <div className="text-xs font-mono uppercase tracking-wider text-purple-700 font-semibold mb-1">
+                          <div className="text-xs font-medium text-stone-500 mb-1">
                             Freshness Promise
                           </div>
-                          <div className="text-base font-serif font-bold text-stone-900 group-hover:text-purple-800">
-                            Refund Policy &rarr;
+                          <div className="text-base font-serif font-bold text-stone-900 group-hover:text-stone-900">
+                            Refund Policy
                           </div>
                           <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">
                             Open-box doorstep inspection, 2-hour perishable replacement &amp; automated Razorpay/UPI refunds.

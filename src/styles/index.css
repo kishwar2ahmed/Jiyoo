@@ -1,15 +1,13 @@
 @import "tailwindcss";
 
 .font-serif-luxury {
-  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
-  font-feature-settings: "kern" 1, "liga" 1, "dlig" 1;
-  font-kerning: normal;
+  font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 .font-brand-display {
-  font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
-  font-feature-settings: "kern" 1, "liga" 1;
-  font-kerning: normal;
+  font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.025em;
 }
 
 .font-sans-clean {
@@ -17,61 +15,70 @@
   font-feature-settings: "kern" 1, "cv02" 1, "cv03" 1, "cv04" 1;
 }
 
-.editorial-hero-headline {
-  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
-  font-size: clamp(1.25rem, 4.2vw, 4.25rem);
-  line-height: 1.18;
+/* Master Luxury Price Typography System */
+.font-price-luxury {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-feature-settings: "tnum" 1, "kern" 1;
+  font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
-  font-feature-settings: "kern" 1, "liga" 1, "dlig" 1;
-  font-kerning: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.price-currency-glyph {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  display: inline-block;
+  margin-right: 0.08em;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  opacity: 0.95;
+}
+
+.editorial-hero-headline {
+  font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-size: clamp(1.75rem, 4.2vw, 3.85rem);
+  line-height: 1.14;
+  letter-spacing: -0.03em;
+  font-weight: 600;
   text-wrap: balance;
 }
 
-@keyframes jiyooCaretPulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.12;
-  }
-}
-
-/* Natural fine linen / subtle paper texture overlay */
+/* Crisp Gallery & Structural Canvas Surfaces */
 .bg-paper-texture {
-  background-color: #FAF9F5;
+  background-color: #FFFFFF;
 }
 
 .bg-warm-canvas {
-  background-color: #F8F6F0;
+  background-color: #FAFAFA;
 }
 
 .bg-matte-card {
   background-color: #FFFFFF;
-  box-shadow: 0 1px 3px 0 rgba(28, 25, 23, 0.03), 0 4px 12px 0 rgba(28, 25, 23, 0.02);
+  box-shadow: 0 1px 3px 0 rgba(24, 24, 27, 0.04);
 }
 
 .border-subtle-warm {
-  border-color: #E7E3DA;
+  border-color: #E4E4E7;
 }
 
 @theme {
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-serif: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
-  --font-mono: 'IBM Plex Mono', monospace;
-  --color-brand-black: #1C1917;
-  --color-brand-gray-900: #292524;
-  --color-brand-gray-800: #44403C;
-  --color-brand-gray-500: #78716C;
-  --color-brand-gray-200: #E7E3DA;
-  --color-brand-gray-100: #F4F1EA;
-  --color-brand-gray-50: #FAF9F5;
+  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Outfit', system-ui, -apple-system, sans-serif;
+  --color-brand-black: #18181B;
+  --color-brand-gray-900: #27272A;
+  --color-brand-gray-800: #3F3F46;
+  --color-brand-gray-500: #71717A;
+  --color-brand-gray-200: #E4E4E7;
+  --color-brand-gray-100: #F4F4F5;
+  --color-brand-gray-50: #FAFAFA;
   --color-brand-white: #FFFFFF;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: #FAF9F5;
-  color: #1C1917;
+  background-color: #FFFFFF;
+  color: #18181B;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;

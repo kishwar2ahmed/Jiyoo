@@ -10,6 +10,7 @@ import { searchCatalogProducts } from "../utils/fuzzyMatch";
 import { getOptimizedImageUrl } from "../utils/imageUtils";
 import { Product } from "../types";
 import { useModalBackButton } from "../features/core/hooks/useModalBackButton";
+import { PriceDisplay } from "../features/core/components/PriceDisplay";
 
 const TRENDING_SEARCHES = [
   "Mango",
@@ -336,8 +337,8 @@ export function Navbar({
     <>
       {searchQuery.trim() ? (
         <div className="flex flex-col max-h-[60dvh] sm:max-h-[440px]">
-          <div className="px-4 py-2.5 bg-[#FAF9F5] border-b border-[#E7E3DA] flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#57534E]">
+          <div className="px-4 py-2.5 bg-white border-b border-stone-200 flex items-center justify-between">
+            <span className="text-xs font-medium text-stone-500">
               {liveSearchResults.length} Matching Product{liveSearchResults.length === 1 ? "" : "s"}
             </span>
             <button
@@ -346,9 +347,9 @@ export function Navbar({
                 setSearchOpen(true);
                 setDropdownFocused(false);
               }}
-              className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 cursor-pointer"
+              className="text-[11px] font-semibold text-stone-700 hover:text-black cursor-pointer"
             >
-              Full View ↗
+              View all results
             </button>
           </div>
 
@@ -366,7 +367,7 @@ export function Navbar({
                     key={term}
                     type="button"
                     onClick={() => handleRealTimeSearchChange(term)}
-                    className="px-2.5 py-1 rounded-md bg-[#F4F1EA] hover:bg-[#1C1917] hover:text-white text-xs text-[#1C1917] transition-colors cursor-pointer"
+                    className="px-2.5 py-1 rounded-md bg-stone-100 hover:bg-stone-900 hover:text-white text-xs text-stone-800 transition-colors cursor-pointer"
                   >
                     {term}
                   </button>
@@ -375,7 +376,7 @@ export function Navbar({
             </div>
           ) : (
             <>
-              <div className="overflow-y-auto divide-y divide-[#F4F1EA]">
+              <div className="overflow-y-auto divide-y divide-stone-100">
                 {liveSearchResults.slice(0, 6).map((product) => {
                   const displayPrice =
                     product.weights?.[0]?.price ?? product.price;
@@ -396,12 +397,11 @@ export function Navbar({
                         <p className="text-xs sm:text-sm font-semibold text-[#1C1917] truncate group-hover:text-emerald-800 transition-colors">
                           {product.name}
                         </p>
-                        <p className="text-[11px] text-[#78716C] flex items-center gap-2 mt-0.5">
-                          <span className="font-bold text-[#1C1917]">
-                            ₹{displayPrice}
-                          </span>
-                          {displayUnit && <span>• {displayUnit}</span>}
-                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <PriceDisplay amount={displayPrice} size="xs" weight="extrabold" />
+                          {displayUnit && <span className="text-[11px] text-[#78716C]">· {displayUnit}</span>}
+                        </div>
+
                       </div>
                       <button
                         type="button"
@@ -466,15 +466,15 @@ export function Navbar({
         ref={headerRef}
         className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
           scrolled || mobileMenuOpen
-            ? "bg-[#FAF9F5]/95 backdrop-blur-md border-b border-[#E7E3DA] pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2.5 sm:pb-3 shadow-2xs"
-            : "bg-[#FAF9F5]/90 backdrop-blur-sm pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 sm:pb-4"
+            ? "bg-white border-b border-stone-200 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2.5 sm:pb-3 shadow-2xs"
+            : "bg-white/95 border-b border-stone-100 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 sm:pb-4"
         }`}
       >
         {scrolled && (
           <motion.div
             aria-hidden="true"
             style={{ scaleX }}
-            className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#00D2FF] via-[#0EA5E9] to-[#0284C7] shadow-[0_0_10px_rgba(14,165,233,0.85)] origin-left pointer-events-none"
+            className="absolute bottom-0 left-0 right-0 h-[2px] bg-stone-900 origin-left pointer-events-none"
           />
         )}
         <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-12">
@@ -497,58 +497,43 @@ export function Navbar({
               <img
                 src="/jiyoo.logo.jpeg"
                 alt={settings.storeName || "JIYOO"}
-                className="h-9 md:h-10 w-auto object-contain rounded-xl shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                className="h-9 md:h-10 w-auto object-contain rounded-lg shrink-0 transition-opacity group-hover:opacity-90"
               />
-              <span className="font-serif-luxury text-xl md:text-2xl font-semibold tracking-wider text-brand-black block leading-tight truncate transition-colors duration-200 group-hover:text-black">
+              <span className="font-serif-luxury text-xl md:text-2xl font-semibold tracking-tight text-stone-900 block leading-tight truncate">
                 {settings.storeName || "JIYOO"}
               </span>
             </div>
 
-            {/* Zone 2: Desktop Navigation Categories & Premium Retail | Wholesale Switch */}
+            {/* Zone 2: Desktop Navigation Categories & Dual Retail/Wholesale Switch */}
             <nav className="flex items-center gap-3.5 xl:gap-5">
-              {/* Premium Segmented Switch: Retail | Wholesale */}
               <div
                 role="group"
-                aria-label="Store mode switch"
-                className="inline-flex items-center p-0.5 rounded-xl bg-[#EAE5D9] border border-[#D6CFC2] shadow-inner shrink-0"
+                aria-label="Desktop store mode selector"
+                className="inline-flex items-center p-0.5 rounded-full bg-[#EFECE6] border border-[#E2DDD3] shadow-inner shrink-0"
               >
                 <button
                   type="button"
                   onClick={() => onRetailClick?.()}
-                  aria-pressed={activePage === "retail"}
-                  className={`relative px-3.5 py-1.5 rounded-[9px] text-[11px] font-bold uppercase tracking-[0.1em] transition-colors duration-200 cursor-pointer whitespace-nowrap z-10 ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                     activePage === "retail"
-                      ? "text-[#FAF9F5]"
-                      : "text-[#57534E] hover:text-[#1C1917]"
+                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-xs"
+                      : "text-[#78716C] hover:text-[#1C1917]"
                   }`}
+                  aria-pressed={activePage === "retail"}
                 >
-                  {activePage === "retail" && (
-                    <motion.span
-                      layoutId="navbarDesktopModePill"
-                      transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                      className="pointer-events-none absolute inset-0 rounded-[9px] bg-[#1C1917] shadow-xs -z-10"
-                    />
-                  )}
-                  <span className="relative z-10">Retail</span>
+                  Retail
                 </button>
                 <button
                   type="button"
                   onClick={() => onWholesaleClick?.()}
-                  aria-pressed={activePage === "wholesale"}
-                  className={`relative px-3.5 py-1.5 rounded-[9px] text-[11px] font-bold uppercase tracking-[0.1em] transition-colors duration-200 cursor-pointer whitespace-nowrap z-10 ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                     activePage === "wholesale"
-                      ? "text-[#FAF9F5]"
-                      : "text-[#57534E] hover:text-[#1C1917]"
+                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-xs"
+                      : "text-[#78716C] hover:text-[#1C1917]"
                   }`}
+                  aria-pressed={activePage === "wholesale"}
                 >
-                  {activePage === "wholesale" && (
-                    <motion.span
-                      layoutId="navbarDesktopModePill"
-                      transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                      className="pointer-events-none absolute inset-0 rounded-[9px] bg-[#1C1917] shadow-xs -z-10"
-                    />
-                  )}
-                  <span className="relative z-10">Wholesale</span>
+                  Wholesale
                 </button>
               </div>
 
@@ -767,7 +752,7 @@ export function Navbar({
                       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                       className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center overflow-hidden tabular-nums text-[10px] font-bold tracking-tight transition-colors duration-300 ${
                         isCartUpdating
-                          ? "bg-[#1C1917] text-[#E5C99B] ring-2 ring-[#C5A880]/70 shadow-[0_2px_10px_rgba(197,168,128,0.45)]"
+                          ? "bg-[#1C1917] text-[#E5C99B] ring-1 ring-[#C5A880] shadow-xs"
                           : "bg-[#1C1917] text-[#FAF9F5] border border-[#C5A880]/60 shadow-xs"
                       }`}
                     >
@@ -841,11 +826,11 @@ export function Navbar({
                 </div>
               </div>
 
-              {/* Center: Premium Retail | Wholesale Segmented Switch */}
+              {/* Center: Dual Side-by-Side Retail & Wholesale Segmented Switch */}
               <div
                 role="group"
-                aria-label="Store mode switch"
-                className="inline-flex items-center p-0.5 rounded-lg bg-[#EAE5D9] border border-[#D6CFC2] shadow-inner shrink-0"
+                aria-label="Store mode selector"
+                className="inline-flex items-center p-0.5 rounded-full bg-[#EFECE6] border border-[#E2DDD3] shadow-inner shrink-0"
               >
                 <button
                   type="button"
@@ -853,21 +838,14 @@ export function Navbar({
                     setMobileMenuOpen(false);
                     onRetailClick?.();
                   }}
-                  aria-pressed={activePage === "retail"}
-                  className={`relative px-1.5 sm:px-2.5 py-1 rounded-md text-[9px] sm:text-[10.5px] font-bold uppercase tracking-normal sm:tracking-wider transition-colors duration-200 cursor-pointer whitespace-nowrap z-10 ${
+                  className={`px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                     activePage === "retail"
-                      ? "text-[#FAF9F5]"
-                      : "text-[#57534E] hover:text-[#1C1917]"
+                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-xs"
+                      : "text-[#78716C] hover:text-[#1C1917]"
                   }`}
+                  aria-pressed={activePage === "retail"}
                 >
-                  {activePage === "retail" && (
-                    <motion.span
-                      layoutId="navbarMobileModePill"
-                      transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                      className="pointer-events-none absolute inset-0 rounded-md bg-[#1C1917] shadow-2xs -z-10"
-                    />
-                  )}
-                  <span className="relative z-10">Retail</span>
+                  Retail
                 </button>
                 <button
                   type="button"
@@ -875,21 +853,14 @@ export function Navbar({
                     setMobileMenuOpen(false);
                     onWholesaleClick?.();
                   }}
-                  aria-pressed={activePage === "wholesale"}
-                  className={`relative px-1.5 sm:px-2.5 py-1 rounded-md text-[9px] sm:text-[10.5px] font-bold uppercase tracking-normal sm:tracking-wider transition-colors duration-200 cursor-pointer whitespace-nowrap z-10 ${
+                  className={`px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                     activePage === "wholesale"
-                      ? "text-[#FAF9F5]"
-                      : "text-[#57534E] hover:text-[#1C1917]"
+                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-xs"
+                      : "text-[#78716C] hover:text-[#1C1917]"
                   }`}
+                  aria-pressed={activePage === "wholesale"}
                 >
-                  {activePage === "wholesale" && (
-                    <motion.span
-                      layoutId="navbarMobileModePill"
-                      transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                      className="pointer-events-none absolute inset-0 rounded-md bg-[#1C1917] shadow-2xs -z-10"
-                    />
-                  )}
-                  <span className="relative z-10">Wholesale</span>
+                  Wholesale
                 </button>
               </div>
 
@@ -962,7 +933,7 @@ export function Navbar({
                     <ShoppingBag className="w-4 h-4 text-[#E5C99B] shrink-0" strokeWidth={2.2} />
                   </motion.div>
 
-                  <span className="relative inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[#FAF9F5]/15 font-mono text-[11px] font-bold leading-none tabular-nums text-[#FAF9F5] shrink-0">
+                  <span className="relative inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-white/20 text-[11px] font-semibold leading-none tabular-nums text-white shrink-0">
                     <motion.span
                       key={cartCount}
                       initial={{ scale: 0.8, opacity: 0.6 }}
@@ -1097,38 +1068,35 @@ export function Navbar({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="lg:hidden border-t border-[#E7E3DA] bg-[#FAF9F5] px-4 sm:px-6 pt-4 pb-5 mt-3 shadow-lg max-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-contain"
+              className="lg:hidden border-t border-stone-200 bg-white px-4 sm:px-6 pt-4 pb-5 mt-3 shadow-lg max-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-contain"
             >
-              {/* Store Mode Switch inside Drawer */}
-              <div className="mb-3 p-1 rounded-xl bg-[#EAE5D9] border border-[#D6CFC2] grid grid-cols-2 gap-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onRetailClick?.();
-                  }}
-                  className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                    activePage === "retail"
-                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-xs"
-                      : "text-[#57534E] hover:text-[#1C1917]"
-                  }`}
-                >
-                  Retail Store
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onWholesaleClick?.();
-                  }}
-                  className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                    activePage === "wholesale"
-                      ? "bg-[#1C1917] text-[#FAF9F5] shadow-xs"
-                      : "text-[#57534E] hover:text-[#1C1917]"
-                  }`}
-                >
-                  Wholesale
-                </button>
+              {/* Standalone Wholesale / Retail Button inside Drawer */}
+              <div className="mb-3">
+                {activePage === "wholesale" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onRetailClick?.();
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-stone-900 text-white border border-[#C5A880]/70 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer shadow-xs"
+                  >
+                    <span>Back to Retail Store</span>
+                    <ArrowRight className="w-4 h-4 text-[#E5C99B]" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onWholesaleClick?.();
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-stone-900 text-white border border-[#C5A880]/70 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer shadow-xs"
+                  >
+                    <span>Wholesale Store</span>
+                    <ArrowRight className="w-4 h-4 text-[#E5C99B]" />
+                  </button>
+                )}
               </div>
 
               <div className="flex flex-col gap-1">
@@ -1137,10 +1105,10 @@ export function Navbar({
                     key={cat.id}
                     type="button"
                     onClick={() => handleMobileNavCategory(cat.id)}
-                    className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-medium text-[#1C1917] hover:bg-[#F4F1EA] active:bg-[#EAE5D9] transition-colors capitalize cursor-pointer"
+                    className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-medium text-stone-900 hover:bg-stone-50 active:bg-stone-100 transition-colors capitalize cursor-pointer"
                   >
                     <span>{cat.label}</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#78716C]" />
+                    <ArrowRight className="w-3.5 h-3.5 text-stone-400" />
                   </button>
                 ))}
                 <button
@@ -1153,10 +1121,10 @@ export function Navbar({
                       document.dispatchEvent(new CustomEvent("open-about"));
                     }
                   }}
-                  className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-medium text-[#1C1917] hover:bg-[#F4F1EA] active:bg-[#EAE5D9] transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-medium text-stone-900 hover:bg-stone-50 active:bg-stone-100 transition-colors cursor-pointer"
                 >
                   <span>About Us</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-[#78716C]" />
+                  <ArrowRight className="w-3.5 h-3.5 text-stone-400" />
                 </button>
                 <button
                   type="button"
@@ -1168,10 +1136,10 @@ export function Navbar({
                       document.dispatchEvent(new CustomEvent("open-contact"));
                     }
                   }}
-                  className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-medium text-[#57534E] hover:text-[#1C1917] hover:bg-[#F4F1EA] active:bg-[#EAE5D9] transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-medium text-stone-700 hover:text-stone-900 hover:bg-stone-50 active:bg-stone-100 transition-colors cursor-pointer"
                 >
                   <span>Help &amp; Contact</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-[#78716C]" />
+                  <ArrowRight className="w-3.5 h-3.5 text-stone-400" />
                 </button>
                 <a
                   href="tel:+919739391891"
@@ -1185,7 +1153,7 @@ export function Navbar({
 
               {/* Official Social Channels inside Mobile Drawer */}
               <div className="mt-4 pt-4 border-t border-[#E7E3DA] flex items-center justify-between gap-3">
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#78716C]">
+                <span className="text-xs text-stone-500 font-medium">
                   Official Channels
                 </span>
                 <div className="flex items-center gap-2.5">
@@ -1217,11 +1185,11 @@ export function Navbar({
             initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -16 }}
-            className="fixed inset-0 z-50 bg-[#FAF9F5]/98 backdrop-blur-xl flex flex-col pt-[calc(4.5rem+env(safe-area-inset-top))] pb-8 px-4 sm:px-6 lg:px-10 overflow-y-auto overscroll-contain"
+            className="fixed inset-0 z-50 bg-white flex flex-col pt-[calc(4.5rem+env(safe-area-inset-top))] pb-8 px-4 sm:px-6 lg:px-10 overflow-y-auto overscroll-contain"
           >
             <div className="max-w-4xl mx-auto w-full">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#78716C]">
+                <span className="text-xs font-medium text-stone-500">
                   Instant Catalog Search
                 </span>
                 <button
@@ -1344,7 +1312,7 @@ export function Navbar({
                               <img
                                 src={getOptimizedImageUrl(product.image, 160, 80)}
                                 alt={product.name}
-                                className="w-16 h-16 rounded-xl object-cover bg-[#FAF9F5] border border-[#E7E3DA] shrink-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                                className="w-16 h-16 rounded-lg object-cover bg-stone-50 border border-stone-200 shrink-0 transition-opacity group-hover:opacity-90"
                               />
                               <div className="flex-1 min-w-0">
                                 <h4 className="text-sm font-semibold text-[#1C1917] truncate group-hover:text-emerald-800 transition-colors">
@@ -1395,7 +1363,7 @@ export function Navbar({
                 setShowMobileCartPreview(false);
                 onCartClick();
               }}
-              className="pointer-events-auto w-full max-w-md mx-auto flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl bg-[#1C1917]/95 backdrop-blur-md text-[#FAF9F5] border border-[#C5A880]/75 shadow-[0_14px_34px_-6px_rgba(28,25,23,0.55)] active:scale-[0.98] transition-transform cursor-pointer"
+              className="pointer-events-auto w-full max-w-md mx-auto flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-2xl bg-[#1C1917] text-white border border-[#C5A880]/75 shadow-2xl active:scale-[0.98] transition-transform cursor-pointer"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="flex -space-x-2 overflow-hidden shrink-0">

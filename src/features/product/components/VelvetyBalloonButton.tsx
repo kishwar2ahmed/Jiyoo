@@ -152,7 +152,7 @@ export const VelvetyBalloonButton: React.FC<VelvetyBalloonButtonProps> = ({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: [0, 0.9, 0] }}
                 transition={{ duration: 0.85 }}
-                className="pointer-events-none absolute -inset-0.5 rounded-full border border-[#E5C99B]/80 shadow-[0_0_14px_rgba(229,201,155,0.5)] z-10"
+                className="pointer-events-none absolute -inset-0.5 rounded-full border border-[#E5C99B]/80 z-10"
               />
             </>
           )}
@@ -167,7 +167,7 @@ export const VelvetyBalloonButton: React.FC<VelvetyBalloonButtonProps> = ({
             animate={{ opacity: 1, y: -6, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.9 }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            className="pointer-events-none absolute -top-3 right-1 sm:right-2 z-40 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#1C1917]/95 border border-[#C5A880] shadow-[0_4px_12px_rgba(0,0,0,0.35)] backdrop-blur-md"
+            className="pointer-events-none absolute -top-3 right-1 sm:right-2 z-40 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#1C1917] border border-[#C5A880] shadow-sm"
           >
             <Check className="w-3 h-3 text-[#E5C99B]" strokeWidth={3} />
             <span className="text-[10.5px] font-serif font-semibold tracking-wide text-[#FAF2E1]">

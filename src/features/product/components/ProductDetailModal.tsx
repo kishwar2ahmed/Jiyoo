@@ -23,6 +23,13 @@ import { RealisticDeliveryScooter } from "../../core/components/RealisticDeliver
 import { preloadProductCutout } from "../../core/components/FlyingItemsLayer";
 import { VelvetyBalloonButton } from "./VelvetyBalloonButton";
 import { VelvetWhatsAppButton } from "./VelvetWhatsAppButton";
+import { PriceDisplay } from "../../core/components/PriceDisplay";
+import { SEO } from "../../../components/SEO";
+import { TrustStrip } from "../../../components/TrustStrip";
+import {
+  generateProductSchema,
+  generateBreadcrumbSchema,
+} from "../../../utils/schemaGenerator";
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -206,17 +213,42 @@ export function ProductDetailModal({
     }, 50);
   };
 
+  const slugOrId = product.slug || String(product.id);
+  const productCanonicalPath = `/?category=${encodeURIComponent(product.categoryId)}&product=${encodeURIComponent(slugOrId)}`;
+
   return (
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-10">
+          <SEO
+            title={`Buy ${product.name} Online in India (${currentUnit || "Fresh"}) | JIYOO`}
+            description={
+              product.description ||
+              `Order fresh ${product.name} (${currentUnit || "Fresh Pack"}) online at JIYOO for ₹${currentPrice}. FSSAI Certified (21226112000732), 100% pure & authentic with express delivery in Bengaluru & India.`
+            }
+            keywords={`${product.name}, buy ${product.name} online India, ${product.categoryId} online Bengaluru, JIYOO ${product.name}`}
+            canonicalPath={productCanonicalPath}
+            ogImage={activeImage || product.image}
+            ogType="product"
+            schema={[
+              generateProductSchema(product),
+              generateBreadcrumbSchema([
+                { name: "Home", url: "/" },
+                {
+                  name: product.categoryId.toUpperCase(),
+                  url: `/?category=${encodeURIComponent(product.categoryId)}`,
+                },
+                { name: product.name, url: productCanonicalPath },
+              ]),
+            ]}
+          />
           {/* Backdrop blur */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-brand-black/40 backdrop-blur-md"
+            className="absolute inset-0 bg-stone-950/65"
           />
 
           {/* Modal Container */}
@@ -225,7 +257,7 @@ export function ProductDetailModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 30, stiffness: 350 }}
-            className="relative bg-brand-white w-full max-w-4xl max-h-[90dvh] md:max-h-[85dvh] rounded-[32px] shadow-2xl overflow-y-auto overflow-x-hidden border border-brand-gray-100 flex flex-col z-10"
+            className="relative bg-brand-white w-full max-w-4xl max-h-[90dvh] md:max-h-[85dvh] rounded-2xl shadow-2xl overflow-y-auto overflow-x-hidden border border-brand-gray-100 flex flex-col z-10"
           >
 
             {/* WhatsApp order handoff: the order is already created server-side; never ask the customer to self-attest payment/order completion. */}
@@ -248,7 +280,7 @@ export function ProductDetailModal({
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="absolute top-6 right-6 z-30 w-10 h-10 bg-brand-white/80 backdrop-blur-md hover:bg-brand-white text-brand-black rounded-full flex items-center justify-center shadow-md transition-colors"
+              className="absolute top-6 right-6 z-30 w-10 h-10 bg-white hover:bg-stone-100 text-stone-900 border border-stone-200 rounded-full flex items-center justify-center shadow-xs transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -262,7 +294,7 @@ export function ProductDetailModal({
                       key={activeImage || product.image}
                       ref={modalImgRef}
                       src={getOptimizedImageUrl(activeImage || product.image, 800, 85)}
-                      alt={product.name}
+                      alt={`${product.name} - Buy Online in India | JIYOO`}
                       initial={{ opacity: 0, scale: 0.98 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 1.015 }}
@@ -331,7 +363,7 @@ export function ProductDetailModal({
                         (activeImage || product.image) === img ? 'border-brand-black' : 'border-transparent opacity-70 hover:opacity-100'
                       }`}
                     >
-                      <img src={getOptimizedImageUrl(img as string, 100, 80)} alt={`${product.name} ${i + 1}`} className="w-full h-full object-contain" />
+                      <img src={getOptimizedImageUrl(img as string, 100, 80)} alt={`${product.name} - View ${i + 1} - Buy Online in India | JIYOO`} loading="lazy" className="w-full h-full object-contain" />
                     </button>
                   ))}
                 </div>
@@ -361,9 +393,9 @@ export function ProductDetailModal({
                   </div>
 
                   {/* Product Name */}
-                  <h1 className="text-2xl sm:text-3xl font-semibold text-brand-black tracking-tight mb-2 leading-tight">
+                  <h2 className="text-2xl sm:text-3xl font-semibold text-brand-black tracking-tight mb-2 leading-tight">
                     {product.name}
-                  </h1>
+                  </h2>
 
                   {/* Subtext info */}
                   <div className="flex items-center gap-3 text-sm text-brand-gray-500 mb-6">
@@ -536,32 +568,16 @@ export function ProductDetailModal({
 
                     {/* Price display */}
                     <div className="text-right">
-                      <span className="text-[10px] uppercase tracking-wider text-brand-gray-400 font-semibold block">
+                      <span className="text-[10px] uppercase tracking-wider text-brand-gray-400 font-semibold block mb-0.5">
                         Total Price
                       </span>
-                      <div className="flex items-baseline justify-end gap-2 mt-0.5 overflow-hidden tabular-nums">
-                        <AnimatePresence mode="popLayout" initial={false}>
-                          <motion.span
-                            key={`modal-total-${Number(currentPrice) * quantity}`}
-                            initial={{ y: 12, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            exit={{ y: -12, opacity: 0 }}
-                            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                            className="inline-block text-2xl sm:text-3xl font-bold text-brand-black tracking-tight"
-                          >
-                            ₹{Number(currentPrice) * quantity}
-                          </motion.span>
-                        </AnimatePresence>
-                        {product.discount && (
-                          <span className="text-sm text-brand-gray-400 line-through">
-                            ₹
-                            {Math.round(
-                              (Number(currentPrice) * quantity) /
-                                (1 - product.discount / 100),
-                            )}
-                          </span>
-                        )}
-                      </div>
+                      <PriceDisplay
+                        amount={Number(currentPrice) * quantity}
+                        discountPercent={product.discount}
+                        size="2xl"
+                        weight="extrabold"
+                        animated
+                      />
                     </div>
                   </div>
 
@@ -642,6 +658,9 @@ export function ProductDetailModal({
                       />
                     </div>
                   </div>
+
+                  {/* Indian E-Commerce Trust & Compliance Strip */}
+                  <TrustStrip variant="compact" />
                 </div>
               </div>
             </div>
@@ -677,8 +696,8 @@ export function ProductDetailModal({
                               300,
                               80,
                             )}
-                            alt={relatedProduct.name}
-                            className="w-full h-full object-contain transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                            alt={`${relatedProduct.name} - Buy Online in India | JIYOO`}
+                            className="w-full h-full object-contain transition-transform duration-300"
                             loading="lazy"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;

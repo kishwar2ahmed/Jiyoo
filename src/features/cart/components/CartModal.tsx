@@ -45,6 +45,7 @@ import { LocationPickerModal } from "../../core/components/LocationPickerModal";
 import { getOptimizedImageUrl } from "../../../utils/imageUtils";
 import { useToast } from "../../core/contexts/ToastContext";
 import { useModalBackButton } from "../../core/hooks/useModalBackButton";
+import { PriceDisplay } from "../../core/components/PriceDisplay";
 
 import { getAuth } from "firebase/auth";
 import {
@@ -461,11 +462,16 @@ export function CartModal({
     setIsValidatingPromo(true);
     setPromoError("");
     try {
+      const token = await getAuthToken();
       const res = await fetch("/api/coupons/validate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           code,
+          orderType,
           items: items.map((i) => ({
             id: i.id,
             baseId: i.baseId,
@@ -1179,10 +1185,10 @@ export function CartModal({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
             transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-0 w-full h-[100dvh] max-h-[100dvh] bg-[#FAF9F5] z-50 flex flex-col overflow-hidden overscroll-contain"
+            className="fixed inset-0 w-full h-[100dvh] max-h-[100dvh] bg-white z-50 flex flex-col overflow-hidden overscroll-contain"
           >
             {/* Header */}
-            <div className="shrink-0 border-b border-[#E7E3DA] bg-white/95 backdrop-blur-md z-20 pt-[env(safe-area-inset-top)]">
+            <div className="shrink-0 border-b border-[#E7E3DA] bg-white z-20 pt-[env(safe-area-inset-top)]">
               <div className="max-w-6xl mx-auto w-full flex items-center justify-between gap-2 px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                   <button
@@ -1373,7 +1379,7 @@ export function CartModal({
                                           {item.name}
                                         </h3>
                                         {(item.selectedWeight || item.badge) && (
-                                          <span className="inline-block mt-1 px-2 py-0.5 rounded bg-stone-100 border border-stone-200 text-[10px] font-mono uppercase tracking-wider text-stone-700">
+                                          <span className="inline-block mt-1 px-2 py-0.5 rounded bg-stone-100 border border-stone-200 text-xs text-stone-600 font-medium">
                                             {item.selectedWeight || item.badge}
                                           </span>
                                         )}
@@ -1386,15 +1392,20 @@ export function CartModal({
                                         <X className="w-4 h-4" />
                                       </button>
                                     </div>
-                                    <p className="text-stone-500 text-xs sm:text-sm mt-1 tabular-nums">
-                                      ₹{getValidPrice(item)} each
+                                    <div className="flex items-center gap-1.5 mt-1">
+                                      <PriceDisplay
+                                        amount={getValidPrice(item)}
+                                        size="xs"
+                                        weight="semibold"
+                                        suffix="each"
+                                      />
                                       {(item as any).wholesaleMinQty && (item as any).wholesaleMinQty > 1
-                                        ? ` · MOQ ${(item as any).wholesaleMinQty}`
-                                        : ""}
-                                    </p>
+                                        ? <span className="text-xs text-stone-500">· MOQ {(item as any).wholesaleMinQty}</span>
+                                        : null}
+                                    </div>
                                   </div>
                                   <div className="flex items-center justify-between gap-2 mt-2.5 sm:mt-3.5">
-                                    <div className="flex items-center gap-2 sm:gap-3 bg-[#FAF9F5] rounded-xl p-1 border border-[#E7E3DA]">
+                                    <div className="flex items-center gap-2 sm:gap-3 bg-stone-50 rounded-xl p-1 border border-stone-200">
                                       <button
                                         onClick={() => {
                                           const minQty = Number((item as any).wholesaleMinQty) || 1;
@@ -1433,21 +1444,16 @@ export function CartModal({
                                         <Plus className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
-                                    <div className="overflow-hidden tabular-nums shrink-0">
-                                      <AnimatePresence mode="popLayout" initial={false}>
-                                        <motion.p
-                                          key={`cart-item-sub-${getValidPrice(item) * item.quantity}`}
-                                          initial={{ y: 8, opacity: 0 }}
-                                          animate={{ y: 0, opacity: 1 }}
-                                          exit={{ y: -8, opacity: 0 }}
-                                          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                                          className="text-sm sm:text-base font-bold text-[#1C1917] tracking-tight"
-                                        >
-                                          ₹{getValidPrice(item) * item.quantity}
-                                        </motion.p>
-                                      </AnimatePresence>
+                                    <div className="shrink-0">
+                                      <PriceDisplay
+                                        amount={getValidPrice(item) * item.quantity}
+                                        size="base"
+                                        weight="extrabold"
+                                        animated
+                                      />
                                     </div>
                                   </div>
+
                                 </div>
                               </motion.div>
                             ))}
@@ -1566,12 +1572,12 @@ export function CartModal({
 
                       <div className="space-y-4">
                         {orderType === "wholesale" ? (
-                          <div className="p-3.5 bg-[#161412] text-[#FAF9F5] border border-[#C5A880]/40 rounded-xl space-y-1.5">
+                          <div className="p-3.5 bg-[#161412] text-white border border-[#C5A880]/40 rounded-xl space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#E5C99B] font-bold">
+                              <span className="text-xs text-[#E5C99B] font-medium">
                                 Wholesale Trade Dispatch Active
                               </span>
-                              <span className="text-[10px] font-mono text-emerald-400 font-semibold">
+                              <span className="text-xs text-emerald-400 font-medium">
                                 Pan-India &amp; Hyderabad Cold Chain
                               </span>
                             </div>
@@ -2140,17 +2146,17 @@ export function CartModal({
 
                             {/* Price Breakdown */}
                             <div className="space-y-2 pt-1">
-                              <div className="flex justify-between text-stone-600 text-sm">
+                              <div className="flex justify-between items-center text-stone-600 text-sm">
                                 <span>Subtotal</span>
-                                <span>₹{cartTotal}</span>
+                                <PriceDisplay amount={cartTotal} size="sm" weight="bold" />
                               </div>
                               {isPromoApplied && (
-                                <div className="flex justify-between text-emerald-600 text-sm font-medium">
+                                <div className="flex justify-between items-center text-emerald-600 text-sm font-medium">
                                   <span>
                                     Coupon Discount
                                     {appliedCoupon?.code ? ` (${appliedCoupon.code})` : ""}
                                   </span>
-                                  <span>-₹{discountAmount}</span>
+                                  <span className="font-price-luxury font-bold tabular-nums text-emerald-700">-₹{discountAmount}</span>
                                 </div>
                               )}
                               <div className="flex justify-between items-center text-stone-600 text-sm">
@@ -2159,23 +2165,25 @@ export function CartModal({
                                   <span>Delivery Fee</span>
                                 </span>
                                 {effectiveDeliveryFee === 0 ? (
-                                  <span className="text-emerald-600 font-medium">Free</span>
+                                  <span className="text-emerald-700 font-bold text-xs uppercase tracking-wide">Free</span>
                                 ) : (
-                                  <span className="font-semibold text-stone-900">
-                                    ₹{effectiveDeliveryFee}
-                                  </span>
+                                  <PriceDisplay amount={effectiveDeliveryFee} size="sm" weight="bold" />
                                 )}
                               </div>
                             </div>
                           </div>
                         )}
-                        <div className="pt-3 border-t border-stone-100 flex justify-between text-stone-900 font-medium text-lg">
+                        <div className="pt-3 border-t border-stone-100 flex justify-between items-baseline text-stone-900 font-semibold text-lg">
                           <span>Grand Total</span>
-                          <span className="font-bold text-stone-900">
-                            ₹{grandTotal}
-                          </span>
+                          <PriceDisplay
+                            amount={grandTotal}
+                            size="xl"
+                            weight="extrabold"
+                            animated
+                          />
                         </div>
                       </div>
+
 
                       {/* Desktop Action Buttons (hidden on mobile because mobile has compact sticky bar below) */}
                       <div className="hidden lg:block">
@@ -2281,9 +2289,12 @@ export function CartModal({
                     <span className="text-[11px] uppercase tracking-wider font-semibold text-stone-500">
                       Total
                     </span>
-                    <span className="text-base font-bold text-[#1C1917] tabular-nums">
-                      ₹{grandTotal}
-                    </span>
+                    <PriceDisplay
+                      amount={grandTotal}
+                      size="base"
+                      weight="extrabold"
+                      animated
+                    />
                     {effectiveDeliveryFee === 0 && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
                         <RealisticDeliveryScooter className="w-5 h-4 shrink-0" />
@@ -2291,6 +2302,7 @@ export function CartModal({
                       </span>
                     )}
                   </div>
+
                   <span className="text-[11px] font-medium text-stone-600 tabular-nums">
                     {cartCount} {cartCount === 1 ? "item" : "items"}
                   </span>

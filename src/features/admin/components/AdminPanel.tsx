@@ -75,6 +75,8 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [authStep, setAuthStep] = useState<AuthStep>('CHECKING');
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
+  const [ownerPinInput, setOwnerPinInput] = useState('');
+  const [loginMethod, setLoginMethod] = useState<'passcode' | 'google' | 'email'>('passcode');
   const [authError, setAuthError] = useState('');
   const [isSigningIn, setIsSigningIn] = useState(false);
 
@@ -225,6 +227,24 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
       }
     } catch (err: any) {
       setAuthError(err?.message || 'Invalid administrator email or password.');
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  const handlePasscodeLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    if (!ownerPinInput.trim()) {
+      setAuthError('Please enter the owner master passcode.');
+      return;
+    }
+    setIsSigningIn(true);
+    try {
+      const primaryRes = await initiateAdminPrimaryAuth({ ownerPin: ownerPinInput.trim() });
+      handlePrimaryAuthResult(primaryRes);
+    } catch (err: any) {
+      setAuthError(err?.message || 'Authentication error.');
     } finally {
       setIsSigningIn(false);
     }
@@ -436,55 +456,128 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
 
           {/* STEP 1: PRIMARY LOGIN */}
           {authStep === 'PRIMARY_LOGIN' && (
-            <>
-              <button
-                type="button"
-                disabled={isSigningIn || lockoutSeconds > 0}
-                onClick={handleGoogleAdminLogin}
-                className="w-full flex items-center justify-center gap-2.5 bg-stone-900 hover:bg-black text-white py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer mb-4"
-              >
-                <ShieldAlert className="w-4 h-4 text-emerald-400" />
-                <span>{isSigningIn ? 'Verifying Administrator...' : 'Sign In with Admin Google Account'}</span>
-              </button>
-
-              <div className="relative flex py-2 items-center mb-4">
-                <div className="flex-grow border-t border-stone-200"></div>
-                <span className="flex-shrink mx-3 text-[10px] uppercase tracking-widest text-stone-400 font-semibold">Or Admin Email</span>
-                <div className="flex-grow border-t border-stone-200"></div>
+            <div className="space-y-4">
+              {/* Login Method Tabs */}
+              <div className="flex bg-stone-100 p-1 rounded-xl gap-1">
+                <button
+                  type="button"
+                  onClick={() => { setLoginMethod('passcode'); setAuthError(''); }}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    loginMethod === 'passcode'
+                      ? 'bg-white text-stone-900 shadow-sm'
+                      : 'text-stone-500 hover:text-stone-800'
+                  }`}
+                >
+                  Owner Passcode
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setLoginMethod('google'); setAuthError(''); }}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    loginMethod === 'google'
+                      ? 'bg-white text-stone-900 shadow-sm'
+                      : 'text-stone-500 hover:text-stone-800'
+                  }`}
+                >
+                  Google Sign-In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setLoginMethod('email'); setAuthError(''); }}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    loginMethod === 'email'
+                      ? 'bg-white text-stone-900 shadow-sm'
+                      : 'text-stone-500 hover:text-stone-800'
+                  }`}
+                >
+                  Email & Password
+                </button>
               </div>
 
-              <form onSubmit={handleEmailAdminLogin} className="space-y-3">
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="email"
-                    value={adminEmail}
-                    onChange={(e) => setAdminEmail(e.target.value)}
-                    placeholder="Admin Email Address"
-                    disabled={lockoutSeconds > 0}
-                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:border-stone-900"
-                  />
+              {/* METHOD 1: OWNER PASSCODE (INSTANT ACCESS) */}
+              {loginMethod === 'passcode' && (
+                <form onSubmit={handlePasscodeLogin} className="space-y-3">
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 leading-relaxed">
+                    <p className="font-bold">Instant Owner Access</p>
+                    <p className="text-emerald-800 mt-0.5">
+                      Enter the master store owner passcode to access your dashboard immediately with no billing or card required.
+                    </p>
+                  </div>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="password"
+                      value={ownerPinInput}
+                      onChange={(e) => setOwnerPinInput(e.target.value)}
+                      placeholder="Enter Owner Passcode"
+                      disabled={lockoutSeconds > 0}
+                      autoFocus
+                      className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm font-mono text-stone-900 focus:outline-none focus:border-emerald-700"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isSigningIn || lockoutSeconds > 0}
+                    className="w-full bg-emerald-700 hover:bg-emerald-800 text-white py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSigningIn ? 'Unlocking Admin...' : 'Unlock Admin Panel'}
+                  </button>
+                </form>
+              )}
+
+              {/* METHOD 2: GOOGLE SIGN-IN */}
+              {loginMethod === 'google' && (
+                <div className="space-y-3">
+                  <p className="text-xs text-stone-500 leading-relaxed">
+                    Sign in with your verified administrator Google account (<code className="font-bold text-stone-800">yoyokishwar@gmail.com</code>).
+                  </p>
+                  <button
+                    type="button"
+                    disabled={isSigningIn || lockoutSeconds > 0}
+                    onClick={handleGoogleAdminLogin}
+                    className="w-full flex items-center justify-center gap-2.5 bg-stone-900 hover:bg-black text-white py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    <ShieldAlert className="w-4 h-4 text-emerald-400" />
+                    <span>{isSigningIn ? 'Verifying Administrator...' : 'Sign In with Google Account'}</span>
+                  </button>
                 </div>
-                <div className="relative">
-                  <KeyRound className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="password"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    placeholder="Admin Password"
-                    disabled={lockoutSeconds > 0}
-                    className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:border-stone-900"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={isSigningIn || lockoutSeconds > 0}
-                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  Continue to 2FA Verification
-                </button>
-              </form>
-            </>
+              )}
+
+              {/* METHOD 3: EMAIL & PASSWORD */}
+              {loginMethod === 'email' && (
+                <form onSubmit={handleEmailAdminLogin} className="space-y-3">
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      value={adminEmail}
+                      onChange={(e) => setAdminEmail(e.target.value)}
+                      placeholder="Admin Email Address"
+                      disabled={lockoutSeconds > 0}
+                      className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:border-stone-900"
+                    />
+                  </div>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="password"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      placeholder="Admin Password"
+                      disabled={lockoutSeconds > 0}
+                      className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:border-stone-900"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isSigningIn || lockoutSeconds > 0}
+                    className="w-full bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    Continue to 2FA Verification
+                  </button>
+                </form>
+              )}
+            </div>
           )}
 
           {/* STEP 2A: FIRST-TIME TOTP 2FA ENROLLMENT */}
@@ -858,7 +951,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
 
       {/* Security & 2FA Management Modal */}
       {showSecurityModal && (
-        <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[120] bg-black/65 flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-white rounded-2xl border border-stone-200 shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-stone-200 pb-4 mb-4">
               <div className="flex items-center gap-2.5">

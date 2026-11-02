@@ -28,8 +28,9 @@ const ProductRow = React.memo(({ p, setEditingProduct, setIsModalOpen, handleDel
       </div>
       <span className="font-medium text-brand-black">{p.name}</span>
     </td>
-    <td className="px-4 py-3 text-brand-gray-600 capitalize">{p.categoryId}</td>
-    <td className="px-4 py-3 text-brand-gray-600">₹{p.price} / {p.unit}</td>
+    <td className="px-4 py-3 font-price-luxury font-bold text-stone-900 tabular-nums">
+      ₹{p.price} <span className="text-xs font-normal text-stone-500">/ {p.unit}</span>
+    </td>
     <td className="px-4 py-3">
       <button
         onClick={() => handleToggleStock(p)}
@@ -177,16 +178,22 @@ export function ProductsTab() {
   }, []);
 
   const handleSeedCatalog = async () => {
-    if (!(await confirm({ title: "Sync catalog?", message: "Safely merge baseline catalog products and images into the database without deleting existing records?", danger: false, confirmLabel: "Sync" }))) return;
+    if (!(await confirm({ title: "Sync catalog?", message: `Safely merge all ${PRODUCTS.length} baseline catalog products and images into the database without deleting existing records?`, danger: false, confirmLabel: "Sync All" }))) return;
     setLoading(true);
     try {
-      for (const p of PRODUCTS.slice(0, 25)) {
-        const cleanProd = Object.fromEntries(
-          Object.entries({ ...p, id: String(p.id), isDeleted: false, updatedAt: new Date().toISOString() }).filter(([_, v]) => v !== undefined)
+      const batchSize = 15;
+      for (let i = 0; i < PRODUCTS.length; i += batchSize) {
+        const chunk = PRODUCTS.slice(i, i + batchSize);
+        await Promise.all(
+          chunk.map((p) => {
+            const cleanProd = Object.fromEntries(
+              Object.entries({ ...p, id: String(p.id), isDeleted: false, updatedAt: new Date().toISOString() }).filter(([_, v]) => v !== undefined)
+            );
+            return adminSaveDoc('products', String(p.id), cleanProd);
+          })
         );
-        await adminSaveDoc('products', String(p.id), cleanProd);
       }
-      showToast("Catalog synchronized safely!", "success");
+      showToast(`All ${PRODUCTS.length} catalog products synchronized safely!`, "success");
     } catch (err: any) {
       console.error("Error seeding catalog:", err);
       showToast(err?.message || "Failed to synchronize catalog.", "error");
@@ -217,6 +224,8 @@ export function ProductsTab() {
       category: selectedCategoryObj?.label || editingProduct.category || editingProduct.categoryId,
       subcategoryId: defaultSubcategoryId,
       unit: editingProduct.unit || '1 kg',
+      stock: typeof editingProduct.stock === 'number' && editingProduct.stock > 0 ? editingProduct.stock : 100,
+      stockStatus: editingProduct.stockStatus || 'in_stock',
       isDeleted: false,
       updatedAt: new Date().toISOString(),
     } as Product;
@@ -307,7 +316,7 @@ export function ProductsTab() {
           </button>
           <button 
             onClick={() => {
-              setEditingProduct({ tags: [], unit: 'kg', price: 0, stock: 0 });
+              setEditingProduct({ tags: [], unit: '1 kg', price: 0, stock: 100, stockStatus: 'in_stock' });
               setIsModalOpen(true);
             }}
             className="bg-brand-black text-brand-white px-4 py-2 rounded-lg font-medium hover:bg-brand-gray-900 transition-colors flex items-center gap-2"

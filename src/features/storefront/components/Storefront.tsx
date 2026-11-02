@@ -9,6 +9,14 @@ import { Search, RefreshCw, AlertCircle } from 'lucide-react';
 import { useStorefrontCategories } from '../hooks/useStorefrontCategories';
 import { searchCatalogProducts } from '../../../utils/fuzzyMatch';
 import { useStorefrontProducts } from '../hooks/useStorefrontProducts';
+import { SEO } from '../../../components/SEO';
+import { TrustStrip } from '../../../components/TrustStrip';
+import {
+  generateOrganizationSchema,
+  generateWebSiteSchema,
+  generateItemListSchema,
+  generateBreadcrumbSchema,
+} from '../../../utils/schemaGenerator';
 
 export function Storefront() {
   const { categoriesList } = useStorefrontCategories();
@@ -103,8 +111,9 @@ export function Storefront() {
       sessionStorage.setItem('jiyoo_can_step_back_cat', 'true');
     }
 
-    // Record this so browser history knows of the category change
-    window.history.pushState({ jiyooCategory: categoryId }, "", window.location.href);
+    // Record this so browser history and crawlers know of the category change
+    const nextUrl = `/?category=${encodeURIComponent(categoryId)}`;
+    window.history.pushState({ jiyooCategory: categoryId }, "", nextUrl);
   }, [applyCategoryState]);
 
   // Back button support: step back to the previously viewed category before exit prompt
@@ -158,6 +167,7 @@ export function Storefront() {
   }, []);
 
   const { wishlist, toggleWishlist } = useCart();
+  const wishlistSet = useMemo(() => new Set(wishlist.map(String)), [wishlist]);
 
 
   const activeCategory = categoriesList.find(c => c.id === activeCategoryId);
@@ -261,6 +271,134 @@ export function Storefront() {
     };
   }, [categoriesList, handleProductClick, handleCategoryChange, applyCategoryState]);
 
+  // Deep-link support for Google Sitemap & Search Crawlers (?category=, ?subcategory=, ?product=, ?search=)
+  const hasHandledUrlParamsRef = useRef(false);
+  useEffect(() => {
+    if (hasHandledUrlParamsRef.current || currentProducts.length === 0 || categoriesList.length === 0) {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const catParam = params.get('category');
+    const subcatParam = params.get('subcategory');
+    const prodParam = params.get('product');
+    const searchParam = params.get('search');
+
+    if (catParam && categoriesList.some((c) => c.id === catParam)) {
+      applyCategoryState(catParam);
+      if (subcatParam) {
+        setActiveSubcategoryId(subcatParam);
+      }
+    }
+    if (searchParam) {
+      setSearchQuery(searchParam);
+    }
+    if (prodParam) {
+      const targetProd = currentProducts.find(
+        (p) => p.slug === prodParam || String(p.id) === prodParam
+      );
+      if (targetProd) {
+        if (targetProd.categoryId && categoriesList.some((c) => c.id === targetProd.categoryId)) {
+          applyCategoryState(targetProd.categoryId);
+        }
+        handleProductClick(targetProd, 'details');
+      }
+    }
+    hasHandledUrlParamsRef.current = true;
+  }, [currentProducts, categoriesList, applyCategoryState, handleProductClick, setSearchQuery]);
+
+  // Dynamic Category SEO Metadata & Rich Snippets Schema
+  const seoConfig = useMemo(() => {
+    const categoryMetaMap: Record<
+      string,
+      { title: string; description: string; keywords: string }
+    > = {
+      fruits: {
+        title: "Buy Fresh Imported & Indian Fruits Online in Bengaluru & India | JIYOO",
+        description:
+          "Order orchard-fresh imported fruits (Washington Apples, Zespri Kiwi, Blueberries, Hass Avocado, Dragon Fruit, Cherries) & seasonal Indian fruits online at JIYOO. Same-day express delivery.",
+        keywords:
+          "buy fresh fruits online Bengaluru, imported fruits online India, blueberries online Bangalore, avocado online, dragon fruit, JIYOO fruits",
+      },
+      vegetables: {
+        title: "Buy Daily Farm Vegetables & Exotic Thai Veggies Online | JIYOO",
+        description:
+          "Shop daily morning-harvested Indian farm vegetables, broccoli, zucchini, bell peppers, and authentic Thai culinary herbs online at JIYOO with 60-minute home delivery.",
+        keywords:
+          "farm fresh vegetables online Bangalore, exotic vegetables online India, Thai vegetables Bengaluru, broccoli, bell peppers, JIYOO vegetables",
+      },
+      meat: {
+        title: "Buy Pure RO-Water Cleaned Chicken, Mutton, Fish & Prawns Online | JIYOO",
+        description:
+          "Order 100% fresh, antibiotic-free custom-cut chicken (Curry Cut, Biryani Cut, Boneless), tender farm mutton, Rohu, Katla, Pomfret, Surmai & coastal prawns cleaned with pure RO water at JIYOO.",
+        keywords:
+          "fresh chicken delivery Bangalore, RO water cleaned meat online, tender mutton curry cut Bengaluru, fresh fish and prawns online, JIYOO meat",
+      },
+      smoothies: {
+        title: "Order Fresh Cold-Pressed Fruit Smoothies & Bowls Online | JIYOO",
+        description:
+          "Refreshing 100% natural fruit smoothies, avocado honey blends, berry bowls, and cold-pressed juices freshly prepared to order at JIYOO.",
+        keywords:
+          "fresh fruit smoothies online Bangalore, cold pressed juices Bengaluru, healthy smoothie bowls, JIYOO smoothies",
+      },
+      "fast-foods": {
+        title: "Order Hygienic Steamed Momos, Fried Rice & Indo-Chinese Fast Foods | JIYOO",
+        description:
+          "Hot, hygienic chef-crafted steamed momos, wok-tossed fried rice, Hakka noodles, and crispy Indo-Chinese specials delivered fresh by JIYOO.",
+        keywords:
+          "steamed momos online Bangalore, Indo Chinese fast food delivery, Hakka noodles, fried rice Bengaluru, JIYOO fast foods",
+      },
+    };
+
+    const activeMeta = categoryMetaMap[activeCategoryId] || {
+      title:
+        "JIYOO | Buy Fresh Imported Fruits, Farm Vegetables & Custom-Cut Meat Online in India",
+      description:
+        "Order fresh imported & Indian fruits, daily farm vegetables, pure RO-water cleaned custom-cut chicken, mutton, coastal fish & prawns, and wholesale fruit cartons online at JIYOO.",
+      keywords:
+        "JIYOO, jiyoo.co.in, fresh fruits online, farm vegetables, custom cut meat Bangalore, wholesale fruits India",
+    };
+
+    const canonicalPath =
+      activeCategoryId && activeCategoryId !== defaultCategories[0].id
+        ? `/?category=${encodeURIComponent(activeCategoryId)}`
+        : "/";
+
+    const listLabel = activeCategory
+      ? `JIYOO ${activeCategory.label}${activeSubcategory ? ` - ${activeSubcategory.label}` : ""} Catalog`
+      : "JIYOO Fresh Fruits, Vegetables, Meat & Wholesale Catalog";
+
+    const breadcrumbs = [
+      { name: "Home", url: "/" },
+      ...(activeCategory
+        ? [
+            {
+              name: activeCategory.label,
+              url: `/?category=${encodeURIComponent(activeCategory.id)}`,
+            },
+          ]
+        : []),
+      ...(activeCategory && activeSubcategory
+        ? [
+            {
+              name: activeSubcategory.label,
+              url: `/?category=${encodeURIComponent(activeCategory.id)}&subcategory=${encodeURIComponent(activeSubcategory.id)}`,
+            },
+          ]
+        : []),
+    ];
+
+    return {
+      ...activeMeta,
+      canonicalPath,
+      schema: [
+        generateOrganizationSchema(),
+        generateWebSiteSchema(),
+        generateBreadcrumbSchema(breadcrumbs),
+        generateItemListSchema(displayedProducts, listLabel, canonicalPath),
+      ],
+    };
+  }, [activeCategoryId, activeCategory, activeSubcategory, displayedProducts]);
+
   const categoryThumbnails = useMemo(() => {
     const map = new Map<string, { type: 'real-composite' | 'products', urls: string[] }>();
     
@@ -298,7 +436,22 @@ export function Storefront() {
   }, [categoriesList, currentProducts]);
 
   return (
-    <div id="products" className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-1.5 sm:pt-8 pb-6 sm:pb-12 relative">
+    <>
+      {!isDetailOpen && (
+        <SEO
+          title={seoConfig.title}
+          description={seoConfig.description}
+          keywords={seoConfig.keywords}
+          canonicalPath={seoConfig.canonicalPath}
+          schema={seoConfig.schema}
+        />
+      )}
+      <TrustStrip variant="storefront" />
+      <section
+        id="products"
+        aria-label="JIYOO Fresh Product Catalog"
+        className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-1.5 sm:pt-6 pb-6 sm:pb-12 relative"
+      >
       <div className="flex flex-col gap-2 sm:gap-6 mb-3 sm:mb-10 relative z-10">
         {/* Main Categories - Editorial Image Cards with Scroll-Triggered Choreography & Uncropped Mobile Labels */}
         <div className="grid grid-cols-5 gap-1.5 sm:gap-6 md:gap-8 w-full pb-1 sm:pb-4 pt-1 sm:pt-2 items-start">
@@ -318,17 +471,17 @@ export function Storefront() {
                 className="group relative flex min-w-0 w-full flex-col items-center outline-none gap-1 sm:gap-3.5 cursor-pointer pb-1.5 sm:pb-2.5"
               >
                 <div 
-                  className={`luxury-sheen-sweep relative w-full aspect-square sm:aspect-[4/5] max-w-[54px] sm:max-w-none mx-auto rounded-xl sm:rounded-[20px] overflow-hidden bg-brand-white border transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] sm:group-hover:shadow-[0_16px_32px_-8px_rgba(28,25,23,0.16)] ${
+                  className={`luxury-sheen-sweep relative w-full aspect-square sm:aspect-[4/5] max-w-[54px] sm:max-w-none mx-auto rounded-xl sm:rounded-2xl overflow-hidden bg-brand-white border transition-all duration-200 ${
                     isActive
-                      ? 'border-[#C5A880] shadow-[0_10px_24px_-6px_rgba(28,25,23,0.14)] ring-2 ring-[#1C1917]/20'
-                      : 'border-brand-gray-100 sm:group-hover:border-[#C5A880]/60 shadow-[0_4px_12px_-4px_rgba(0,0,0,0.05)]'
+                      ? 'border-[#C5A880] shadow-sm ring-1 ring-stone-900/10'
+                      : 'border-brand-gray-100 sm:group-hover:border-[#C5A880]/60 shadow-xs'
                   }`}
                 >
                   {thumbData?.urls && thumbData.urls.length > 0 ? (
                     <img 
                       src={thumbData.urls[0]} 
-                      alt={category.label} 
-                      className={`w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] sm:group-hover:scale-108 ${isActive ? 'scale-105' : 'scale-100'}`}
+                      alt={`${category.label} - Buy Online in India | JIYOO`} 
+                      className="w-full h-full object-cover transition-transform duration-300"
                       loading="eager"
                       fetchPriority="high"
                       decoding="async"
@@ -350,7 +503,7 @@ export function Storefront() {
                 {isActive && (
                   <motion.span
                     layoutId="activeCategoryUnderline"
-                    className="absolute bottom-0 w-6 sm:w-12 h-[2.5px] bg-gradient-to-r from-[#1E1B4B] via-[#C5A880] to-[#0D9488] rounded-full shadow-[0_2px_8px_rgba(197,168,128,0.5)]"
+                    className="absolute bottom-0 w-6 sm:w-12 h-[2px] bg-stone-900 rounded-full"
                     transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                   />
                 )}
@@ -592,7 +745,7 @@ export function Storefront() {
                 key={product.id} 
                 index={idx}
                 product={product} 
-                isWishlisted={wishlist.includes(String(product.id))}
+                isWishlisted={wishlistSet.has(String(product.id))}
                 toggleWishlist={toggleWishlist}
                 onProductClick={handleProductClick}
               />
@@ -626,6 +779,7 @@ export function Storefront() {
         onProductClick={handleProductClick}
         initialTab={detailInitialTab}
       />
-    </div>
+      </section>
+    </>
   );
 }

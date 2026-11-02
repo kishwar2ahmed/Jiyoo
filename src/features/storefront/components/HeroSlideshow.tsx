@@ -243,12 +243,12 @@ export function HeroSlideshow() {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className={`group relative w-full overflow-hidden rounded-xl sm:rounded-2xl border transition-all duration-700 select-none ${
+      className={`group relative w-full overflow-hidden rounded-lg border transition-all duration-300 select-none ${
         isDiwaliSlide
-          ? 'border-amber-400/90 shadow-[0_0_35px_-4px_rgba(245,158,11,0.55)] ring-2 ring-amber-400/80 bg-gradient-to-br from-amber-950/20 via-stone-900 to-black'
+          ? 'border-amber-400/60 shadow-sm bg-stone-900'
           : isWhatsAppSlide
-          ? 'border-emerald-700/50 shadow-[0_6px_25px_-4px_rgba(5,150,105,0.25)] ring-1.5 ring-emerald-600/30 bg-[#F6EFE6]'
-          : 'border-[#E7E2D8] bg-[#1C1917]/5 shadow-[0_10px_35px_-12px_rgba(28,25,23,0.18)] focus-visible:outline-2 focus-visible:outline-[#8A5A36]'
+          ? 'border-emerald-700/40 shadow-sm bg-[#F6EFE6]'
+          : 'border-stone-200 bg-stone-900 shadow-sm'
       }`}
     >
       {/* Aspect Ratio Container: Matched to 2048x768 (8:3) banner proportions so nothing is cropped */}
@@ -371,7 +371,7 @@ export function HeroSlideshow() {
               goToPrev();
             }}
             aria-label="Previous banner"
-            className="pointer-events-auto p-1.5 sm:p-2 rounded-full bg-black/45 hover:bg-black/75 backdrop-blur-md text-white/90 hover:text-white border border-white/15 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 hover:scale-105 active:scale-95 cursor-pointer"
+            className="pointer-events-auto p-1.5 sm:p-2 rounded-full bg-black/60 hover:bg-black text-white border border-white/20 transition-opacity opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer"
           >
             <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
@@ -382,15 +382,15 @@ export function HeroSlideshow() {
               goToNext();
             }}
             aria-label="Next banner"
-            className="pointer-events-auto p-1.5 sm:p-2 rounded-full bg-black/45 hover:bg-black/75 backdrop-blur-md text-white/90 hover:text-white border border-white/15 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 hover:scale-105 active:scale-95 cursor-pointer"
+            className="pointer-events-auto p-1.5 sm:p-2 rounded-full bg-black/60 hover:bg-black text-white border border-white/20 transition-opacity opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer"
           >
             <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
         </div>
 
-        {/* Top Dynamic Progress Bar for Current Slide (Signature JIYOO Blue Morpho Butterfly Cyan) */}
+        {/* Top Progress Bar for Current Slide */}
         {!prefersReducedMotion && (
-          <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-black/20 backdrop-blur-[1px] z-30 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-black/20 z-30 overflow-hidden pointer-events-none">
             <motion.div
               key={`progress-${currentIndex}-${isPaused}-${currentDuration}`}
               initial={{ width: '0%' }}
@@ -399,7 +399,7 @@ export function HeroSlideshow() {
                 duration: isPaused ? 0 : currentDuration / 1000,
                 ease: 'linear',
               }}
-              className="h-full bg-gradient-to-r from-[#00D2FF] via-[#0EA5E9] to-[#0284C7] shadow-[0_0_10px_rgba(14,165,233,0.9),0_0_4px_rgba(56,189,248,1)]"
+              className="h-full bg-white/80"
             />
           </div>
         )}

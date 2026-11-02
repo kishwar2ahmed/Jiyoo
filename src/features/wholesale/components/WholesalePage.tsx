@@ -8,6 +8,8 @@ import {
   X,
   Minus,
   Heart,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useSettings } from "../../../contexts/SettingsContext";
 import { useCart } from "../../../contexts/CartContext";
@@ -20,6 +22,14 @@ import { VelvetWhatsAppButton } from "../../product/components/VelvetWhatsAppBut
 import { ProductDetailModal } from "../../product/components/ProductDetailModal";
 import { getOptimizedImageUrl } from "../../../utils/imageUtils";
 import { Product } from "../../../types";
+import { PriceDisplay } from "../../core/components/PriceDisplay";
+import { SEO } from "../../../components/SEO";
+import { TrustStrip } from "../../../components/TrustStrip";
+import {
+  generateOrganizationSchema,
+  generateItemListSchema,
+  generateBreadcrumbSchema,
+} from "../../../utils/schemaGenerator";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -99,6 +109,141 @@ function triggerSafeExternalLink(url: string) {
   document.body.appendChild(anchor);
   anchor.click();
   document.body.removeChild(anchor);
+}
+
+function WholesaleLotCardImageArea({
+  product,
+  lotNumber,
+  isWishlisted,
+  toggleWishlist,
+  showToast,
+  index,
+  cleanName,
+  imageRefCallback,
+}: {
+  product: Product;
+  lotNumber: string;
+  isWishlisted: boolean;
+  toggleWishlist: (id: string) => void;
+  showToast: (msg: string, type: "info" | "success") => void;
+  index: number;
+  cleanName: string;
+  imageRefCallback: (el: HTMLImageElement | null) => void;
+}) {
+  const allImages = useMemo(() => {
+    return Array.from(
+      new Set([product.image, ...(product.images || [])].filter(Boolean))
+    ) as string[];
+  }, [product.image, product.images]);
+
+  const [activeIdx, setActiveIdx] = useState(0);
+  const currentImage = allImages[activeIdx] || product.image;
+  const optimizedImg = getOptimizedImageUrl(currentImage, 520, 82);
+
+  return (
+    <div className="luxury-sheen-sweep relative aspect-[4/3] bg-white p-5 flex items-center justify-center border-b border-[#E7E3DA]/70 overflow-hidden">
+      {/* Quiet Unboxed Lot Index */}
+      <span className="absolute top-3.5 left-4 z-10 text-xs text-stone-600 bg-white/95 border border-stone-200 px-1.5 py-0.5 rounded font-medium">
+        Lot {lotNumber}
+      </span>
+
+      {/* Wishlist Toggle */}
+      <motion.button
+        type="button"
+        whileHover={{ scale: 1.08 }}
+        whileTap={{ scale: 0.85 }}
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleWishlist(String(product.id));
+          showToast(
+            isWishlisted ? "Removed from saved lots" : "Saved wholesale lot",
+            isWishlisted ? "info" : "success"
+          );
+        }}
+        aria-label={isWishlisted ? "Remove from wishlist" : "Save lot"}
+        className={`absolute top-3 right-3.5 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-colors border cursor-pointer ${
+          isWishlisted
+            ? "bg-red-50 border-red-200 text-red-600"
+            : "bg-white/95 hover:bg-white text-stone-900 border-stone-200"
+        }`}
+      >
+        <Heart
+          className="w-3.5 h-3.5"
+          fill={isWishlisted ? "#DC2626" : "none"}
+          stroke={isWishlisted ? "#DC2626" : "currentColor"}
+        />
+      </motion.button>
+
+      <img
+        ref={imageRefCallback}
+        src={optimizedImg}
+        alt={`${cleanName} - Buy Online in India | JIYOO`}
+        className="w-full h-full object-contain transition-transform duration-300"
+        loading="lazy"
+        decoding="async"
+      />
+
+      {/* Multi-Image Navigation Dots and Badges */}
+      {allImages.length > 1 && (
+        <>
+          {/* Photo Count Chip */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-2.5 right-3 z-10 px-2 py-0.5 rounded-md bg-stone-950/80 text-white text-[10px] font-medium pointer-events-none shadow-xs"
+          >
+            {activeIdx + 1}/{allImages.length} Photos
+          </div>
+
+          {/* Interactive Micro Dots */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-2 py-1 rounded-md bg-stone-950/60"
+          >
+            {allImages.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveIdx(i);
+                }}
+                aria-label={`View photo ${i + 1} of ${allImages.length}`}
+                className={`transition-all duration-200 rounded-full cursor-pointer ${
+                  i === activeIdx
+                    ? "w-4 h-1.5 bg-[#E5C99B]"
+                    : "w-1.5 h-1.5 bg-white/70 hover:bg-white"
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Next / Prev Hover Chevrons */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveIdx((prev) => (prev > 0 ? prev - 1 : allImages.length - 1));
+            }}
+            aria-label="Previous photo"
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-white/90 hover:bg-white text-[#1C1917] shadow-sm border border-[#E7E3DA] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer active:scale-90"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveIdx((prev) => (prev < allImages.length - 1 ? prev + 1 : 0));
+            }}
+            aria-label="Next photo"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-white/90 hover:bg-white text-[#1C1917] shadow-sm border border-[#E7E3DA] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer active:scale-90"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </>
+      )}
+    </div>
+  );
 }
 
 export function WholesalePage({
@@ -285,6 +430,26 @@ export function WholesalePage({
 
   return (
     <section className="min-h-screen bg-[#FAF9F5] text-[#1C1917] pb-24 pt-6 px-4 sm:px-6 lg:px-8">
+      {!selectedProduct && (
+        <SEO
+          title="Wholesale Imported Fruits & Master Cartons Supply in India | JIYOO B2B"
+          description="Direct container imports & orchard-packed wholesale fruit master cartons (South Africa Limpopo Citrus, New Zealand Crisp Pink Apples, Blueberries, Beauty Pears, Seedless Grapes) with GST invoicing and cold-chain dispatch across Bengaluru & India."
+          keywords="wholesale imported fruits India, bulk fruit cartons Bangalore, HoReCa fruit supplier Bengaluru, imported apple carton price India, JIYOO wholesale"
+          canonicalPath="/?view=wholesale"
+          schema={[
+            generateOrganizationSchema(),
+            generateBreadcrumbSchema([
+              { name: "Home", url: "/" },
+              { name: "Wholesale & Bulk Lots", url: "/?view=wholesale" },
+            ]),
+            generateItemListSchema(
+              filteredProducts,
+              "JIYOO B2B Wholesale Master Cartons & Trade Lots",
+              "/?view=wholesale"
+            ),
+          ]}
+        />
+      )}
       {/* Top Architectural Sub-Navigation Bar */}
       <div className="max-w-7xl mx-auto mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-[#E7E3DA] pb-5">
         <div className="flex items-center gap-4 sm:gap-6">
@@ -370,7 +535,7 @@ export function WholesalePage({
                 className="w-8 h-[1px] bg-[#C5A880] origin-left"
                 aria-hidden="true"
               />
-              <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.26em] text-[#E5C99B]">
+              <span className="text-xs text-[#E5C99B] font-medium">
                 JIYOO Commercial &amp; HoReCa Division
               </span>
             </motion.div>
@@ -379,7 +544,7 @@ export function WholesalePage({
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.65, delay: 0.14, ease: EASE_OUT_EXPO }}
-              className="font-serif-luxury text-3xl sm:text-5xl font-semibold tracking-tight text-[#FAF9F5] leading-[1.12] mb-3"
+              className="font-serif-luxury text-3xl sm:text-5xl font-semibold tracking-tight text-white leading-[1.12] mb-3"
             >
               Direct Import &amp; Orchard Wholesale Lots
             </motion.h1>
@@ -420,10 +585,10 @@ export function WholesalePage({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.3 + idx * 0.06, ease: EASE_OUT_EXPO }}
               >
-                <span className="block text-[10px] font-mono uppercase tracking-[0.2em] text-[#A8A29E] mb-1">
+                <span className="block text-xs text-stone-400 font-medium mb-1">
                   {spec.label}
                 </span>
-                <span className="font-serif-luxury text-base sm:text-lg font-medium text-[#FAF9F5]">
+                <span className="font-serif-luxury text-base sm:text-lg font-medium text-white">
                   {spec.value}
                 </span>
               </motion.div>
@@ -431,6 +596,9 @@ export function WholesalePage({
           </div>
         </motion.div>
       </div>
+
+      {/* Indian E-Commerce & B2B Trust Strip */}
+      <TrustStrip variant="storefront" className="px-0 mb-8" />
 
       {/* Catalog Controls: Search & Segmented Lot Filter Bar */}
       <div className="max-w-7xl mx-auto mb-8">
@@ -499,11 +667,11 @@ export function WholesalePage({
             <h2 className="font-serif-luxury text-2xl sm:text-3xl font-semibold text-[#1C1917]">
               Current Trade Lots
             </h2>
-            <span className="text-xs font-mono text-[#78716C] tabular-nums">
+            <span className="text-xs text-stone-500 tabular-nums">
               ({filteredProducts.length} {filteredProducts.length === 1 ? "Lot" : "Lots"} Available)
             </span>
           </div>
-          <span className="text-[11px] uppercase tracking-[0.18em] text-[#78716C] font-medium">
+          <span className="text-xs text-stone-500 font-medium">
             Prices Inclusive of Standard Export Packing
           </span>
         </div>
@@ -559,7 +727,6 @@ export function WholesalePage({
               const qtyInCart = matchingCartItem?.quantity || 0;
               const isJustAdded = !!justAddedMap[String(product.id)];
               const isWishlisted = wishlist.includes(String(product.id));
-              const optimizedImg = getOptimizedImageUrl(product.image, 520, 82);
               const lotNumber = String(index + 1).padStart(2, "0");
 
               const metadataParts = [
@@ -590,51 +757,19 @@ export function WholesalePage({
                   />
 
                   <div>
-                    {/* Full-Bleed Uncropped Image Header (Zero Top Badge Sandwich) */}
-                    <div className="luxury-sheen-sweep relative aspect-[4/3] bg-white p-5 flex items-center justify-center border-b border-[#E7E3DA]/70 overflow-hidden">
-                      {/* Quiet Unboxed Lot Index */}
-                      <span className="absolute top-3.5 left-4 z-10 font-mono text-[10px] uppercase tracking-[0.22em] text-[#78716C]">
-                        LOT {lotNumber}
-                      </span>
-
-                      {/* Wishlist Toggle */}
-                      <motion.button
-                        type="button"
-                        whileHover={{ scale: 1.08 }}
-                        whileTap={{ scale: 0.85 }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleWishlist(String(product.id));
-                          showToast(
-                            isWishlisted ? "Removed from saved lots" : "Saved wholesale lot",
-                            isWishlisted ? "info" : "success"
-                          );
-                        }}
-                        aria-label={isWishlisted ? "Remove from wishlist" : "Save lot"}
-                        className={`absolute top-3 right-3.5 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-colors border cursor-pointer ${
-                          isWishlisted
-                            ? "bg-red-50 border-red-200 text-red-600"
-                            : "bg-[#FAF9F5]/90 hover:bg-white text-[#1C1917] border-[#E7E3DA]"
-                        }`}
-                      >
-                        <Heart
-                          className="w-3.5 h-3.5"
-                          fill={isWishlisted ? "#DC2626" : "none"}
-                          stroke={isWishlisted ? "#DC2626" : "currentColor"}
-                        />
-                      </motion.button>
-
-                      <img
-                        ref={(el) => {
-                          imageRefs.current[String(product.id)] = el;
-                        }}
-                        src={optimizedImg}
-                        alt={cleanName}
-                        className="w-full h-full object-contain group-hover:scale-[1.045] transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
-                        loading={index < 6 ? "eager" : "lazy"}
-                        decoding="async"
-                      />
-                    </div>
+                    {/* Full-Bleed Uncropped Image Header with Multi-Image Support */}
+                    <WholesaleLotCardImageArea
+                      product={product}
+                      lotNumber={lotNumber}
+                      isWishlisted={isWishlisted}
+                      toggleWishlist={toggleWishlist}
+                      showToast={showToast}
+                      index={index}
+                      cleanName={cleanName}
+                      imageRefCallback={(el) => {
+                        imageRefs.current[String(product.id)] = el;
+                      }}
+                    />
 
                     {/* Editorial Body & Hairline Trade Specifications */}
                     <div className="p-5 pb-3">
@@ -702,16 +837,13 @@ export function WholesalePage({
                         <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-[#78716C] block mb-0.5">
                           Wholesale Lot Rate
                         </span>
-                        <div className="flex items-baseline gap-2 tabular-nums">
-                          <span className="font-serif-luxury text-2xl font-bold text-[#1C1917]">
-                            ₹{wholesalePrice.toLocaleString("en-IN")}
-                          </span>
-                          {product.mrp && Number(product.mrp) > wholesalePrice && (
-                            <span className="text-xs text-[#A8A29E] line-through">
-                              ₹{Number(product.mrp).toLocaleString("en-IN")}
-                            </span>
-                          )}
-                        </div>
+                        <PriceDisplay
+                          amount={wholesalePrice}
+                          originalAmount={product.mrp && Number(product.mrp) > wholesalePrice ? Number(product.mrp) : undefined}
+                          size="xl"
+                          weight="extrabold"
+                        />
+
                       </div>
 
                       <div className="text-right">
@@ -844,7 +976,7 @@ export function WholesalePage({
             transition={{ duration: 0.3, ease: EASE_OUT_EXPO }}
             className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-2xl z-40"
           >
-            <div className="bg-[#161412]/95 backdrop-blur-md text-[#FAF9F5] border border-[#C5A880]/50 rounded-2xl px-4 sm:px-6 py-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.45)] flex items-center justify-between gap-4">
+            <div className="bg-[#161412] text-white border border-[#C5A880]/50 rounded-2xl px-4 sm:px-6 py-3.5 shadow-2xl flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-[#C5A880]/15 border border-[#C5A880]/40 flex items-center justify-center shrink-0">
                   <ShoppingBag className="w-5 h-5 text-[#E5C99B]" />
@@ -858,9 +990,16 @@ export function WholesalePage({
                       {cartCount} {cartCount === 1 ? "Lot" : "Lots"}
                     </span>
                   </div>
-                  <p className="font-serif-luxury text-lg sm:text-xl font-bold text-[#FAF9F5] tabular-nums leading-tight">
-                    ₹{cartTotal.toLocaleString("en-IN")}
-                  </p>
+                  <div className="mt-0.5">
+                    <PriceDisplay
+                      amount={cartTotal}
+                      size="lg"
+                      weight="extrabold"
+                      isDark
+                      animated
+                    />
+                  </div>
+
                 </div>
               </div>
 

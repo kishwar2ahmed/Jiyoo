@@ -18,35 +18,17 @@ export function BrandStory() {
 
       {/* Brand Narrative Content */}
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <motion.span 
-          initial={{ opacity: 0, y: 15 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="inline-block text-[10px] sm:text-xs uppercase tracking-[0.35em] text-emerald-400 font-bold mb-4 bg-emerald-950/60 border border-emerald-800/40 px-4 py-1.5 rounded-full"
-        >
+        <span className="inline-block text-xs text-stone-400 font-medium mb-3">
           The {storeName} Philosophy
-        </motion.span>
+        </span>
         
-        <motion.h2 
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.1 }}
-          className="text-3xl sm:text-4xl md:text-5xl font-serif-luxury text-[#FAF9F5] leading-tight tracking-tight"
-        >
-          True luxury is found in <br className="hidden md:block"/> the <span className="italic font-light text-emerald-200">purity of nature.</span>
-        </motion.h2>
+        <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif-luxury text-white leading-tight tracking-tight">
+          True luxury is found in <br className="hidden md:block"/> the <span className="italic font-light text-emerald-300">purity of nature.</span>
+        </h2>
 
-        <motion.p 
-          initial={{ opacity: 0, y: 15 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="mt-5 text-sm sm:text-base text-[#E7E3DA]/90 font-light max-w-2xl mx-auto leading-relaxed"
-        >
+        <p className="mt-5 text-sm sm:text-base text-stone-300 font-light max-w-2xl mx-auto leading-relaxed">
           From organic farm-fresh produce to premium meats and handcrafted smoothies, we connect discerning palates with uncompromising quality.
-        </motion.p>
+        </p>
       </div>
     </section>
   );

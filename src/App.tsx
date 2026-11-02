@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { Navbar } from './layouts/Navbar';
 import { Hero } from './features/storefront/components/Hero';
 import { Storefront } from './features/storefront/components/Storefront';
@@ -10,22 +10,36 @@ import { OfflineBanner } from './features/core/components/OfflineBanner';
 import { ToastProvider } from './features/core/contexts/ToastContext';
 import { ConfirmProvider, useConfirm } from './features/core/contexts/ConfirmContext';
 import { useFCM } from './services/useFCM';
-import { isFirebaseConfigured } from './services/firebase';
-
-
-
 
 import { Footer } from "./layouts/Footer";
 import { FlyingItemsLayer } from "./features/core/components/FlyingItemsLayer";
-import { AuthModal } from "./features/auth/components/AuthModal";
-import { AccountCenter } from "./features/auth/components/AccountCenter";
-import { CartModal } from "./features/cart/components/CartModal";
-import { AboutModal } from "./features/core/components/AboutModal";
-import { ContactModal } from "./features/core/components/ContactModal";
-import { LegalPolicyModal, LegalPolicyTab } from "./features/core/components/LegalPolicyModal";
-import { AdminPanel } from "./features/admin/components/AdminPanel";
-import { WholesalePage } from "./features/wholesale/components/WholesalePage";
+import type { LegalPolicyTab } from "./features/core/components/LegalPolicyModal";
 import { WholesaleCurtainTransition } from "./features/wholesale/components/WholesaleCurtainTransition";
+
+const AuthModal = lazy(() =>
+  import("./features/auth/components/AuthModal").then((m) => ({ default: m.AuthModal }))
+);
+const AccountCenter = lazy(() =>
+  import("./features/auth/components/AccountCenter").then((m) => ({ default: m.AccountCenter }))
+);
+const CartModal = lazy(() =>
+  import("./features/cart/components/CartModal").then((m) => ({ default: m.CartModal }))
+);
+const AboutModal = lazy(() =>
+  import("./features/core/components/AboutModal").then((m) => ({ default: m.AboutModal }))
+);
+const ContactModal = lazy(() =>
+  import("./features/core/components/ContactModal").then((m) => ({ default: m.ContactModal }))
+);
+const LegalPolicyModal = lazy(() =>
+  import("./features/core/components/LegalPolicyModal").then((m) => ({ default: m.LegalPolicyModal }))
+);
+const AdminPanel = lazy(() =>
+  import("./features/admin/components/AdminPanel").then((m) => ({ default: m.AdminPanel }))
+);
+const WholesalePage = lazy(() =>
+  import("./features/wholesale/components/WholesalePage").then((m) => ({ default: m.WholesalePage }))
+);
 import {
   consumeProgrammaticDismissal,
   isOverlayActive,
@@ -47,9 +61,24 @@ function AppContent() {
   const [activePage, setActivePage] = useState<'retail' | 'wholesale'>(() =>
     window.location.hash === '#wholesale' ? 'wholesale' : 'retail'
   );
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem('jiyoo_splash_shown') !== '1';
+    } catch {
+      return true;
+    }
+  });
   const [isWholesaleCurtainActive, setIsWholesaleCurtainActive] = useState(false);
   const [wholesaleCurtainKey, setWholesaleCurtainKey] = useState(0);
+
+  // Preload CartModal & WholesalePage chunks during browser idle time after initial paint
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      import("./features/cart/components/CartModal").catch(() => {});
+      import("./features/wholesale/components/WholesalePage").catch(() => {});
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const openWholesalePage = () => {
     setWholesaleCurtainKey((prev) => prev + 1);
@@ -108,18 +137,42 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    const checkHash = () => {
-      if (window.location.hash === '#admin') {
+    const checkUrlAndHash = () => {
+      const params = new URLSearchParams(window.location.search);
+      const viewParam = params.get('view');
+      const policyParam = params.get('policy');
+      const modalParam = params.get('modal');
+      const hash = window.location.hash;
+
+      if (hash === '#admin') {
         setIsAdminOpen(true);
-      } else if (window.location.hash === '#wholesale') {
+      } else if (hash === '#wholesale' || viewParam === 'wholesale') {
         setActivePage('wholesale');
-      } else if (window.location.hash === '') {
+      } else if (hash === '#privacy-policy' || policyParam === 'privacy') {
+        setLegalTab('privacy');
+        setIsLegalOpen(true);
+      } else if (hash === '#terms' || policyParam === 'terms') {
+        setLegalTab('terms');
+        setIsLegalOpen(true);
+      } else if (
+        hash === '#refund-policy' ||
+        hash === '#shipping-policy' ||
+        policyParam === 'refund' ||
+        policyParam === 'shipping'
+      ) {
+        setLegalTab('refund');
+        setIsLegalOpen(true);
+      } else if (hash === '#contact' || modalParam === 'contact') {
+        setIsContactOpen(true);
+      } else if (hash === '#about' || modalParam === 'about') {
+        setIsAboutOpen(true);
+      } else if (hash === '' && viewParam !== 'wholesale') {
         setActivePage('retail');
       }
     };
-    checkHash();
-    window.addEventListener('hashchange', checkHash);
-    return () => window.removeEventListener('hashchange', checkHash);
+    checkUrlAndHash();
+    window.addEventListener('hashchange', checkUrlAndHash);
+    return () => window.removeEventListener('hashchange', checkUrlAndHash);
   }, []);
 
   // Hierarchical 4-Tier Back Button Navigation Stack:
@@ -225,14 +278,6 @@ function AppContent() {
   }, [confirm, isAuthOpen, isCartOpen, isAccountOpen, isAdminOpen, isAboutOpen, isContactOpen, isLegalOpen, activePage, searchQuery, setSearchQuery]);
 
 
-  if (showSplash) {
-    return (
-      <div className="min-h-[100dvh] bg-[#f8f6f0]">
-        <SplashScreen onComplete={() => setShowSplash(false)} />
-      </div>
-    );
-  }
-
   const isAnyOverlayOpen =
     isCartOpen ||
     isAuthOpen ||
@@ -244,13 +289,25 @@ function AppContent() {
 
   return (
     <div className="bg-paper-texture min-h-[100dvh] flex flex-col text-brand-black font-sans selection:bg-brand-gray-900 selection:text-brand-white overflow-x-hidden">
+      {showSplash && (
+        <SplashScreen
+          onComplete={() => {
+            try {
+              sessionStorage.setItem('jiyoo_splash_shown', '1');
+            } catch {
+              // ignore storage errors
+            }
+            setShowSplash(false);
+          }}
+        />
+      )}
       <WholesaleCurtainTransition
         active={isWholesaleCurtainActive}
         transitionKey={wholesaleCurtainKey}
         onComplete={() => setIsWholesaleCurtainActive(false)}
       />
       <OfflineBanner />
-      <Suspense fallback={<div />}>
+      <Suspense fallback={null}>
         {isAdminOpen && <AdminPanel onClose={() => {
           setIsAdminOpen(false);
           window.history.pushState("", document.title, window.location.pathname + window.location.search);
@@ -267,21 +324,27 @@ function AppContent() {
         onCartClick={() => setIsCartOpen(true)}
       />
       
-      
       <Suspense fallback={null}>
         {isAccountOpen && <AccountCenter onClose={() => setIsAccountOpen(false)} />}
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <AuthModal 
-          isOpen={isAuthOpen} 
-          onClose={() => setIsAuthOpen(false)} 
-        />
-        
-        <CartModal isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onRequestAuth={() => { setIsCartOpen(false); setIsAuthOpen(true); }} />
-        <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
-        <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} />
-        <LegalPolicyModal isOpen={isLegalOpen} initialTab={legalTab} onClose={() => setIsLegalOpen(false)} />
+        {isAuthOpen && (
+          <AuthModal 
+            isOpen={isAuthOpen} 
+            onClose={() => setIsAuthOpen(false)} 
+          />
+        )}
+        {isCartOpen && (
+          <CartModal
+            isOpen={isCartOpen}
+            onClose={() => setIsCartOpen(false)}
+            onRequestAuth={() => {
+              setIsCartOpen(false);
+              setIsAuthOpen(true);
+            }}
+          />
+        )}
+        {isAboutOpen && <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />}
+        {isContactOpen && <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} />}
+        {isLegalOpen && <LegalPolicyModal isOpen={isLegalOpen} initialTab={legalTab} onClose={() => setIsLegalOpen(false)} />}
       </Suspense>
 
       <div
@@ -298,10 +361,12 @@ function AppContent() {
           }`}
         >
           {activePage === 'wholesale' ? (
-            <WholesalePage
-              onBackToRetail={openRetailPage}
-              onOpenCart={() => setIsCartOpen(true)}
-            />
+            <Suspense fallback={<div className="min-h-screen bg-white" />}>
+              <WholesalePage
+                onBackToRetail={openRetailPage}
+                onOpenCart={() => setIsCartOpen(true)}
+              />
+            </Suspense>
           ) : (
             <>
               <Hero onOpenWholesale={openWholesalePage} />

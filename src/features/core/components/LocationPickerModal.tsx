@@ -167,7 +167,7 @@ export function LocationPickerModal({
   return (
     <AnimatePresence>
       {isOpen && (
-      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/65">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -283,7 +283,7 @@ export function LocationPickerModal({
                     className="w-full h-full border-0"
                     loading="lazy"
                   />
-                  <div className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-md text-[10px] font-mono text-gray-600 border border-gray-200 shadow-2xs">
+                  <div className="absolute bottom-2 right-2 bg-white px-2.5 py-1 rounded-md text-xs font-medium text-stone-600 border border-stone-200 shadow-xs">
                     {selectedCoords.lat.toFixed(4)}, {selectedCoords.lng.toFixed(4)}
                   </div>
                 </div>

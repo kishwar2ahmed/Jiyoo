@@ -284,7 +284,7 @@ export function OrdersTab() {
     const s = (status || '').toLowerCase();
     if (s === 'paid') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
     if (s === 'payment_pending') return 'bg-blue-100 text-blue-800 border-blue-200';
-    if (s === 'refunded') return 'bg-purple-100 text-purple-800 border-purple-200';
+    if (s === 'refunded') return 'bg-stone-200 text-stone-800 border-stone-300';
     if (s === 'failed') return 'bg-rose-100 text-rose-800 border-rose-200';
     return 'bg-rose-50 text-rose-700 border-rose-200';
   };
@@ -343,11 +343,10 @@ export function OrdersTab() {
                         {o.stockConflict && <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded px-1.5 py-0.5"><AlertTriangle className="w-3 h-3" /> Stock conflict</div>}
                       </td>
                       <td className="px-4 py-3"><div className="font-medium">{o.shippingDetails?.name || 'Guest Customer'}</div><div className="text-xs text-brand-gray-500">{o.shippingDetails?.phone}</div></td>
-                      <td className="px-4 py-3 text-xs font-medium">{o.paymentMethod || 'Cash on Delivery'}</td>
-                      <td className="px-4 py-3 font-semibold">₹{o.grandTotal || o.amount}</td>
-                      <td className="px-4 py-3"><select value={currentPaymentStatus} onChange={e => updatePaymentStatus(o.id, e.target.value)} className={`text-xs font-semibold rounded-lg px-2 py-1 border outline-none cursor-pointer ${getPaymentStatusColor(currentPaymentStatus)}`}><option value="unpaid">🔴 Unpaid</option><option value="payment_pending">⏳ Payment Pending</option><option value="paid">🟢 Paid</option><option value="refunded">🟣 Refunded</option><option value="failed">❌ Failed</option></select></td>
+                      <td className="px-4 py-3 font-price-luxury font-bold text-stone-900 tabular-nums">₹{Number(o.grandTotal || o.amount || 0).toLocaleString('en-IN')}</td>
+                      <td className="px-4 py-3"><select value={currentPaymentStatus} onChange={e => updatePaymentStatus(o.id, e.target.value)} className={`text-xs font-semibold rounded-lg px-2 py-1 border outline-none cursor-pointer ${getPaymentStatusColor(currentPaymentStatus)}`}><option value="unpaid">Unpaid</option><option value="payment_pending">Payment Pending</option><option value="paid">Paid</option><option value="refunded">Refunded</option><option value="failed">Failed</option></select></td>
                       <td className="px-4 py-3"><select value={currentOrderStatus} onChange={e => updateOrderStatus(o.id, e.target.value)} className={`text-xs font-semibold rounded-lg px-2 py-1 border outline-none cursor-pointer ${getOrderStatusColor(currentOrderStatus)}`}>
-                        {['AWAITING_WHATSAPP_CONFIRMATION','whatsapp_pending','RECEIVED','pending','confirmed','processing','packed','dispatched','out_for_delivery','delivered','cancelled'].map(s => <option key={s} value={s}>{s === 'AWAITING_WHATSAPP_CONFIRMATION' || s === 'whatsapp_pending' ? '💬 Awaiting WhatsApp' : s === 'RECEIVED' ? '📥 Received' : s === 'pending' ? '🟡 Ordered' : s === 'processing' ? '⚙️ Processing' : s === 'packed' ? '📦 Packed' : s === 'dispatched' ? '🚚 Dispatched / Shipped' : s === 'out_for_delivery' ? '🛵 Out for Delivery' : s === 'delivered' ? '✅ Delivered' : s === 'confirmed' ? '🔵 Confirmed' : '🔴 Cancelled'}</option>)}
+                        {['AWAITING_WHATSAPP_CONFIRMATION','whatsapp_pending','RECEIVED','pending','confirmed','processing','packed','dispatched','out_for_delivery','delivered','cancelled'].map(s => <option key={s} value={s}>{s === 'AWAITING_WHATSAPP_CONFIRMATION' || s === 'whatsapp_pending' ? 'Awaiting WhatsApp' : s === 'RECEIVED' ? 'Received' : s === 'pending' ? 'Ordered' : s === 'processing' ? 'Processing' : s === 'packed' ? 'Packed' : s === 'dispatched' ? 'Dispatched / Shipped' : s === 'out_for_delivery' ? 'Out for Delivery' : s === 'delivered' ? 'Delivered' : s === 'confirmed' ? 'Confirmed' : 'Cancelled'}</option>)}
                       </select></td>
                       <td className="px-4 py-3"><button onClick={() => setSelectedOrder(o)} className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg"><Eye className="w-3.5 h-3.5" /> Details &amp; Audit</button></td>
                     </tr>;
@@ -363,7 +362,7 @@ export function OrdersTab() {
         )}
       </div>
 
-      {selectedOrder && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"><div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl relative">
+      {selectedOrder && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65"><div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl relative">
         <div className="flex items-center justify-between border-b pb-4">
           <div>
             <h3 className="text-lg font-bold">Order Summary &amp; Transaction Integrity</h3>
@@ -481,7 +480,7 @@ export function OrdersTab() {
                     )}
                   </div>
                 </div>
-                <span className="font-bold">×{item.quantity} · ₹{item.price}</span>
+                <span className="font-price-luxury font-bold text-stone-900 tabular-nums">×{item.quantity} · ₹{item.price}</span>
               </div>
             ))}
           </div>

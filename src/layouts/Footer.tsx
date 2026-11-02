@@ -21,6 +21,7 @@ import { DeveloperFooter } from "./DeveloperFooter";
 import { InstallAppModal } from "../features/core/components/InstallAppModal";
 import { FssaiLogo } from "../features/core/components/FssaiLogo";
 import { ArchitecturalButterfly } from "../features/core/components/ArchitecturalButterfly";
+import { TrustStrip } from "../components/TrustStrip";
 import { ArrowUpRight, Clock, ShieldCheck, Heart } from "lucide-react";
 import { useSettings } from "../contexts/SettingsContext";
 import {
@@ -145,7 +146,7 @@ export function Footer() {
             {/* Kicker with Animated 3D Express Delivery Truck */}
             <div className="mb-3 sm:mb-5 inline-flex items-center justify-center gap-2.5">
               <RealisticDeliveryScooter className="w-9 h-7.5 sm:w-11 sm:h-9 shrink-0" />
-              <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.2em] sm:tracking-[0.24em] text-[#C5A880] font-medium font-sans-clean">
+              <span className="text-xs text-stone-300 font-medium font-sans-clean">
                 Fresh Daily Delivery in Bengaluru
               </span>
             </div>
@@ -153,7 +154,7 @@ export function Footer() {
             {/* Headline */}
             <h2 className="font-serif-luxury text-2xl sm:text-4xl lg:text-[50px] font-normal text-white leading-[1.15] tracking-tight text-balance">
               Want fresh food{" "}
-              <span className="italic bg-gradient-to-r from-[#F5E6C8] via-[#D4AF37] to-[#F5E6C8] bg-clip-text text-transparent">
+              <span className="italic text-[#E5C99B]">
                 delivered home today?
               </span>
             </h2>
@@ -170,7 +171,7 @@ export function Footer() {
                 href="https://wa.me/919739391891?text=Hi%20Jiyoo,%20I%20would%20like%20to%20place%20an%20order"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-white text-stone-950 font-sans-clean font-medium text-sm sm:text-base hover:bg-stone-100 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 shadow-[0_12px_30px_rgba(255,255,255,0.18)] cursor-pointer"
+                className="group inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-white text-stone-950 font-sans-clean font-medium text-sm sm:text-base hover:bg-stone-100 active:scale-[0.98] transition-all duration-300 shadow-sm cursor-pointer"
               >
                 <WhatsAppIcon className="w-5 h-5 shrink-0" />
                 <span>Order on WhatsApp</span>
@@ -179,7 +180,7 @@ export function Footer() {
               <button
                 type="button"
                 onClick={scrollToProducts}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white/[0.08] hover:bg-white/[0.14] text-white font-sans-clean font-medium text-sm sm:text-base border border-white/15 hover:border-white/30 backdrop-blur-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white/[0.08] hover:bg-white/[0.14] text-white font-sans-clean font-medium text-sm sm:text-base border border-white/15 hover:border-white/30 active:scale-[0.98] transition-all duration-300 cursor-pointer"
               >
                 <span>Shop Fresh Items</span>
                 <ArrowUpRight className="w-4 h-4 text-stone-300 shrink-0" />
@@ -424,7 +425,33 @@ export function Footer() {
                       onClick={() => document.dispatchEvent(new CustomEvent("open-contact"))}
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
-                      Customer Support
+                      Contact Us &amp; Support
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        document.dispatchEvent(
+                          new CustomEvent("open-legal-policy", { detail: { tab: "privacy" } })
+                        )
+                      }
+                      className="hover:text-stone-950 transition-colors cursor-pointer text-left"
+                    >
+                      Privacy Policy
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        document.dispatchEvent(
+                          new CustomEvent("open-legal-policy", { detail: { tab: "terms" } })
+                        )
+                      }
+                      className="hover:text-stone-950 transition-colors cursor-pointer text-left"
+                    >
+                      Terms &amp; Conditions
                     </button>
                   </li>
                   <li>
@@ -437,18 +464,10 @@ export function Footer() {
                       }
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
-                      Refund &amp; Replacement Policy
+                      Shipping, Return &amp; Refund Policy
                     </button>
                   </li>
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => document.dispatchEvent(new CustomEvent("open-admin"))}
-                      className="hover:text-stone-950 transition-colors cursor-pointer text-left text-stone-500"
-                    >
-                      Store Admin Portal
-                    </button>
-                  </li>
+
                   <li className="pt-1.5">
                     <div className="group p-3 rounded-xl bg-stone-50 border border-stone-200/60 space-y-1">
                       <div className="flex items-center gap-2 text-xs font-medium text-stone-900">
@@ -477,10 +496,13 @@ export function Footer() {
 
           {/* Bottom Colophon Row */}
           <div className="pt-6 sm:pt-8">
+            {/* Indian E-Commerce Trust & Quality Strip */}
+            <TrustStrip variant="compact" className="pt-0 border-t-0 pb-6 mb-6 border-b border-stone-100" />
+
             {/* Official Payment Trust Strip */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pb-6 mb-6 border-b border-stone-100 text-center sm:text-left">
               <span className="text-[10px] sm:text-[11px] font-sans-clean uppercase tracking-[0.18em] text-stone-500 font-medium">
-                Safe &amp; Verified Payments
+                Safe &amp; Verified Payments (UPI / Card / NetBanking)
               </span>
               <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-5 opacity-85 hover:opacity-100 transition-opacity">
                 <GooglePayIcon className="h-4 w-auto" />
@@ -520,7 +542,7 @@ export function Footer() {
                   }
                   className="hover:text-stone-900 transition-colors cursor-pointer"
                 >
-                  Terms of Service
+                  Terms &amp; Conditions
                 </button>
                 <span aria-hidden="true" className="text-stone-300">·</span>
                 <button
@@ -532,10 +554,18 @@ export function Footer() {
                   }
                   className="hover:text-stone-900 transition-colors cursor-pointer"
                 >
-                  Refund Policy
+                  Shipping, Return &amp; Refund Policy
                 </button>
                 <span aria-hidden="true" className="text-stone-300">·</span>
-                <span>FSSAI Checked</span>
+                <button
+                  type="button"
+                  onClick={() => document.dispatchEvent(new CustomEvent("open-contact"))}
+                  className="hover:text-stone-900 transition-colors cursor-pointer"
+                >
+                  Contact Us
+                </button>
+                <span aria-hidden="true" className="text-stone-300">·</span>
+                <span>FSSAI Lic. 21226112000732</span>
               </div>
             </div>
 

@@ -9,7 +9,7 @@ import {
   Plus,
   Minus,
 } from "lucide-react";
-import { useCart } from "../../../contexts/CartContext";
+import { useCartActions, useCartItemQuantity } from "../../../contexts/CartContext";
 import { Product } from "../../../types";
 import { useSettings } from "../../../contexts/SettingsContext";
 import { getOptimizedImageUrl } from "../../../utils/imageUtils";
@@ -19,6 +19,7 @@ import { RealisticDeliveryScooter } from "../../core/components/RealisticDeliver
 import { useToast } from "../../core/contexts/ToastContext";
 import { preloadProductCutout } from "../../core/components/FlyingItemsLayer";
 import { VelvetyBalloonButton } from "./VelvetyBalloonButton";
+import { PriceDisplay } from "../../core/components/PriceDisplay";
 
 function ProductCardRating({
   product,
@@ -70,7 +71,7 @@ export const ProductCard = React.memo(function ProductCard({
   toggleWishlist: (id: string) => void;
   onProductClick?: (product: Product, tab?: "details" | "reviews") => void;
 }) {
-  const { addToCart, triggerFlyingItem, items, updateQuantity, removeFromCart } = useCart();
+  const { addToCart, triggerFlyingItem, updateQuantity, removeFromCart } = useCartActions();
   const { showToast } = useToast();
   const { settings } = useSettings();
   const [selectedWeight, setSelectedWeight] = useState(product.weights?.[0]);
@@ -88,11 +89,18 @@ export const ProductCard = React.memo(function ProductCard({
   const isOutOfStock = product.stock === 0 || product.stockStatus === 'out_of_stock';
 
   const activeCartItemId = `${product.id}-${currentUnit || ""}-${selectedCut || ""}-${selectedCleaning || ""}`;
-  const existingCartItem = items.find((item) => item.id === activeCartItemId);
-  const currentQtyInCart = existingCartItem ? existingCartItem.quantity : 0;
+  const currentQtyInCart = useCartItemQuantity(activeCartItemId);
+
+  const allImages = React.useMemo(() => {
+    return Array.from(
+      new Set([product.image, ...(product.images || [])].filter(Boolean))
+    ) as string[];
+  }, [product.image, product.images]);
+  const [activeImgIdx, setActiveImgIdx] = useState(0);
+  const currentImg = allImages[activeImgIdx] || product.image;
 
   const isAboveFold = index < 8;
-  const optimizedImage = getOptimizedImageUrl(product.image, 420, 78);
+  const optimizedImage = getOptimizedImageUrl(currentImg, 420, 78);
 
   React.useEffect(() => {
     if (productImgRef.current?.complete && productImgRef.current?.naturalWidth > 0) {
@@ -160,7 +168,7 @@ export const ProductCard = React.memo(function ProductCard({
   };
 
   return (
-    <motion.div
+    <motion.article
       initial={{ opacity: isAboveFold ? 1 : 0, y: isAboveFold ? 0 : 14, scale: isAboveFold ? 1 : 0.985 }}
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true, margin: "100px", amount: 0.05 }}
@@ -195,14 +203,14 @@ export const ProductCard = React.memo(function ProductCard({
         <img
           ref={productImgRef}
           src={optimizedImage}
-          alt={product.name}
+          alt={`${product.name} - Buy Online in India | JIYOO`}
           onLoad={(e) => {
             setIsImgLoaded(true);
             preloadProductCutout(e.currentTarget.currentSrc || optimizedImage);
           }}
-          className={`w-full h-full object-contain transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] sm:group-hover:scale-[1.045] ${isImgLoaded ? "opacity-100 scale-100" : "opacity-0 scale-98"}`}
+          className={`w-full h-full object-contain transition-opacity duration-300 ${isImgLoaded ? "opacity-100" : "opacity-0"}`}
           referrerPolicy="no-referrer"
-          loading={isAboveFold ? "eager" : "lazy"}
+          loading="lazy"
           fetchPriority={index < 4 ? "high" : "auto"}
           decoding="async"
           onError={(e) => {
@@ -238,6 +246,39 @@ export const ProductCard = React.memo(function ProductCard({
             }
           }}
         />
+        {/* Multi-Image Navigation Dots and Photo Count */}
+        {allImages.length > 1 && (
+          <>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute bottom-2 right-2 z-10 px-1.5 py-0.5 rounded-md bg-stone-950/80 text-white text-[10px] font-medium pointer-events-none"
+            >
+              {activeImgIdx + 1}/{allImages.length}
+            </div>
+
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-stone-950/60"
+            >
+              {allImages.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveImgIdx(i);
+                  }}
+                  aria-label={`View photo ${i + 1}`}
+                  className={`transition-all duration-200 rounded-full cursor-pointer ${
+                    i === activeImgIdx
+                      ? "w-3 h-1 bg-[#E5C99B]"
+                      : "w-1 h-1 bg-white/70 hover:bg-white"
+                  }`}
+                />
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Wishlist Button */}
         <motion.button
@@ -293,9 +334,9 @@ export const ProductCard = React.memo(function ProductCard({
       <div className="flex-1 flex flex-col p-3 sm:p-5">
         <div className="flex justify-between items-start mb-1.5 sm:mb-2">
           <div className="min-w-0 w-full">
-            <h4 className="text-sm sm:text-lg font-serif-luxury font-semibold text-[#1C1917] leading-snug mb-1 break-words group-hover:text-[#0C0A09] transition-colors">
+            <h3 className="text-sm sm:text-lg font-serif-luxury font-semibold text-[#1C1917] leading-snug mb-1 break-words group-hover:text-[#0C0A09] transition-colors">
               {product.name}
-            </h4>
+            </h3>
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:text-[11px] text-[#78716C] font-medium">
               <span className="uppercase tracking-widest text-[9px] sm:text-[10px]">
                 {product.categoryId}
@@ -431,25 +472,16 @@ export const ProductCard = React.memo(function ProductCard({
                 <RealisticDeliveryScooter className="w-6 h-5 sm:w-7 sm:h-6 shrink-0" />
                 <span className="tabular-nums">{product.deliveryEstimate || "60m"}</span>
               </span>
-              <div className="flex items-baseline gap-1.5 tabular-nums order-1 sm:order-2 overflow-hidden">
-                <AnimatePresence mode="popLayout" initial={false}>
-                  <motion.span
-                    key={`price-${currentPrice}`}
-                    initial={{ y: 10, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -10, opacity: 0 }}
-                    transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                    className="inline-block text-base sm:text-lg font-serif-luxury font-bold text-[#1C1917]"
-                  >
-                    ₹{Number(currentPrice)}
-                  </motion.span>
-                </AnimatePresence>
-                {product.discount && (
-                  <span className="text-[10px] sm:text-xs text-[#A8A29E] line-through">
-                    ₹{Math.round(Number(currentPrice) / (1 - product.discount / 100))}
-                  </span>
-                )}
+              <div className="order-1 sm:order-2">
+                <PriceDisplay
+                  amount={currentPrice}
+                  discountPercent={product.discount}
+                  size="md"
+                  weight="extrabold"
+                  animated
+                />
               </div>
+
             </div>
 
             {/* Pill Action Button & In-Cart Quantity Controls */}
@@ -503,7 +535,7 @@ export const ProductCard = React.memo(function ProductCard({
                       exit={{ scale: 0, y: 4 }}
                       key={currentQtyInCart}
                       transition={{ type: "spring", stiffness: 500, damping: 22 }}
-                      className="pointer-events-none absolute -top-1.5 -right-1.5 min-w-[21px] h-[21px] px-1 rounded-full bg-[#1C1917] text-[#FAF2E1] border-2 border-[#C5A880] text-[10.5px] font-bold font-mono flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.4)] z-30"
+                      className="pointer-events-none absolute -top-1.5 -right-1.5 min-w-[20px] h-[20px] px-1 rounded-full bg-stone-900 text-amber-200 border border-[#C5A880] text-[11px] font-semibold flex items-center justify-center shadow-sm z-30 tabular-nums"
                     >
                       {currentQtyInCart}
                     </motion.span>
@@ -514,6 +546,6 @@ export const ProductCard = React.memo(function ProductCard({
           </div>
         </div>
       </div>
-    </motion.div>
+    </motion.article>
   );
 });

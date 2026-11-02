@@ -1,4 +1,4 @@
-import React, { useId } from "react";
+import React, { useEffect } from "react";
 
 export interface RealisticDeliveryScooterProps {
   className?: string;
@@ -6,51 +6,100 @@ export interface RealisticDeliveryScooterProps {
   animated?: boolean;
 }
 
+let truckStylesInjected = false;
+function ensureTruckStylesInjected() {
+  if (truckStylesInjected || typeof document === "undefined") return;
+  truckStylesInjected = true;
+  const style = document.createElement("style");
+  style.id = "jiyoo-express-truck-styles";
+  style.textContent = `
+    @keyframes jiyoo-truck-surge {
+      0%, 100% { transform: translate(0px, 0px) rotate(0deg); }
+      35% { transform: translate(1.8px, -3.2px) rotate(-1.1deg); }
+      70% { transform: translate(-0.8px, 1px) rotate(0.45deg); }
+    }
+    @keyframes jiyoo-parcel-left-float {
+      0%, 100% { transform: translate(0px, 0px) rotate(0deg); }
+      50% { transform: translate(-3.5px, -7px) rotate(-5.5deg); }
+    }
+    @keyframes jiyoo-parcel-top-float {
+      0%, 100% { transform: translate(0px, 0px) rotate(0deg); }
+      45% { transform: translate(2.5px, -7.5px) rotate(4.5deg); }
+    }
+    @keyframes jiyoo-pin-hover {
+      0%, 100% { transform: translate(0px, 0px) rotate(0deg) scale(1); }
+      50% { transform: translate(1.5px, -8px) rotate(4.5deg) scale(1.05); }
+    }
+    @keyframes jiyoo-speed-pulse-1 {
+      0%, 100% { transform: translateX(0px) scaleX(1); }
+      50% { transform: translateX(-6px) scaleX(1.12); }
+    }
+    @keyframes jiyoo-speed-pulse-2 {
+      0%, 100% { transform: translateX(0px) scaleX(1); }
+      45% { transform: translateX(-9px) scaleX(1.16); }
+    }
+    @keyframes jiyoo-speed-pulse-3 {
+      0%, 100% { transform: translateX(0px) scaleX(1); }
+      55% { transform: translateX(-5px) scaleX(1.1); }
+    }
+    @keyframes jiyoo-cloud-drift-a {
+      0%, 100% { transform: translate(0px, 0px); }
+      50% { transform: translate(-5px, -2.5px); }
+    }
+    @keyframes jiyoo-cloud-drift-b {
+      0%, 100% { transform: translate(0px, 0px); }
+      50% { transform: translate(4px, -3px); }
+    }
+    @keyframes jiyoo-wheel-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .jiyoo-truck-anim {
+        animation: none !important;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+const cargoFrontGrad = "jt-cargo-front";
+const cargoTopGrad = "jt-cargo-top";
+const cabBodyGrad = "jt-cab-body";
+const cabRoofGrad = "jt-cab-roof";
+const speedBarGrad = "jt-speed-bar";
+const speedBevelGrad = "jt-speed-bevel";
+const tireFrontGrad = "jt-tire-front";
+const tireBackGrad = "jt-tire-back";
+const rimWellGrad = "jt-rim-well";
+const hubCapGrad = "jt-hub-cap";
+const windshieldGrad = "jt-windshield";
+const sideWindowGrad = "jt-side-win";
+const parcelLitGrad = "jt-parcel-lit";
+const parcelMidGrad = "jt-parcel-mid";
+const parcelDarkGrad = "jt-parcel-dark";
+const tapeGrad = "jt-parcel-tape";
+const pinFrontGrad = "jt-pin-front";
+const pinSideGrad = "jt-pin-side";
+const cloudGrad = "jt-cloud-grad";
+const headlampGrad = "jt-headlamp";
+
 /**
  * RealisticDeliveryScooter (3D Express Delivery Truck with Floating Parcels & Location Pin)
- * Recreates the signature 3D Orange Express Delivery Truck with:
- * - Tilted 3D orange cargo box & aerodynamic cab with glossy black side window, 3D grey windshield, hood vents & twin warm headlights
- * - 4 deep chocolate-brown 3D wheels with spinning rim/hubcap highlights and far-side depth wheels
- * - 3 vibrant 3D yellow speed bars pulsing off the rear cargo box
- * - 2 levitating 3D isometric cardboard parcels with cream packing tape, white barcode labels & fragile stamps
- * - 3 soft 3D puffy clouds with pastel blush-lavender underside shading
- * - 1 floating 3D mint-turquoise GPS location pin with extruded side depth
- * - 100% transparent background with multi-layer 60fps keyframe animations
+ * GPU-accelerated with shared global keyframes and zero-filter vector geometry for 60fps scrolling.
  */
-export function RealisticDeliveryScooter({
+export const RealisticDeliveryScooter = React.memo(function RealisticDeliveryScooter({
   className = "w-8 h-6 shrink-0",
   showSmoke = true,
   animated = true,
 }: RealisticDeliveryScooterProps) {
-  const uid = useId().replace(/:/g, "");
-
-  const cargoFrontGrad = `cargo-front-${uid}`;
-  const cargoTopGrad = `cargo-top-${uid}`;
-  const cargoSideGrad = `cargo-side-${uid}`;
-  const cabBodyGrad = `cab-body-${uid}`;
-  const cabRoofGrad = `cab-roof-${uid}`;
-  const speedBarGrad = `speed-bar-${uid}`;
-  const speedBevelGrad = `speed-bevel-${uid}`;
-  const tireFrontGrad = `tire-front-${uid}`;
-  const tireBackGrad = `tire-back-${uid}`;
-  const rimWellGrad = `rim-well-${uid}`;
-  const hubCapGrad = `hub-cap-${uid}`;
-  const windshieldGrad = `windshield-${uid}`;
-  const sideWindowGrad = `side-win-${uid}`;
-  const parcelLitGrad = `parcel-lit-${uid}`;
-  const parcelMidGrad = `parcel-mid-${uid}`;
-  const parcelDarkGrad = `parcel-dark-${uid}`;
-  const tapeGrad = `parcel-tape-${uid}`;
-  const pinFrontGrad = `pin-front-${uid}`;
-  const pinSideGrad = `pin-side-${uid}`;
-  const cloudGrad = `cloud-grad-${uid}`;
-  const headlampGrad = `headlamp-${uid}`;
-  const dropShadowId = `truck-shadow-${uid}`;
-  const softShadowId = `floating-shadow-${uid}`;
+  useEffect(() => {
+    ensureTruckStylesInjected();
+  }, []);
 
   return (
     <span
-      className={`inline-flex items-center justify-center align-middle relative select-none transition-transform duration-300 group-hover:scale-110 ${className}`}
+      className={`inline-flex items-center justify-center align-middle relative select-none transition-transform duration-300 ${className}`}
       aria-label="Express Delivery Truck"
       title="Express Fresh Delivery"
     >
@@ -62,99 +111,6 @@ export function RealisticDeliveryScooter({
         aria-hidden="true"
       >
         <defs>
-          <style>
-            {`
-              @keyframes truck-surge-${uid} {
-                0%, 100% {
-                  transform: translate(0px, 0px) rotate(0deg);
-                }
-                35% {
-                  transform: translate(1.8px, -3.2px) rotate(-1.1deg);
-                }
-                70% {
-                  transform: translate(-0.8px, 1px) rotate(0.45deg);
-                }
-              }
-              @keyframes parcel-left-float-${uid} {
-                0%, 100% {
-                  transform: translate(0px, 0px) rotate(0deg);
-                }
-                50% {
-                  transform: translate(-3.5px, -7px) rotate(-5.5deg);
-                }
-              }
-              @keyframes parcel-top-float-${uid} {
-                0%, 100% {
-                  transform: translate(0px, 0px) rotate(0deg);
-                }
-                45% {
-                  transform: translate(2.5px, -7.5px) rotate(4.5deg);
-                }
-              }
-              @keyframes pin-hover-${uid} {
-                0%, 100% {
-                  transform: translate(0px, 0px) rotate(0deg) scale(1);
-                }
-                50% {
-                  transform: translate(1.5px, -8px) rotate(4.5deg) scale(1.05);
-                }
-              }
-              @keyframes speed-pulse-1-${uid} {
-                0%, 100% {
-                  transform: translateX(0px) scaleX(1);
-                }
-                50% {
-                  transform: translateX(-6px) scaleX(1.12);
-                }
-              }
-              @keyframes speed-pulse-2-${uid} {
-                0%, 100% {
-                  transform: translateX(0px) scaleX(1);
-                }
-                45% {
-                  transform: translateX(-9px) scaleX(1.16);
-                }
-              }
-              @keyframes speed-pulse-3-${uid} {
-                0%, 100% {
-                  transform: translateX(0px) scaleX(1);
-                }
-                55% {
-                  transform: translateX(-5px) scaleX(1.1);
-                }
-              }
-              @keyframes cloud-drift-a-${uid} {
-                0%, 100% {
-                  transform: translate(0px, 0px);
-                }
-                50% {
-                  transform: translate(-5px, -2.5px);
-                }
-              }
-              @keyframes cloud-drift-b-${uid} {
-                0%, 100% {
-                  transform: translate(0px, 0px);
-                }
-                50% {
-                  transform: translate(4px, -3px);
-                }
-              }
-              @keyframes wheel-spin-${uid} {
-                from {
-                  transform: rotate(0deg);
-                }
-                to {
-                  transform: rotate(360deg);
-                }
-              }
-              @media (prefers-reduced-motion: reduce) {
-                .anim-${uid} {
-                  animation: none !important;
-                }
-              }
-            `}
-          </style>
-
           {/* 3D Orange Cargo Box Main Face */}
           <linearGradient id={cargoFrontGrad} x1="15%" y1="5%" x2="85%" y2="95%">
             <stop offset="0%" stopColor="#FF9E3D" />
@@ -168,12 +124,6 @@ export function RealisticDeliveryScooter({
             <stop offset="0%" stopColor="#FFD09B" />
             <stop offset="40%" stopColor="#FFAB52" />
             <stop offset="100%" stopColor="#FF7E18" />
-          </linearGradient>
-
-          {/* 3D Deep Shaded Orange */}
-          <linearGradient id={cargoSideGrad} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#E05004" />
-            <stop offset="100%" stopColor="#B33600" />
           </linearGradient>
 
           {/* 3D Orange Cab Body */}
@@ -289,28 +239,22 @@ export function RealisticDeliveryScooter({
             <stop offset="55%" stopColor="#FDE68A" />
             <stop offset="100%" stopColor="#F59E0B" />
           </linearGradient>
-
-          {/* Studio 3D Drop Shadows */}
-          <filter id={dropShadowId} x="-15%" y="-15%" width="135%" height="135%">
-            <feDropShadow dx="0" dy="5" stdDeviation="4.5" floodColor="#431407" floodOpacity="0.28" />
-          </filter>
-          <filter id={softShadowId} x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="3.5" stdDeviation="3" floodColor="#431407" floodOpacity="0.2" />
-          </filter>
         </defs>
+
+        {/* Ground depth shadow ellipse (Zero-cost vector replacement for SVG filter) */}
+        <ellipse cx="132" cy="186" rx="76" ry="7" fill="#431407" fillOpacity="0.14" />
 
         {/* =================================================================== */}
         {/* 1. SOFT 3D PUFFY CLOUDS (Atmospheric Depth Layer)                   */}
         {/* =================================================================== */}
         {showSmoke && (
           <g aria-hidden="true">
-            {/* Top-Left Cloud (between the two floating parcels) */}
+            {/* Top-Left Cloud */}
             <g
-              className={`anim-${uid}`}
-              filter={`url(#${softShadowId})`}
+              className="jiyoo-truck-anim"
               style={
                 animated
-                  ? { animation: `cloud-drift-a-${uid} 3.2s ease-in-out infinite` }
+                  ? { animation: "jiyoo-cloud-drift-a 3.2s ease-in-out infinite" }
                   : undefined
               }
             >
@@ -320,13 +264,12 @@ export function RealisticDeliveryScooter({
               />
             </g>
 
-            {/* Center Cloud (above the gap between cargo box and cab) */}
+            {/* Center Cloud */}
             <g
-              className={`anim-${uid}`}
-              filter={`url(#${softShadowId})`}
+              className="jiyoo-truck-anim"
               style={
                 animated
-                  ? { animation: `cloud-drift-b-${uid} 3.6s ease-in-out infinite 0.4s` }
+                  ? { animation: "jiyoo-cloud-drift-b 3.6s ease-in-out infinite 0.4s" }
                   : undefined
               }
             >
@@ -336,13 +279,12 @@ export function RealisticDeliveryScooter({
               />
             </g>
 
-            {/* Lower-Left Cloud (behind speed streaks) */}
+            {/* Lower-Left Cloud */}
             <g
-              className={`anim-${uid}`}
-              filter={`url(#${softShadowId})`}
+              className="jiyoo-truck-anim"
               style={
                 animated
-                  ? { animation: `cloud-drift-a-${uid} 2.9s ease-in-out infinite 0.8s` }
+                  ? { animation: "jiyoo-cloud-drift-a 2.9s ease-in-out infinite 0.8s" }
                   : undefined
               }
             >
@@ -358,36 +300,29 @@ export function RealisticDeliveryScooter({
         {/* 2. FLOATING 3D PARCEL #1 (LEFT ISOMETRIC BOX, TILTED -32 DEG)       */}
         {/* =================================================================== */}
         <g
-          className={`anim-${uid}`}
-          filter={`url(#${softShadowId})`}
+          className="jiyoo-truck-anim"
           style={
             animated
               ? {
                   transformOrigin: "38px 68px",
-                  animation: `parcel-left-float-${uid} 2.4s ease-in-out infinite`,
+                  animation: "jiyoo-parcel-left-float 2.4s ease-in-out infinite",
                 }
               : undefined
           }
         >
-          {/* Isometric 3D Parcel Group */}
           <g transform="translate(12, 42)">
-            {/* Top-Left Orange Face */}
             <polygon
               points="4,28 24,5 38,13 18,36"
               fill={`url(#${parcelMidGrad})`}
             />
-            {/* Front-Right Lit Orange Face */}
             <polygon
               points="24,5 48,18 28,42 4,28"
               fill={`url(#${parcelLitGrad})`}
             />
-            {/* Bottom Underside Shaded Face */}
             <polygon
               points="4,28 28,42 18,47 0,34"
               fill={`url(#${parcelDarkGrad})`}
             />
-
-            {/* Cream Packing Tape Strip on Left Seam */}
             <polygon
               points="9,22 15,15 26,22 20,29"
               fill={`url(#${tapeGrad})`}
@@ -396,8 +331,6 @@ export function RealisticDeliveryScooter({
               points="9,22 5,26 10,29 14,25"
               fill="#E5C483"
             />
-
-            {/* White Barcode Shipping Label on Right Face */}
             <g transform="translate(33, 16) rotate(29)">
               <rect x="0" y="0" width="11" height="8" rx="1.2" fill="#FFFFFF" />
               <line x1="2" y1="1.6" x2="2" y2="6.4" stroke="#1C1917" strokeWidth="0.9" />
@@ -407,8 +340,6 @@ export function RealisticDeliveryScooter({
               <line x1="8.2" y1="1.6" x2="8.2" y2="6.4" stroke="#1C1917" strokeWidth="0.9" />
               <line x1="9.5" y1="1.6" x2="9.5" y2="6.4" stroke="#1C1917" strokeWidth="0.5" />
             </g>
-
-            {/* Fragile / Handling Icons Stamp on Bottom Face */}
             <g transform="translate(11, 34) rotate(29)" opacity="0.82">
               <rect x="0" y="0" width="11" height="4.2" rx="0.6" stroke="#291509" strokeWidth="0.5" fill="none" />
               <line x1="2.2" y1="0.8" x2="2.2" y2="3.4" stroke="#291509" strokeWidth="0.7" />
@@ -422,41 +353,33 @@ export function RealisticDeliveryScooter({
         {/* 3. FLOATING 3D PARCEL #2 (TOP-CENTER ISOMETRIC BOX)                 */}
         {/* =================================================================== */}
         <g
-          className={`anim-${uid}`}
-          filter={`url(#${softShadowId})`}
+          className="jiyoo-truck-anim"
           style={
             animated
               ? {
                   transformOrigin: "108px 36px",
-                  animation: `parcel-top-float-${uid} 2.65s ease-in-out infinite 0.3s`,
+                  animation: "jiyoo-parcel-top-float 2.65s ease-in-out infinite 0.3s",
                 }
               : undefined
           }
         >
           <g transform="translate(86, 14)">
-            {/* Left Shaded Orange Face */}
             <polygon
               points="2,14 18,4 24,31 8,39"
               fill={`url(#${parcelMidGrad})`}
             />
-            {/* Right Bright Lit Orange Face */}
             <polygon
               points="18,4 37,6 41,32 24,31"
               fill={`url(#${parcelLitGrad})`}
             />
-            {/* Bottom Underside Face */}
             <polygon
               points="8,39 24,31 41,32 25,41"
               fill={`url(#${parcelDarkGrad})`}
             />
-
-            {/* Cream Packing Tape on Top-Right Seam */}
             <polygon
               points="25,4.8 30.5,5.3 32,13 26.5,12.5"
               fill={`url(#${tapeGrad})`}
             />
-
-            {/* White Barcode Label on Right Face */}
             <g transform="translate(30, 20) rotate(-6)">
               <rect x="0" y="0" width="10" height="6.8" rx="1" fill="#FFFFFF" />
               <line x1="1.8" y1="1.5" x2="1.8" y2="5.3" stroke="#1C1917" strokeWidth="0.8" />
@@ -465,17 +388,12 @@ export function RealisticDeliveryScooter({
               <line x1="6.2" y1="1.5" x2="6.2" y2="5.3" stroke="#1C1917" strokeWidth="0.5" />
               <line x1="7.8" y1="1.5" x2="7.8" y2="5.3" stroke="#1C1917" strokeWidth="0.8" />
             </g>
-
-            {/* Black Fragile / Handling Icons Stamp on Left Face */}
             <g transform="translate(6.5, 29.5) rotate(-27)">
               <rect x="0" y="0" width="14" height="5.5" rx="0.8" stroke="#1F1209" strokeWidth="0.6" fill="none" />
               <line x1="4.6" y1="0" x2="4.6" y2="5.5" stroke="#1F1209" strokeWidth="0.5" />
               <line x1="9.3" y1="0" x2="9.3" y2="5.5" stroke="#1F1209" strokeWidth="0.5" />
-              {/* Up arrows */}
               <path d="M1.6 4.2 L1.6 1.5 M3 4.2 L3 1.5" stroke="#1F1209" strokeWidth="0.7" strokeLinecap="round" />
-              {/* Umbrella icon */}
               <path d="M5.6 3 C5.6 1.6 8.4 1.6 8.4 3 Z M7 3 L7 4.4" stroke="#1F1209" strokeWidth="0.6" fill="#1F1209" />
-              {/* Wine glass fragile icon */}
               <path d="M10.6 1.4 L12.6 1.4 L12.2 3 C12 3.5 11.2 3.5 11 3 Z M11.6 3.3 L11.6 4.5" stroke="#1F1209" strokeWidth="0.6" fill="#1F1209" />
             </g>
           </g>
@@ -485,31 +403,26 @@ export function RealisticDeliveryScooter({
         {/* 4. FLOATING 3D MINT-TURQUOISE LOCATION PIN (UPPER RIGHT)            */}
         {/* =================================================================== */}
         <g
-          className={`anim-${uid}`}
-          filter={`url(#${softShadowId})`}
+          className="jiyoo-truck-anim"
           style={
             animated
               ? {
                   transformOrigin: "198px 74px",
-                  animation: `pin-hover-${uid} 2.3s ease-in-out infinite 0.15s`,
+                  animation: "jiyoo-pin-hover 2.3s ease-in-out infinite 0.15s",
                 }
               : undefined
           }
         >
           <g transform="translate(182, 46) rotate(14, 18, 24)">
-            {/* 3D Left Extruded Depth Rim of Location Pin */}
             <path
               d="M15 2 C5.2 2 -1 10 -1 19.5 C-1 30.5 11.5 43.5 14.2 46.2 C15.2 47.2 17 47 18 45.8 L21 43 C14 36 4.5 27.5 4.5 19 C4.5 10 10.5 3.5 18 2.2 Z"
               fill={`url(#${pinSideGrad})`}
             />
-            {/* Front Glossy Mint-Turquoise 3D Pin Body */}
             <path
               d="M19 2 C28.4 2 35.5 9.2 35.5 18.5 C35.5 29.2 22.8 42.2 19.8 45.2 C18.8 46.2 17.2 46.2 16.2 45.2 C13.2 42.2 3.5 29.2 3.5 18.5 C3.5 9.2 10.2 2 19 2 Z"
               fill={`url(#${pinFrontGrad})`}
             />
-            {/* Inner 3D Recessed Hole Shadow Wall */}
             <ellipse cx="19.5" cy="18.5" rx="4.4" ry="5.2" fill="#4D8076" />
-            {/* Inner Pin Cutout Highlight */}
             <ellipse cx="20.4" cy="18.5" rx="3.1" ry="4.1" fill="#E2FBF7" fillOpacity="0.88" />
           </g>
         </g>
@@ -518,20 +431,17 @@ export function RealisticDeliveryScooter({
         {/* 5. MAIN 3D EXPRESS DELIVERY TRUCK + SPEED STREAKS                   */}
         {/* =================================================================== */}
         <g
-          className={`anim-${uid}`}
-          filter={`url(#${dropShadowId})`}
+          className="jiyoo-truck-anim"
           style={
             animated
               ? {
                   transformOrigin: "132px 136px",
-                  animation: `truck-surge-${uid} 1.35s ease-in-out infinite`,
+                  animation: "jiyoo-truck-surge 1.35s ease-in-out infinite",
                 }
               : undefined
           }
         >
-          {/* Entire truck tilted dynamically at -7.5 degrees around its center */}
           <g transform="rotate(-7.5, 130, 135)">
-            {/* --- FAR-SIDE (BACKGROUND) 3D WHEELS FOR PERSPECTIVE DEPTH --- */}
             {/* Far Rear Wheel */}
             <circle cx="91" cy="166" r="17.5" fill={`url(#${tireBackGrad})`} />
             <circle cx="91" cy="166" r="9" fill="#180A05" />
@@ -539,9 +449,8 @@ export function RealisticDeliveryScooter({
             <circle cx="198" cy="164" r="16.5" fill={`url(#${tireBackGrad})`} />
             <circle cx="198" cy="164" r="8.5" fill="#180A05" />
 
-            {/* --- REAR CARGO BOX (3D ROUNDED ORANGE CONTAINER) --- */}
+            {/* --- REAR CARGO BOX --- */}
             <g>
-              {/* Cargo Box Right 3D Depth Face (facing cab) */}
               <rect
                 x="114"
                 y="84"
@@ -550,7 +459,6 @@ export function RealisticDeliveryScooter({
                 rx="6"
                 fill={`url(#${cargoTopGrad})`}
               />
-              {/* Cargo Box Main Side Face */}
               <rect
                 x="46"
                 y="84"
@@ -559,7 +467,6 @@ export function RealisticDeliveryScooter({
                 rx="7"
                 fill={`url(#${cargoFrontGrad})`}
               />
-              {/* Top Specular Highlight Bevel on Cargo Box */}
               <path
                 d="M52 85.5 L118 85.5"
                 stroke="#FFD8A8"
@@ -567,7 +474,6 @@ export function RealisticDeliveryScooter({
                 strokeLinecap="round"
                 opacity="0.75"
               />
-              {/* Cargo Lower Skirt / Chassis Rail */}
               <rect
                 x="47"
                 y="148"
@@ -584,12 +490,10 @@ export function RealisticDeliveryScooter({
                 stroke="#B83B00"
                 strokeWidth="1.6"
               />
-              {/* Lower Cargo Side Panel & Rear Wheel Arch */}
               <path
                 d="M52 154.5 L124 154.5 L124 169 L96 169 C95 155 62 155 61 169 L52 169 Z"
                 fill={`url(#${cargoFrontGrad})`}
               />
-              {/* Rear Wheel Fender Rim Lip */}
               <path
                 d="M57 169 C57 151.5 99 151.5 99 169"
                 stroke={`url(#${cargoTopGrad})`}
@@ -599,13 +503,12 @@ export function RealisticDeliveryScooter({
               />
             </g>
 
-            {/* --- 3 FLOATING 3D YELLOW SPEED BARS (LEFT OF CARGO BOX) --- */}
-            {/* Top Speed Bar */}
+            {/* --- 3 FLOATING 3D YELLOW SPEED BARS --- */}
             <g
-              className={`anim-${uid}`}
+              className="jiyoo-truck-anim"
               style={
                 animated
-                  ? { animation: `speed-pulse-1-${uid} 0.72s ease-in-out infinite` }
+                  ? { animation: "jiyoo-speed-pulse-1 0.72s ease-in-out infinite" }
                   : undefined
               }
             >
@@ -627,12 +530,11 @@ export function RealisticDeliveryScooter({
               />
             </g>
 
-            {/* Middle (Longest) Speed Bar */}
             <g
-              className={`anim-${uid}`}
+              className="jiyoo-truck-anim"
               style={
                 animated
-                  ? { animation: `speed-pulse-2-${uid} 0.68s ease-in-out infinite 0.14s` }
+                  ? { animation: "jiyoo-speed-pulse-2 0.68s ease-in-out infinite 0.14s" }
                   : undefined
               }
             >
@@ -654,12 +556,11 @@ export function RealisticDeliveryScooter({
               />
             </g>
 
-            {/* Bottom Speed Bar */}
             <g
-              className={`anim-${uid}`}
+              className="jiyoo-truck-anim"
               style={
                 animated
-                  ? { animation: `speed-pulse-3-${uid} 0.76s ease-in-out infinite 0.28s` }
+                  ? { animation: "jiyoo-speed-pulse-3 0.76s ease-in-out infinite 0.28s" }
                   : undefined
               }
             >
@@ -681,12 +582,9 @@ export function RealisticDeliveryScooter({
               />
             </g>
 
-            {/* --- FRONT AERODYNAMIC CAB (3D ORANGE CABIN & HOOD) --- */}
+            {/* --- FRONT AERODYNAMIC CAB --- */}
             <g>
-              {/* Recessed Shadow Seam Between Cargo Box and Cab */}
               <rect x="122.5" y="96" width="4" height="72" rx="2" fill="#8C2A00" opacity="0.7" />
-
-              {/* Cab Top Roof Fairing / Cap */}
               <rect
                 x="125"
                 y="95"
@@ -703,27 +601,19 @@ export function RealisticDeliveryScooter({
                 stroke="#C2410C"
                 strokeWidth="1.4"
               />
-
-              {/* Main Cab Upper Body & Sculpted Front Hood */}
               <path
                 d="M124 105 L178 105 C182 105 184.5 107.5 186 112 L192 136 L213 137 C219 137.5 223 141 224 147 L224 166 C224 168.5 221.5 170 218 170 L124 170 Z"
                 fill={`url(#${cabBodyGrad})`}
               />
-
-              {/* Hood Top-Right 3D Lit Bevel */}
               <path
                 d="M190 136.5 L212 136.5 C218 136.5 222.5 139.5 223.5 144.5 L192 144.5 Z"
                 fill={`url(#${cabRoofGrad})`}
               />
-
-              {/* 3 Horizontal Air Grille Slots on Hood Nose */}
               <g opacity="0.75">
                 <line x1="210" y1="142" x2="217" y2="142" stroke="#7C2D12" strokeWidth="1.6" strokeLinecap="round" />
                 <line x1="211" y1="145" x2="218" y2="145" stroke="#7C2D12" strokeWidth="1.6" strokeLinecap="round" />
                 <line x1="212" y1="148" x2="219" y2="148" stroke="#7C2D12" strokeWidth="1.6" strokeLinecap="round" />
               </g>
-
-              {/* Cab Lower Door Panel Seam */}
               <line
                 x1="125"
                 y1="150"
@@ -741,8 +631,6 @@ export function RealisticDeliveryScooter({
                 strokeWidth="1.2"
                 opacity="0.7"
               />
-
-              {/* Cab Glossy Black Side Window with 3D Recessed Orange Frame */}
               <rect
                 x="138"
                 y="112"
@@ -759,14 +647,11 @@ export function RealisticDeliveryScooter({
                 rx="2.8"
                 fill={`url(#${sideWindowGrad})`}
               />
-              {/* Subtle Glass Specular Reflection */}
               <polygon
                 points="143,114.5 151,114.5 145,130.5 140.5,130.5"
                 fill="#FFFFFF"
                 fillOpacity="0.12"
               />
-
-              {/* 3D Angled Grey Windshield on Front of Cab */}
               <polygon
                 points="177,112 181,111 188,133 183.5,135"
                 fill="#111827"
@@ -775,16 +660,12 @@ export function RealisticDeliveryScooter({
                 points="180.5,111 191,110 198,132 187.5,133.5"
                 fill={`url(#${windshieldGrad})`}
               />
-              {/* Orange Base Sill Under Windshield */}
               <path
                 d="M183.5 134.5 L197.5 132.5"
                 stroke={`url(#${cabRoofGrad})`}
                 strokeWidth="3"
                 strokeLinecap="round"
               />
-
-              {/* Twin 3D Warm Cream-Yellow Headlights on Front Bumper */}
-              {/* Outer (Right) Headlight */}
               <rect
                 x="220"
                 y="150"
@@ -793,7 +674,6 @@ export function RealisticDeliveryScooter({
                 rx="2.2"
                 fill={`url(#${headlampGrad})`}
               />
-              {/* Inner (Left) Headlight with 3D Side Bevel */}
               <rect
                 x="212"
                 y="151.5"
@@ -810,8 +690,6 @@ export function RealisticDeliveryScooter({
                 rx="2.2"
                 fill={`url(#${headlampGrad})`}
               />
-
-              {/* Front Wheel Fender Arch Lip */}
               <path
                 d="M161 169 C161 151.5 203 151.5 203 169"
                 stroke={`url(#${cabRoofGrad})`}
@@ -821,18 +699,17 @@ export function RealisticDeliveryScooter({
               />
             </g>
 
-            {/* --- FOREGROUND 3D CHOCOLATE-BROWN WHEELS (WITH SPINNING RIMS) --- */}
-            {/* Foreground Rear Wheel (Center: 78, 171) */}
+            {/* --- FOREGROUND 3D WHEELS --- */}
             <g>
               <circle cx="78" cy="171" r="18.5" fill={`url(#${tireFrontGrad})`} />
               <circle cx="78" cy="171" r="10.2" fill={`url(#${rimWellGrad})`} />
               <g
-                className={`anim-${uid}`}
+                className="jiyoo-truck-anim"
                 style={
                   animated
                     ? {
                         transformOrigin: "78px 171px",
-                        animation: `wheel-spin-${uid} 0.85s linear infinite`,
+                        animation: "jiyoo-wheel-spin 0.85s linear infinite",
                       }
                     : undefined
                 }
@@ -852,17 +729,16 @@ export function RealisticDeliveryScooter({
               </g>
             </g>
 
-            {/* Foreground Front Wheel (Center: 182, 169) */}
             <g>
               <circle cx="182" cy="169" r="18.5" fill={`url(#${tireFrontGrad})`} />
               <circle cx="182" cy="169" r="10.2" fill={`url(#${rimWellGrad})`} />
               <g
-                className={`anim-${uid}`}
+                className="jiyoo-truck-anim"
                 style={
                   animated
                     ? {
                         transformOrigin: "182px 169px",
-                        animation: `wheel-spin-${uid} 0.85s linear infinite`,
+                        animation: "jiyoo-wheel-spin 0.85s linear infinite",
                       }
                     : undefined
                 }
@@ -886,6 +762,6 @@ export function RealisticDeliveryScooter({
       </svg>
     </span>
   );
-}
+});
 
 export const ExpressDeliveryTruckIcon = RealisticDeliveryScooter;
