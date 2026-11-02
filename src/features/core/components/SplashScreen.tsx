@@ -133,7 +133,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
                   className="h-full bg-stone-900 rounded-full relative"
                   initial={{ width: "0%" }}
                   animate={{ width: "100%" }}
-                  transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1] }}
+                  transition={{ duration: 0.46, ease: [0.22, 1, 0.36, 1] }}
                 />
               </div>
             </div>

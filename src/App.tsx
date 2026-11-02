@@ -349,7 +349,7 @@ function AppContent() {
 
       <div
         aria-hidden={isAnyOverlayOpen}
-        className={`relative z-10 bg-paper-texture shadow-[0_20px_50px_rgba(0,0,0,0.5)] ${
+        className={`relative z-10 bg-paper-texture shadow-[0_24px_60px_-15px_rgba(28,25,23,0.16),0_1px_0_rgba(231,227,218,0.9)] ${
           isAnyOverlayOpen ? "pointer-events-none select-none overflow-hidden" : ""
         }`}
       >

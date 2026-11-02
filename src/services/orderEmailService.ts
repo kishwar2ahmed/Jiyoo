@@ -358,7 +358,8 @@ export function buildOrderStatusEmailHtml(params: {
   // Carrier tracking callout if available
   const effectiveCarrier = trackingCarrier || order?.trackingCarrier;
   const effectiveTrackingNum = trackingNumber || order?.trackingNumber;
-  const effectiveTrackingUrl = trackingUrl || order?.trackingUrl;
+  const rawTrackingUrl = String(trackingUrl || order?.trackingUrl || '').trim();
+  const effectiveTrackingUrl = /^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(rawTrackingUrl) ? rawTrackingUrl : '';
 
   const trackingBoxHtml = (effectiveCarrier || effectiveTrackingNum || effectiveTrackingUrl)
     ? `

@@ -97,12 +97,12 @@ export const VelvetyBalloonButton: React.FC<VelvetyBalloonButtonProps> = ({
       }}
       className={`group relative inline-flex items-center justify-center select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A880] focus-visible:ring-offset-2 bg-transparent p-0 border-0 ${className}`}
     >
-      {/* 1. Dynamic Butterfly Aura Bloom on Hover */}
+      {/* 1. Dynamic Champagne-Gold & Warm Espresso Aura Bloom on Hover */}
       <span
         aria-hidden="true"
         className="pointer-events-none absolute -inset-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-[4px]"
         style={{
-          background: "radial-gradient(ellipse at 50% 80%, rgba(14,165,233,0.45) 0%, rgba(147,51,234,0.3) 50%, transparent 80%)",
+          background: "radial-gradient(ellipse at 50% 80%, rgba(197,168,128,0.45) 0%, rgba(28,25,23,0.22) 55%, transparent 80%)",
         }}
       />
 
@@ -120,13 +120,21 @@ export const VelvetyBalloonButton: React.FC<VelvetyBalloonButtonProps> = ({
           }
         />
 
+        {disabled && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-[#1C1917]/80 backdrop-blur-[1.5px] border border-[#C5A880]/40">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.18em] text-[#FAF9F5]">
+              {label}
+            </span>
+          </div>
+        )}
+
         {/* 3. Dynamic Specular Light Glint Following Cursor */}
         {cursorPos && !prefersReduced && (
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 rounded-full transition-opacity duration-150"
             style={{
-              background: `radial-gradient(circle 44px at ${cursorPos.x}% ${cursorPos.y}%, rgba(255, 255, 255, 0.42) 0%, rgba(14, 210, 255, 0.15) 35%, transparent 70%)`,
+              background: `radial-gradient(circle 44px at ${cursorPos.x}% ${cursorPos.y}%, rgba(255, 255, 255, 0.42) 0%, rgba(229, 201, 155, 0.22) 35%, transparent 70%)`,
               mixBlendMode: "overlay",
             }}
           />

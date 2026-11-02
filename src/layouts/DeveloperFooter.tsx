@@ -69,7 +69,7 @@ export function DeveloperFooter() {
               <div className="flex flex-col md:flex-row md:gap-1.5 md:items-baseline">
                 <h2 className="text-xs md:text-sm font-serif tracking-tight text-[#1E1E1C] leading-tight group-hover:text-[#5C2328] transition-colors duration-500">
                   Designed with ❤️{" "}
-                  <span className="text-[#71717A] italic inline-block">
+                  <span className="text-[#5C2328] italic inline-block">
                     by Kishwar Ahmed
                   </span>
                 </h2>

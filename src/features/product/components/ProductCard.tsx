@@ -183,20 +183,20 @@ export const ProductCard = React.memo(function ProductCard({
       onClick={() => onProductClick?.(product)}
       onPointerEnter={() => preloadProductCutout(productImgRef.current?.currentSrc || optimizedImage, true)}
       onTouchStart={() => preloadProductCutout(productImgRef.current?.currentSrc || optimizedImage, true)}
-      className="group relative flex flex-col bg-white rounded-xl overflow-hidden shadow-xs hover:shadow-[0_20px_40px_-14px_rgba(28,25,23,0.12)] transition-shadow duration-300 border border-[#E7E3DA] hover:border-[#C5A880]/70 cursor-pointer h-full"
+      className="group relative flex flex-col bg-gradient-to-b from-white via-white to-[#FCFBF8] rounded-2xl overflow-hidden shadow-[0_6px_22px_-6px_rgba(28,25,23,0.08)] hover:shadow-[0_22px_44px_-12px_rgba(28,25,23,0.16)] transition-all duration-300 border border-[#DFD6C5] hover:border-[#C5A880] cursor-pointer h-full"
     >
-      {/* Scroll-Triggered Top Gold Shimmer Accent Line */}
+      {/* Scroll-Triggered Top Champagne-Gold Shimmer Crest Line */}
       <motion.span
         aria-hidden="true"
         initial={{ scaleX: 0, opacity: 0 }}
         whileInView={{ scaleX: 1, opacity: 1 }}
         viewport={{ once: true }}
         transition={{ duration: 0.55, delay: 0.05 + (index % 4) * 0.04, ease: [0.16, 1, 0.3, 1] }}
-        className="pointer-events-none absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#C5A880]/70 to-transparent origin-left z-20"
+        className="pointer-events-none absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-[#C5A880]/20 via-[#C5A880] to-[#C5A880]/20 origin-left z-20"
       />
 
-      {/* Product Image Area (Full uncropped product view) */}
-      <div className="luxury-sheen-sweep relative aspect-[4/3] overflow-hidden bg-white p-2 sm:p-3 flex items-center justify-center">
+      {/* Product Image Area (Warm Studio Spotlight Pedestal + Full Uncropped Product View) */}
+      <div className="luxury-sheen-sweep relative aspect-[4/3] overflow-hidden bg-[radial-gradient(circle_at_50%_52%,#FAF6EE_0%,#FFFFFF_78%)] border-b border-[#EFEAD8] p-2.5 sm:p-3.5 flex items-center justify-center">
         {!isImgLoaded && (
           <div className="absolute inset-0 z-0 bg-brand-gray-100 animate-pulse" />
         )}
@@ -208,7 +208,7 @@ export const ProductCard = React.memo(function ProductCard({
             setIsImgLoaded(true);
             preloadProductCutout(e.currentTarget.currentSrc || optimizedImage);
           }}
-          className={`w-full h-full object-contain transition-opacity duration-300 ${isImgLoaded ? "opacity-100" : "opacity-0"}`}
+          className={`w-full h-full object-contain transition-transform duration-500 group-hover:scale-[1.03] ${isImgLoaded ? "opacity-100" : "opacity-0"}`}
           referrerPolicy="no-referrer"
           loading="lazy"
           fetchPriority={index < 4 ? "high" : "auto"}
@@ -294,10 +294,10 @@ export const ProductCard = React.memo(function ProductCard({
               showToast(`Saved to wishlist`, "success");
             }
           }}
-          className={`absolute top-2 right-2 sm:top-3 sm:right-3 z-20 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-colors border cursor-pointer ${
+          className={`absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-20 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all border cursor-pointer shadow-2xs ${
             isWishlisted
               ? "bg-red-50 border-red-200 text-red-600 shadow-sm"
-              : "bg-[#FAF9F5]/95 hover:bg-white text-[#1C1917] border-[#E7E3DA]"
+              : "bg-white/95 hover:bg-white text-[#1C1917] border-[#DFD6C5] hover:border-[#C5A880]"
           }`}
           aria-label={isWishlisted ? "Remove from wishlist" : "Save to wishlist"}
           title={isWishlisted ? "Remove from wishlist" : "Save to wishlist"}
@@ -334,14 +334,14 @@ export const ProductCard = React.memo(function ProductCard({
       <div className="flex-1 flex flex-col p-3 sm:p-5">
         <div className="flex justify-between items-start mb-1.5 sm:mb-2">
           <div className="min-w-0 w-full">
-            <h3 className="text-sm sm:text-lg font-serif-luxury font-semibold text-[#1C1917] leading-snug mb-1 break-words group-hover:text-[#0C0A09] transition-colors">
+            <h3 className="text-[15px] sm:text-lg font-serif-luxury font-bold text-[#1C1917] leading-snug mb-1 break-words group-hover:text-[#0C0A09] transition-colors">
               {product.name}
             </h3>
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:text-[11px] text-[#78716C] font-medium">
-              <span className="uppercase tracking-widest text-[9px] sm:text-[10px]">
+              <span className="uppercase tracking-[0.14em] text-[9px] sm:text-[10px] text-[#8C6D46] font-bold">
                 {product.categoryId}
               </span>
-              <span aria-hidden="true">·</span>
+              <span aria-hidden="true" className="text-[#C5A880]">•</span>
               {isOutOfStock ? (
                 <span className="inline-flex items-center gap-0.5 text-red-600 font-semibold uppercase text-[9px] sm:text-[10px]">
                   Out of Stock
@@ -372,7 +372,7 @@ export const ProductCard = React.memo(function ProductCard({
               onProductClick={onProductClick as any}
             />
             {product.freshnessBadge && (
-              <div className="mt-1 inline-flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-800 leading-tight">
+              <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50/90 border border-emerald-200/80 text-[9px] font-bold uppercase tracking-wider text-emerald-900 leading-tight">
                 <PremiumShieldMark className="w-3.5 h-3.5 shrink-0" variant="emerald" />
                 <span className="break-words">{product.freshnessBadge}</span>
               </div>
@@ -381,7 +381,7 @@ export const ProductCard = React.memo(function ProductCard({
         </div>
 
         {product.description && (
-          <p className="hidden sm:line-clamp-2 text-xs text-[#78716C] mb-3 leading-relaxed font-normal">
+          <p className="hidden sm:line-clamp-2 text-xs text-[#655E57] mb-3 leading-relaxed font-normal">
             {product.description}
           </p>
         )}
@@ -402,10 +402,10 @@ export const ProductCard = React.memo(function ProductCard({
                       e.stopPropagation();
                       setSelectedWeight(w);
                     }}
-                    className={`px-2 sm:px-2.5 py-1 rounded-sm text-[9.5px] sm:text-[10px] font-semibold whitespace-nowrap transition-colors border cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-lg text-[9.5px] sm:text-[10.5px] font-bold whitespace-nowrap transition-all border cursor-pointer ${
                       selectedWeight?.label === w.label
-                        ? "bg-[#1C1917] text-[#FAF9F5] border-[#1C1917]"
-                        : "bg-[#F4F1EA] text-[#44403C] border-[#E7E3DA] hover:border-[#1C1917]"
+                        ? "bg-[#1C1917] text-[#F5E6C8] border-[#C5A880] shadow-2xs"
+                        : "bg-[#FAF7F0] text-[#44403C] border-[#E2D9C8] hover:border-[#C5A880] hover:bg-white"
                     }`}
                   >
                     {w.label}
@@ -427,10 +427,10 @@ export const ProductCard = React.memo(function ProductCard({
                       e.stopPropagation();
                       setSelectedCut(c);
                     }}
-                    className={`px-2 sm:px-2.5 py-1 rounded-sm text-[9.5px] sm:text-[10px] font-semibold whitespace-nowrap transition-colors border cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-lg text-[9.5px] sm:text-[10.5px] font-bold whitespace-nowrap transition-all border cursor-pointer ${
                       selectedCut === c
-                        ? "bg-[#1C1917] text-[#FAF9F5] border-[#1C1917]"
-                        : "bg-[#F4F1EA] text-[#44403C] border-[#E7E3DA] hover:border-[#1C1917]"
+                        ? "bg-[#1C1917] text-[#F5E6C8] border-[#C5A880] shadow-2xs"
+                        : "bg-[#FAF7F0] text-[#44403C] border-[#E2D9C8] hover:border-[#C5A880] hover:bg-white"
                     }`}
                   >
                     {c}
@@ -452,10 +452,10 @@ export const ProductCard = React.memo(function ProductCard({
                       e.stopPropagation();
                       setSelectedCleaning(c);
                     }}
-                    className={`px-2 sm:px-2.5 py-1 rounded-sm text-[9.5px] sm:text-[10px] font-semibold whitespace-nowrap transition-colors border cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-lg text-[9.5px] sm:text-[10.5px] font-bold whitespace-nowrap transition-all border cursor-pointer ${
                       selectedCleaning === c
-                        ? "bg-[#1C1917] text-[#FAF9F5] border-[#1C1917]"
-                        : "bg-[#F4F1EA] text-[#44403C] border-[#E7E3DA] hover:border-[#1C1917]"
+                        ? "bg-[#1C1917] text-[#F5E6C8] border-[#C5A880] shadow-2xs"
+                        : "bg-[#FAF7F0] text-[#44403C] border-[#E2D9C8] hover:border-[#C5A880] hover:bg-white"
                     }`}
                   >
                     {c}
@@ -466,7 +466,7 @@ export const ProductCard = React.memo(function ProductCard({
           </div>
 
           {/* Action Row (Stacked on mobile so price & Add button never crowd or crop) */}
-          <div className="pt-2.5 sm:pt-4 border-t border-[#E7E3DA] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-2 mt-auto">
+          <div className="pt-2.5 sm:pt-3.5 border-t border-[#EAE3D2] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-2 mt-auto">
             <div className="flex items-center justify-between sm:flex-col sm:items-start gap-1">
               <span className="group/delivery text-[9px] sm:text-[10px] text-emerald-800 uppercase font-semibold tracking-wider inline-flex items-center gap-1.5 order-2 sm:order-1">
                 <RealisticDeliveryScooter className="w-6 h-5 sm:w-7 sm:h-6 shrink-0" />

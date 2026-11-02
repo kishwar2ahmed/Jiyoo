@@ -94,7 +94,7 @@ export function Hero({
       ref={heroRef}
       onPointerMove={handleHeroPointerMove}
       onPointerLeave={handleHeroPointerLeave}
-      className="relative w-full bg-white border-b border-stone-200 overflow-hidden"
+      className="relative w-full bg-gradient-to-b from-[#FAF8F3] via-white to-[#FCFBF8] border-b border-[#E5DEC9] overflow-hidden"
     >
       {/* Bespoke Warm Botanical & Architectural Contour Backdrop */}
       <motion.div
@@ -102,30 +102,31 @@ export function Hero({
         style={{ y: ambientY, x: contourShiftX }}
         className="pointer-events-none absolute inset-0 overflow-hidden will-change-transform"
       >
-        <div className="absolute -top-32 right-[-8%] w-[540px] h-[540px] rounded-full bg-[radial-gradient(circle,rgba(244,244,245,0.8)_0%,rgba(255,255,255,0)_70%)]" />
-        <div className="absolute bottom-[-20%] left-[-6%] w-[460px] h-[460px] rounded-full bg-[radial-gradient(circle,rgba(244,244,245,0.7)_0%,rgba(255,255,255,0)_72%)]" />
+        <div className="absolute -top-32 right-[-8%] w-[560px] h-[560px] rounded-full bg-[radial-gradient(circle,rgba(197,168,128,0.14)_0%,rgba(255,255,255,0)_70%)]" />
+        <div className="absolute bottom-[-20%] left-[-6%] w-[480px] h-[480px] rounded-full bg-[radial-gradient(circle,rgba(235,226,208,0.45)_0%,rgba(255,255,255,0)_72%)]" />
       </motion.div>
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-12 pt-2 pb-2.5 sm:pt-8 sm:pb-10 lg:pt-14 lg:pb-16">
+      <div className="relative z-10 max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-12 pt-2.5 pb-3 sm:pt-8 sm:pb-10 lg:pt-14 lg:pb-16">
         <motion.div
           style={{ opacity: heroOpacity }}
-          className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-6 lg:gap-10 items-center"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 sm:gap-6 lg:gap-10 items-center"
         >
           {/* Left Column on Desktop / Top Strip Above Banner on Mobile */}
           <div className="order-1 lg:order-1 lg:col-span-6 xl:col-span-6 flex flex-col justify-between">
             {/* Desktop Editorial Headline & Value Prop */}
             <div className="hidden lg:block">
-              {/* Unboxed Restrained Editorial Eyebrow without pill enclosures or pulsing radar dots */}
-              <div className="mb-3 sm:mb-4 flex items-center gap-2 text-xs sm:text-sm text-stone-600 font-sans">
-                <span className="text-stone-900 font-semibold tracking-tight">JIYOO</span>
-                <span aria-hidden="true" className="text-stone-300">/</span>
-                <span>Fresh Harvest &amp; Custom Cuts</span>
+              {/* Restrained Editorial Eyebrow with Champagne-Gold Accent Line */}
+              <div className="mb-4 flex items-center gap-2.5 text-xs sm:text-sm text-[#57534E] font-sans">
+                <span className="inline-block w-6 h-[1.5px] bg-[#C5A880]" aria-hidden="true" />
+                <span className="text-[#1C1917] font-bold tracking-[0.14em] uppercase text-xs">JIYOO RESERVE</span>
+                <span aria-hidden="true" className="text-[#C5A880]">•</span>
+                <span className="font-serif-luxury italic text-base text-[#6B4C35]">Fresh Harvest &amp; Custom Cuts</span>
               </div>
 
               {/* Word-by-Word Kinetic Display Headline with Solid Typography */}
               <motion.h1
                 style={{ y: headlineY, scale: headlineScale }}
-                className="editorial-hero-headline font-semibold text-stone-900 origin-left"
+                className="editorial-hero-headline font-semibold text-[#1C1917] origin-left"
               >
                 <span className="flex flex-wrap gap-x-[0.25em] pb-0.5">
                   {HEADLINE_LINE_1.map((word, index) => (
@@ -160,15 +161,15 @@ export function Hero({
                     deletingSpeed={22}
                     pauseDuration={2900}
                     startDelay={1100}
-                    textClassName="italic font-normal text-stone-800 tracking-tight"
-                    cursorClassName="bg-stone-900"
+                    textClassName="italic font-normal text-[#6B4C35] tracking-tight"
+                    cursorClassName="bg-[#8C6D46]"
                     ariaLabel="fresh custom-cut meats, delivered fast."
                   />
                 </span>
               </motion.h1>
 
               {/* Concise Editorial Value Proposition */}
-              <p className="mt-4 text-base text-stone-600 font-sans font-normal leading-[1.68] max-w-[58ch] text-left">
+              <p className="mt-4 text-base text-[#57534E] font-sans font-normal leading-[1.7] max-w-[56ch] text-left">
                 Fresh imported fruits, farm-fresh daily vegetables, and clean custom-cut meats made just how you like.
               </p>
 
@@ -177,12 +178,12 @@ export function Hero({
                 <button
                   type="button"
                   onClick={handleExploreCatalog}
-                  className="group relative overflow-hidden inline-flex items-center justify-center gap-2.5 h-12 px-6 text-xs font-semibold tracking-wide text-white bg-stone-900 hover:bg-black rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  className="group relative overflow-hidden inline-flex items-center justify-center gap-2.5 h-12 px-7 text-xs font-bold uppercase tracking-[0.12em] text-[#F5E6C8] bg-[#1C1917] hover:bg-black border border-[#C5A880]/70 rounded-full shadow-[0_10px_24px_-6px_rgba(28,25,23,0.3)] transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0"
                 >
                   <span>Shop Catalog</span>
                   <ArrowRight
-                    className="w-3.5 h-3.5 transition-transform duration-200 ease-out group-hover:translate-x-0.5"
-                    strokeWidth={2}
+                    className="w-3.5 h-3.5 text-[#E5C99B] transition-transform duration-200 ease-out group-hover:translate-x-1"
+                    strokeWidth={2.2}
                   />
                 </button>
 
@@ -196,12 +197,15 @@ export function Hero({
 
             {/* Mobile Strip Above Banner: Bold JIYOO PREMIUM + Velvet Maroon WhatsApp Pill Button + Compact Editorial Typewriter */}
             <div className="block lg:hidden pb-0.5">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-2xl bg-gradient-to-r from-[#FAF6EE] via-[#FDFBF7] to-[#FAF6EE] border border-[#E2D6C1] shadow-[0_4px_14px_-6px_rgba(28,25,23,0.08)]">
                 <div className="min-w-0 flex-1">
-                  <span className="font-extrabold text-xs sm:text-sm tracking-[0.15em] uppercase text-[#1C1917] block truncate">
-                    JIYOO PREMIUM
-                  </span>
-                  <div className="min-h-[1.15rem] flex items-center overflow-hidden">
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#C5A880] shrink-0" aria-hidden="true" />
+                    <span className="font-serif-luxury font-bold text-xs sm:text-sm tracking-[0.16em] uppercase text-[#1C1917] block truncate">
+                      JIYOO PREMIUM
+                    </span>
+                  </div>
+                  <div className="min-h-[1.15rem] flex items-center overflow-hidden mt-0.5">
                     <TypewriterText
                       phrases={MOBILE_HERO_TYPEWRITER_PHRASES}
                       typingSpeed={42}

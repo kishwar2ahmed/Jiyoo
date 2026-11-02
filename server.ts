@@ -132,12 +132,21 @@ const ADMIN_SESSION_HMAC_SECRET =
   env.CRON_SECRET ||
   env.RAZORPAY_KEY_SECRET ||
   process.env.ADMIN_PASSCODE ||
-  crypto.randomBytes(32).toString('hex');
+  crypto
+    .createHash('sha256')
+    .update(
+      `jiyoo-hmac:${env.FIREBASE_SERVICE_ACCOUNT_KEY || ''}:${resolvedProjectId || ''}:${(appletConfig as any)?.appId || ''}:${(appletConfig as any)?.apiKey || ''}`
+    )
+    .digest('hex');
 const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours strict session lifetime
 const ADMIN_PREAUTH_TTL_MS = 10 * 60 * 1000; // 10 minutes for 2FA verification/enrollment step
 const MAX_ADMIN_AUTH_FAILURES = 5;
 const ADMIN_FAILURE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const ADMIN_LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes lockout after 5 failures
+
+const MAX_REVOKED_JTIS = 5000;
+const MAX_BRUTE_FORCE_KEYS = 5000;
+const MAX_SERVER_CACHE_KEYS = 500;
 
 const revokedAdminSessionJtis = new Set<string>();
 const inMemoryBruteForceStore = new Map<
@@ -159,6 +168,24 @@ interface ServerCacheEntry<T = any> {
 const serverMemoryCache = new Map<string, ServerCacheEntry>();
 const singleflightPromises = new Map<string, Promise<any>>();
 
+function setBoundedServerCache<T>(key: string, entry: ServerCacheEntry<T>) {
+  if (!serverMemoryCache.has(key) && serverMemoryCache.size >= MAX_SERVER_CACHE_KEYS) {
+    const now = Date.now();
+    for (const [k, v] of serverMemoryCache.entries()) {
+      if (now >= v.staleUntil) {
+        serverMemoryCache.delete(k);
+      }
+    }
+    if (serverMemoryCache.size >= MAX_SERVER_CACHE_KEYS) {
+      const oldestKey = serverMemoryCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        serverMemoryCache.delete(oldestKey);
+      }
+    }
+  }
+  serverMemoryCache.set(key, entry);
+}
+
 async function withServerCache<T>(
   key: string,
   ttlMs: number,
@@ -178,7 +205,7 @@ async function withServerCache<T>(
       const bgPromise = fetcher()
         .then((freshVal) => {
           const doneAt = Date.now();
-          serverMemoryCache.set(key, {
+          setBoundedServerCache(key, {
             value: freshVal,
             expiresAt: doneAt + ttlMs,
             staleUntil: doneAt + ttlMs + staleWhileRevalidateMs,
@@ -203,7 +230,7 @@ async function withServerCache<T>(
   const flight = fetcher()
     .then((freshVal) => {
       const doneAt = Date.now();
-      serverMemoryCache.set(key, {
+      setBoundedServerCache(key, {
         value: freshVal,
         expiresAt: doneAt + ttlMs,
         staleUntil: doneAt + ttlMs + staleWhileRevalidateMs,
@@ -574,6 +601,19 @@ async function recordAdminAuthFailure(
       firstFailedAtMs = existing.firstFailedAtMs;
     }
     const thisLockedUntil = failedAttempts >= MAX_ADMIN_AUTH_FAILURES ? now + ADMIN_LOCKOUT_DURATION_MS : 0;
+    if (!inMemoryBruteForceStore.has(key) && inMemoryBruteForceStore.size >= MAX_BRUTE_FORCE_KEYS) {
+      for (const [k, v] of inMemoryBruteForceStore.entries()) {
+        if (now - v.firstFailedAtMs > ADMIN_FAILURE_WINDOW_MS && v.lockedUntilMs <= now) {
+          inMemoryBruteForceStore.delete(k);
+        }
+      }
+      if (inMemoryBruteForceStore.size >= MAX_BRUTE_FORCE_KEYS) {
+        const oldestKey = inMemoryBruteForceStore.keys().next().value;
+        if (oldestKey !== undefined) {
+          inMemoryBruteForceStore.delete(oldestKey);
+        }
+      }
+    }
     inMemoryBruteForceStore.set(key, {
       failedAttempts,
       firstFailedAtMs,
@@ -692,18 +732,25 @@ function resolveProductBaseId(item: any): string {
   return derived;
 }
 
-function sanitizePayloadObject(input: any): Record<string, any> {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
+function sanitizePayloadValue(val: any, depth: number): any {
+  if (depth > 12) return null;
+  if (Array.isArray(val)) {
+    return val.slice(0, 500).map((item) => sanitizePayloadValue(item, depth + 1));
+  }
+  if (val && typeof val === 'object') {
+    return sanitizePayloadObject(val, depth + 1);
+  }
+  return val;
+}
+
+function sanitizePayloadObject(input: any, depth = 0): Record<string, any> {
+  if (depth > 12 || !input || typeof input !== 'object' || Array.isArray(input)) return {};
   const clean: Record<string, any> = {};
   for (const [key, val] of Object.entries(input)) {
     if (key === '__proto__' || key === 'constructor' || key === 'prototype' || key.startsWith('$')) {
       continue;
     }
-    if (val && typeof val === 'object' && !Array.isArray(val)) {
-      clean[key] = sanitizePayloadObject(val);
-    } else {
-      clean[key] = val;
-    }
+    clean[key] = sanitizePayloadValue(val, depth + 1);
   }
   return clean;
 }
@@ -2249,7 +2296,7 @@ async function calculateOrderTotals(items: any[], orderType: 'retail' | 'wholesa
       }
     }
     
-    subtotal += itemPrice * item.quantity;
+    subtotal = Math.round((subtotal + itemPrice * item.quantity) * 100) / 100;
     
     validatedItems.push({
       id: item.id,
@@ -2263,6 +2310,7 @@ async function calculateOrderTotals(items: any[], orderType: 'retail' | 'wholesa
       image: pData.image || item.image || null,
     });
   }
+  subtotal = Math.round(subtotal * 100) / 100;
   return { subtotal, validatedItems };
 }
 
@@ -2709,6 +2757,9 @@ async function applyCoupon(subtotal: number, couponCode?: string | null, userId?
   if (!couponCode || !String(couponCode).trim()) {
     return { discountAmount: 0, couponCode: null };
   }
+  if (!Number.isFinite(subtotal) || subtotal <= 0) {
+    throw new Error('Cart subtotal must be greater than zero to apply a coupon.');
+  }
   const code = String(couponCode).trim().toUpperCase();
 
   const db = getFirestore();
@@ -2720,6 +2771,18 @@ async function applyCoupon(subtotal: number, couponCode?: string | null, userId?
   const coupon = snap.data() as any;
   if (coupon.isActive === false) {
     throw new Error(`Coupon code "${code}" is no longer active.`);
+  }
+  const rawExpiry = coupon.expiresAt || coupon.expiryDate || coupon.validUntil || null;
+  if (rawExpiry) {
+    const expiryMs =
+      typeof rawExpiry === 'number'
+        ? rawExpiry
+        : typeof rawExpiry?.toDate === 'function'
+        ? rawExpiry.toDate().getTime()
+        : Date.parse(String(rawExpiry));
+    if (Number.isFinite(expiryMs) && Date.now() > expiryMs) {
+      throw new Error(`Coupon code "${code}" has expired.`);
+    }
   }
   const minOrderValue = Number(coupon.minOrderValue) || 0;
   if (minOrderValue > 0 && subtotal < minOrderValue) {
@@ -2745,11 +2808,17 @@ async function applyCoupon(subtotal: number, couponCode?: string | null, userId?
     }
   }
 
+  const rawDiscountVal = Number(coupon.discountValue);
+  if (!Number.isFinite(rawDiscountVal) || rawDiscountVal <= 0) {
+    throw new Error(`Coupon "${code}" has an invalid discount configuration.`);
+  }
+
   let discountAmount: number;
   if (coupon.discountType === 'percentage') {
-    discountAmount = (subtotal * (Number(coupon.discountValue) || 0)) / 100;
+    const clampedPct = Math.min(100, Math.max(0, rawDiscountVal));
+    discountAmount = (subtotal * clampedPct) / 100;
   } else {
-    discountAmount = Number(coupon.discountValue) || 0;
+    discountAmount = rawDiscountVal;
   }
   // Never let a discount exceed the subtotal (e.g. a flat-₹ coupon on a small cart).
   discountAmount = Math.round(Math.max(0, Math.min(discountAmount, subtotal)) * 100) / 100;
@@ -3313,7 +3382,10 @@ app.use(compression() as unknown as express.RequestHandler);
       // Primary credentials verified! Check 2FA enrollment state in /admin_security/{emailKey}
       const emailKey = `adm_${verifiedEmail.replace(/[^a-z0-9]/g, '_')}`;
       const secRecord = await getAdminSecurityRecord(emailKey);
-      const totpEnabled = Boolean(secRecord?.totpEnabled && secRecord?.totpSecretEncrypted);
+      const decryptedActiveSecret = secRecord?.totpSecretEncrypted
+        ? decryptAdminTotpSecret(String(secRecord.totpSecretEncrypted))
+        : null;
+      const totpEnabled = Boolean(secRecord?.totpEnabled && decryptedActiveSecret);
 
       if (totpEnabled) {
         const preAuthToken = createAdminPreAuthToken(verifiedEmail, 'VERIFY_2FA', req);
@@ -3696,6 +3768,12 @@ app.use(compression() as unknown as express.RequestHandler);
       const jti = String(authUser?.jti || '');
       const email = String(authUser?.email || 'admin');
       if (jti) {
+        if (revokedAdminSessionJtis.size >= MAX_REVOKED_JTIS) {
+          const oldestJti = revokedAdminSessionJtis.values().next().value;
+          if (oldestJti !== undefined) {
+            revokedAdminSessionJtis.delete(oldestJti);
+          }
+        }
         revokedAdminSessionJtis.add(jti);
         await getFirestore().collection('admin_sessions').doc(jti).set(
           { revoked: true, revokedAt: new Date().toISOString() },
@@ -4526,7 +4604,7 @@ app.use(compression() as unknown as express.RequestHandler);
         }
       }
 
-      const grandTotal = Math.max(0, subtotal - discountAmount) + deliveryFee;
+      const grandTotal = Math.round((Math.max(0, subtotal - discountAmount) + deliveryFee) * 100) / 100;
       const orderId = generateOrderId();
       const hmacSecret = env.RAZORPAY_KEY_SECRET || env.CRON_SECRET || WHATSAPP_BOOT_HMAC_SECRET;
       const signatureDigest = crypto
@@ -5510,7 +5588,14 @@ app.use(compression() as unknown as express.RequestHandler);
   const orderTrackingUpdateSchema = z.object({
     trackingCarrier: z.string().trim().max(120).optional(),
     trackingNumber: z.string().trim().max(120).optional(),
-    trackingUrl: z.string().trim().max(500).optional(),
+    trackingUrl: z
+      .string()
+      .trim()
+      .max(500)
+      .refine((val) => !val || /^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(val), {
+        message: 'Tracking URL must be a valid HTTP or HTTPS link',
+      })
+      .optional(),
     adminNotes: z.string().trim().max(1000).optional(),
     reason: z.string().trim().max(300).optional(),
   });
@@ -5684,8 +5769,9 @@ app.post('/api/orders/:id/whatsapp-status', trackOrderLimiter, requireAuth, asyn
         return { kind: 'forbidden' as const };
       }
 
-      // SECURITY: Only allow state transitions from 'whatsapp_pending'
-      if (orderData?.status !== 'whatsapp_pending' && orderData?.orderStatus !== 'whatsapp_pending') {
+      // SECURITY: Only allow state transitions from 'whatsapp_pending' or 'AWAITING_WHATSAPP_CONFIRMATION'
+      const curWaStatus = String(orderData?.orderStatus || orderData?.status || '');
+      if (curWaStatus !== 'whatsapp_pending' && curWaStatus !== 'AWAITING_WHATSAPP_CONFIRMATION') {
         return { kind: 'invalid_state' as const };
       }
 
@@ -6017,7 +6103,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
           return res.status(400).json({ success: false, error: couponErr.message || 'Invalid coupon code' });
         }
       }
-      const discountedSubtotal = subtotal - discountAmount;
+      const discountedSubtotal = Math.round(Math.max(0, subtotal - discountAmount) * 100) / 100;
 
       let effectiveDeliveryFee = 0;
       let wholesaleZoneId: string | null = null;
@@ -6051,7 +6137,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
         effectiveDeliveryFee = (freeDeliveryThreshold > 0 && discountedSubtotal >= freeDeliveryThreshold) ? 0 : deliveryFee;
       }
 
-      const grandTotal = discountedSubtotal + effectiveDeliveryFee;
+      const grandTotal = Math.round((discountedSubtotal + effectiveDeliveryFee) * 100) / 100;
 
       let initialStatus = 'pending';
       const initialPaymentStatus = 'unpaid';
@@ -6426,7 +6512,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
           return res.status(400).json({ success: false, error: couponErr.message || 'Invalid coupon code' });
         }
       }
-      const discountedSubtotal = subtotal - discountAmount;
+      const discountedSubtotal = Math.round(Math.max(0, subtotal - discountAmount) * 100) / 100;
 
       const { deliveryFee, freeDeliveryThreshold, minOrderAmount, upiId } = await getStoreDeliverySettings();
 
@@ -6459,7 +6545,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
         const baseFee = typeof pin.deliveryFee === 'number' ? pin.deliveryFee : deliveryFee;
         effectiveDeliveryFee = (freeDeliveryThreshold > 0 && discountedSubtotal >= freeDeliveryThreshold) ? 0 : baseFee;
       }
-      const totalAmount = discountedSubtotal + effectiveDeliveryFee;
+      const totalAmount = Math.round((discountedSubtotal + effectiveDeliveryFee) * 100) / 100;
 
       if (totalAmount <= 0) {
         return res.status(400).json({ success: false, error: 'Calculated order total must be greater than zero' });

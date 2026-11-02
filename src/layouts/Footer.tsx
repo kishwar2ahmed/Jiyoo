@@ -21,7 +21,6 @@ import { DeveloperFooter } from "./DeveloperFooter";
 import { InstallAppModal } from "../features/core/components/InstallAppModal";
 import { FssaiLogo } from "../features/core/components/FssaiLogo";
 import { ArchitecturalButterfly } from "../features/core/components/ArchitecturalButterfly";
-import { TrustStrip } from "../components/TrustStrip";
 import { ArrowUpRight, Clock, ShieldCheck, Heart } from "lucide-react";
 import { useSettings } from "../contexts/SettingsContext";
 import {
@@ -81,7 +80,7 @@ export function Footer() {
     }
   };
 
-  const selectCategoryAndScroll = (categoryId: string) => {
+  const selectCategoryAndScroll = (categoryId: string, subcategoryId?: string) => {
     try {
       sessionStorage.setItem("jiyoo_pending_category", categoryId);
     } catch {
@@ -89,7 +88,11 @@ export function Footer() {
     }
     document.dispatchEvent(new CustomEvent("open-retail"));
     setTimeout(() => {
-      window.dispatchEvent(new CustomEvent("select-category", { detail: categoryId }));
+      window.dispatchEvent(
+        new CustomEvent("select-category", {
+          detail: subcategoryId ? { categoryId, subcategoryId } : categoryId,
+        })
+      );
       scrollToProducts();
     }, 60);
   };
@@ -356,7 +359,7 @@ export function Footer() {
                   <li>
                     <button
                       type="button"
-                      onClick={() => selectCategoryAndScroll("meat")}
+                      onClick={() => selectCategoryAndScroll("meat", "seafood")}
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >
                       Fish, Prawns &amp; Seafood
@@ -496,9 +499,6 @@ export function Footer() {
 
           {/* Bottom Colophon Row */}
           <div className="pt-6 sm:pt-8">
-            {/* Indian E-Commerce Trust & Quality Strip */}
-            <TrustStrip variant="compact" className="pt-0 border-t-0 pb-6 mb-6 border-b border-stone-100" />
-
             {/* Official Payment Trust Strip */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pb-6 mb-6 border-b border-stone-100 text-center sm:text-left">
               <span className="text-[10px] sm:text-[11px] font-sans-clean uppercase tracking-[0.18em] text-stone-500 font-medium">
@@ -603,11 +603,13 @@ export function Footer() {
                   delay: i * 0.12,
                   ease: EASE_OUT_EXPO,
                 }}
-                className={`font-serif-luxury font-bold text-[14vw] sm:text-[15vw] leading-none text-stone-300/40 uppercase inline-block select-none transform-gpu ${
+                className={`font-serif-luxury font-bold text-[14vw] sm:text-[15vw] leading-none uppercase inline-block select-none transform-gpu ${
                   letter === "O" && i === 4 ? "relative" : ""
                 }`}
               >
-                {letter}
+                <span className="bg-gradient-to-b from-[#1C1917]/80 via-[#5C2328]/65 to-[#C5A880]/25 bg-clip-text text-transparent">
+                  {letter}
+                </span>
                 {letter === "O" && i === 4 && (
                   <ArchitecturalButterfly prefersReducedMotion={prefersReducedMotion} />
                 )}

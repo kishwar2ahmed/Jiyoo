@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 .font-serif-luxury {
-  font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
   letter-spacing: -0.02em;
 }
 
@@ -64,21 +64,21 @@
 @theme {
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
-  --font-serif: 'Outfit', system-ui, -apple-system, sans-serif;
-  --color-brand-black: #18181B;
-  --color-brand-gray-900: #27272A;
-  --color-brand-gray-800: #3F3F46;
-  --color-brand-gray-500: #71717A;
-  --color-brand-gray-200: #E4E4E7;
-  --color-brand-gray-100: #F4F4F5;
-  --color-brand-gray-50: #FAFAFA;
+  --font-serif: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  --color-brand-black: #1C1917;
+  --color-brand-gray-900: #292524;
+  --color-brand-gray-800: #44403C;
+  --color-brand-gray-500: #78716C;
+  --color-brand-gray-200: #E7E3DA;
+  --color-brand-gray-100: #F4F1EA;
+  --color-brand-gray-50: #FAF9F5;
   --color-brand-white: #FFFFFF;
 }
 
 body {
   font-family: var(--font-sans);
   background-color: #FFFFFF;
-  color: #18181B;
+  color: #1C1917;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;

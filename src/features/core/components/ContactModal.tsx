@@ -97,22 +97,27 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
               
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* WhatsApp Support (Primary) */}
-                <div className="bg-stone-50/70 p-5 rounded-xl border border-stone-200 shadow-xs transition-shadow flex flex-col h-full">
+                <div className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm flex flex-col h-full">
                   <div className="w-10 h-10 rounded-full bg-emerald-50 text-[#25D366] flex items-center justify-center mb-4">
                     <WhatsAppIcon className="w-5 h-5" />
                   </div>
-                  <h4 className="text-stone-900 font-bold mb-1">WhatsApp Concierge</h4>
-                  <p className="text-stone-500 text-xs sm:text-sm mb-4 flex-grow">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <h4 className="text-stone-900 font-bold">WhatsApp Concierge</h4>
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-[10px] font-bold uppercase tracking-wider">
+                      Instant
+                    </span>
+                  </div>
+                  <p className="text-stone-500 text-xs mb-3 flex-grow">
                     Perfect for quick questions, order tracking, and instant support.
                   </p>
-                  <div className="flex items-center gap-1.5 text-xs text-stone-500 mb-4">
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-semibold text-stone-400 mb-4 mt-auto">
                     <Clock className="w-3.5 h-3.5" /> Avg response: 5 mins
                   </div>
                   <a
                     href={whatsappHref('support')}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full py-2.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-xs active:scale-[0.98]"
+                    className="w-full py-3 bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]"
                   >
                     <WhatsAppIcon className="w-4 h-4" /> WhatsApp Chat
                   </a>

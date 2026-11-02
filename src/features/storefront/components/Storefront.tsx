@@ -10,7 +10,6 @@ import { useStorefrontCategories } from '../hooks/useStorefrontCategories';
 import { searchCatalogProducts } from '../../../utils/fuzzyMatch';
 import { useStorefrontProducts } from '../hooks/useStorefrontProducts';
 import { SEO } from '../../../components/SEO';
-import { TrustStrip } from '../../../components/TrustStrip';
 import {
   generateOrganizationSchema,
   generateWebSiteSchema,
@@ -446,11 +445,10 @@ export function Storefront() {
           schema={seoConfig.schema}
         />
       )}
-      <TrustStrip variant="storefront" />
       <section
         id="products"
         aria-label="JIYOO Fresh Product Catalog"
-        className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-1.5 sm:pt-6 pb-6 sm:pb-12 relative"
+        className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-1.5 sm:pt-8 pb-6 sm:pb-12 relative"
       >
       <div className="flex flex-col gap-2 sm:gap-6 mb-3 sm:mb-10 relative z-10">
         {/* Main Categories - Editorial Image Cards with Scroll-Triggered Choreography & Uncropped Mobile Labels */}

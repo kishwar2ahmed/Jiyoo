@@ -393,24 +393,24 @@ export function ProductDetailModal({
                   </div>
 
                   {/* Product Name */}
-                  <h2 className="text-2xl sm:text-3xl font-semibold text-brand-black tracking-tight mb-2 leading-tight">
+                  <h2 className="font-serif-luxury text-2xl sm:text-3xl lg:text-[34px] font-semibold text-brand-black tracking-tight mb-2.5 leading-[1.15]">
                     {product.name}
                   </h2>
 
                   {/* Subtext info */}
-                  <div className="flex items-center gap-3 text-sm text-brand-gray-500 mb-6">
+                  <div className="flex flex-wrap items-center gap-2.5 text-xs sm:text-sm text-brand-gray-500 mb-6">
                     {product.origin && (
-                      <span className="bg-brand-gray-50 px-2.5 py-1 rounded-lg">
+                      <span className="bg-brand-gray-50 border border-brand-gray-200/80 text-brand-black px-2.5 py-1 rounded-lg font-medium">
                         Origin: {product.origin}
                       </span>
                     )}
                     {isMeat && product.cutType && (
-                      <span className="bg-brand-gray-50 px-2.5 py-1 rounded-lg">
+                      <span className="bg-brand-gray-50 border border-brand-gray-200/80 text-brand-black px-2.5 py-1 rounded-lg font-medium">
                         Cut: {product.cutType}
                       </span>
                     )}
                     {product.freshnessBadge && (
-                      <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-850 px-2.5 py-1 rounded-lg text-xs font-semibold">
+                      <span className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200/60 text-emerald-900 px-2.5 py-1 rounded-lg text-xs font-semibold">
                         <PremiumShieldMark className="w-3.5 h-3.5 shrink-0" variant="emerald" />
                         <span>{product.freshnessBadge}</span>
                       </span>

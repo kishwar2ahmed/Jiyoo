@@ -243,12 +243,12 @@ export function HeroSlideshow() {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className={`group relative w-full overflow-hidden rounded-lg border transition-all duration-300 select-none ${
+      className={`group relative w-full overflow-hidden rounded-2xl border transition-all duration-300 select-none ${
         isDiwaliSlide
-          ? 'border-amber-400/60 shadow-sm bg-stone-900'
+          ? 'border-[#C5A880] shadow-[0_18px_42px_-12px_rgba(28,25,23,0.28)] ring-1 ring-[#C5A880]/40 bg-stone-900'
           : isWhatsAppSlide
-          ? 'border-emerald-700/40 shadow-sm bg-[#F6EFE6]'
-          : 'border-stone-200 bg-stone-900 shadow-sm'
+          ? 'border-emerald-700/45 shadow-[0_18px_42px_-12px_rgba(28,25,23,0.2)] bg-[#F6EFE6]'
+          : 'border-[#D8CEBE] shadow-[0_18px_42px_-12px_rgba(28,25,23,0.22)] ring-1 ring-[#C5A880]/25 bg-stone-900'
       }`}
     >
       {/* Aspect Ratio Container: Matched to 2048x768 (8:3) banner proportions so nothing is cropped */}
@@ -303,7 +303,7 @@ export function HeroSlideshow() {
         {isDiwaliSlide && (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-radial-gradient from-amber-500/10 via-transparent to-black/40 z-10 animate-pulse duration-1000"
+            className="pointer-events-none absolute inset-0 bg-radial-gradient from-amber-500/10 via-transparent to-black/40 z-10 transition-opacity duration-700"
           />
         )}
 

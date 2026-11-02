@@ -227,10 +227,18 @@ export function useModalBackButton(isOpen: boolean, onClose: () => void) {
       onCloseRef.current();
     };
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && activeRef.current) {
+        onCloseRef.current();
+      }
+    };
+
     window.addEventListener("popstate", handlePopState);
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("keydown", handleKeyDown);
       if (activeRef.current) {
         activeRef.current = false;
         activeOverlayCount = Math.max(0, activeOverlayCount - 1);

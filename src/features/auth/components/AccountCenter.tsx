@@ -133,9 +133,9 @@ const OrderTrackingTimeline = ({ order }: { order: any }) => {
               </p>
             )}
           </div>
-          {order.trackingUrl && (
+          {order.trackingUrl && /^https?:\/\//i.test(String(order.trackingUrl).trim()) && (
             <a
-              href={order.trackingUrl}
+              href={String(order.trackingUrl).trim()}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-semibold text-xs hover:bg-emerald-800 transition-colors"
