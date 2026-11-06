@@ -11,7 +11,7 @@ interface VelvetyBalloonButtonProps {
   size?: "card" | "modal";
 }
 
-const PILL_IMAGE_SRC = "/assets/aistudio/velvet_butterfly_pill_final.png";
+const PILL_IMAGE_SRC = "/assets/aistudio/velvet_butterfly_pill_final.webp";
 
 export const VelvetyBalloonButton: React.FC<VelvetyBalloonButtonProps> = ({
   onClick,
@@ -116,7 +116,7 @@ export const VelvetyBalloonButton: React.FC<VelvetyBalloonButtonProps> = ({
           className={
             size === "modal"
               ? "h-[50px] sm:h-[52px] w-auto max-w-full aspect-[1902/577] object-contain pointer-events-none select-none transition-transform duration-200"
-              : "w-full max-w-[165px] sm:w-[142px] h-[44px] sm:h-[42px] aspect-[1902/577] object-contain pointer-events-none select-none transition-transform duration-200"
+              : "w-full max-w-[165px] sm:w-[130px] xl:w-[136px] h-[42px] sm:h-[40px] aspect-[1902/577] object-contain pointer-events-none select-none transition-transform duration-200"
           }
         />
 

@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Truck, Save, CheckCircle2, ShieldCheck, Clock, DollarSign } from 'lucide-react';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { useToast } from '../../core/contexts/ToastContext';
@@ -13,6 +12,13 @@ export function ShippingTab() {
   const [minOrderAmount, setMinOrderAmount] = useState<number>(settings.minOrderAmount || 0);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    setDeliveryFee(typeof settings.deliveryFee === 'number' ? settings.deliveryFee : 40);
+    setFreeDeliveryThreshold(settings.freeDeliveryThreshold || 0);
+    setEstimatedDeliveryTime(settings.estimatedDeliveryTime || '30 - 60 mins');
+    setMinOrderAmount(settings.minOrderAmount || 0);
+  }, [settings.deliveryFee, settings.freeDeliveryThreshold, settings.estimatedDeliveryTime, settings.minOrderAmount]);
 
 
   const handleSave = async (e: React.FormEvent) => {

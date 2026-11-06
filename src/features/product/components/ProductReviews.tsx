@@ -35,13 +35,18 @@ export function ProductReviews({ productId }: { productId: string | number }) {
       q,
       (snap) => {
         const fetchedReviews = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review));
-        // Client-side sort to avoid requiring composite indexes
-        fetchedReviews.sort((a, b) => {
-          const timeA = a.createdAt?.seconds || 0;
-          const timeB = b.createdAt?.seconds || 0;
-          return timeB - timeA;
-        });
-        setReviews(fetchedReviews);
+        const getReviewMs = (val: any) => {
+          if (val?.seconds) return val.seconds * 1000;
+          if (typeof val === 'string' || typeof val === 'number') {
+            const parsed = new Date(val).getTime();
+            return isNaN(parsed) ? 0 : parsed;
+          }
+          return 0;
+        };
+        fetchedReviews.sort((a, b) => getReviewMs(b.createdAt) - getReviewMs(a.createdAt));
+        const uniqueMap = new Map<string, Review>();
+        for (const r of fetchedReviews) uniqueMap.set(r.id, r);
+        setReviews(Array.from(uniqueMap.values()));
         setLoading(false);
       },
       (err) => {
@@ -68,12 +73,18 @@ export function ProductReviews({ productId }: { productId: string | number }) {
       });
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error || 'Failed to submit review');
-      setReviews(prev => [data.review as Review, ...prev]);
+      const submittedReview = data.review as Review;
+      setReviews(prev => {
+        const filtered = prev.filter(r => r.id !== submittedReview.id);
+        return [submittedReview, ...filtered];
+      });
       setComment('');
       setRating(5);
       setShowForm(false);
-    } catch (err) {
+      showToast('Thank you! Your review has been published.', 'success');
+    } catch (err: any) {
       console.error("Failed to submit review:", err);
+      showToast(err?.message || 'Failed to submit review', 'error');
     } finally {
       setIsSubmitting(false);
     }

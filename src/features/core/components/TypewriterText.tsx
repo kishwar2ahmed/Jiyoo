@@ -89,6 +89,11 @@ export function useTypewriter({
 
   useEffect(() => {
     if (prefersReducedMotion || paused || isTabHidden || !hasStarted) {
+      if ((paused || isTabHidden) && (isDeleting || charIndex === 0)) {
+        const activeTarget = safePhrases[phraseIndex % safePhrases.length] || '';
+        setIsDeleting(false);
+        setCharIndex(activeTarget.length);
+      }
       return;
     }
 
@@ -105,12 +110,13 @@ export function useTypewriter({
       return () => clearTimeout(holdTimer);
     }
 
-    // Completed deleting current phrase -> advance to next phrase
-    if (isDeleting && charIndex <= 0) {
+    // Completed deleting current phrase -> advance to next phrase without ever hitting 0-length empty text
+    if (isDeleting && charIndex <= 1) {
       const switchTimer = setTimeout(() => {
         setIsDeleting(false);
         setPhraseIndex((prev) => (prev + 1) % safePhrases.length);
-      }, 140);
+        setCharIndex(1);
+      }, 60);
       return () => clearTimeout(switchTimer);
     }
 
@@ -120,16 +126,16 @@ export function useTypewriter({
     if (!isDeleting) {
       const prevChar = activeTarget[charIndex - 1] || '';
       // Deterministic organic cadence variation based on character position
-      const microVariance = ((charIndex * 17 + phraseIndex * 31) % 18) - 8;
-      delay = Math.max(22, typingSpeed + microVariance);
+      const microVariance = ((charIndex * 17 + phraseIndex * 31) % 14) - 6;
+      delay = Math.max(18, typingSpeed + microVariance);
 
       // Subtle editorial pause after punctuation or clause separators
       if (prevChar === ',' || prevChar === '&' || prevChar === '—') {
-        delay += 130;
+        delay += 75;
       } else if (prevChar === '.' || prevChar === '?' || prevChar === '!') {
-        delay += 180;
+        delay += 110;
       } else if (prevChar === ' ') {
-        delay += 18;
+        delay += 12;
       }
     }
 
@@ -165,7 +171,7 @@ export function useTypewriter({
     };
   }
 
-  const clampedIndex = Math.max(0, Math.min(charIndex, currentPhrase.length));
+  const clampedIndex = Math.max(1, Math.min(charIndex, currentPhrase.length));
   const displayText = currentPhrase.slice(0, clampedIndex);
   const isResting = !isDeleting && clampedIndex === currentPhrase.length;
   const isTyping = !isResting && !isDeleting;
@@ -250,29 +256,20 @@ export const TypewriterText: React.FC<TypewriterTextProps> = ({
 
   const accessibleText = ariaLabel || phrases[0] || currentPhrase;
 
+  const shownText = !isInView && !displayText ? currentPhrase : displayText;
+
   return (
     <span
       ref={containerRef}
       aria-label={accessibleText}
       className={`inline-grid items-baseline text-left align-baseline ${className}`}
     >
-      {/* Ghost sizing layer: locks exact width & multi-line height of longest phrase (Zero CLS) */}
-      {reserveLongestSpace && (
-        <span
-          aria-hidden="true"
-          className="[grid-area:1/1] invisible pointer-events-none select-none whitespace-normal"
-        >
-          {longestPhrase}
-          {showCursor ? '\u00A0' : ''}
-        </span>
-      )}
-
-      {/* Live animated text + editorial hairline caret */}
+      {/* Live animated text + editorial hairline caret (always span:nth-of-type(1)) */}
       <span
         aria-hidden="true"
         className="[grid-area:1/1] inline whitespace-normal"
       >
-        <span className={textClassName}>{displayText}</span>
+        <span className={textClassName}>{shownText}</span>
         {showCursor && !prefersReducedMotion && (
           <span
             className={`inline-block w-[1.5px] sm:w-[2px] h-[0.86em] ml-[3px] align-[-0.08em] rounded-full transition-opacity duration-150 ${cursorClassName} ${
@@ -281,6 +278,19 @@ export const TypewriterText: React.FC<TypewriterTextProps> = ({
           />
         )}
       </span>
+
+      {/* Ghost sizing layer: locks exact width & multi-line height of longest phrase (Zero CLS) */}
+      {reserveLongestSpace && (
+        <span
+          aria-hidden="true"
+          className="[grid-area:1/1] invisible pointer-events-none select-none whitespace-normal"
+        >
+          <span className={textClassName}>
+            {longestPhrase}
+            {showCursor ? '\u00A0' : ''}
+          </span>
+        </span>
+      )}
     </span>
   );
 };

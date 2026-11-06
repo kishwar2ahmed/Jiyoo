@@ -39,7 +39,7 @@ export default defineConfig(() => {
       host: '0.0.0.0',
       // HMR on by default; set DISABLE_HMR=true to opt out.
       hmr: process.env.DISABLE_HMR === 'true' ? false : undefined,
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      watch: {},
     },
     preview: {
       port: 3000,

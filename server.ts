@@ -110,8 +110,12 @@ if (!getApps().length) {
 function getFirestore(): any {
   if (hasServiceAccountCredentials) {
     try {
-      return appletConfig?.firestoreDatabaseId
-        ? getFirebaseAdminFirestore(appletConfig.firestoreDatabaseId)
+      const targetDbId =
+        appletConfig?.firestoreDatabaseId && appletConfig.firestoreDatabaseId !== '(default)'
+          ? appletConfig.firestoreDatabaseId
+          : undefined;
+      return targetDbId
+        ? getFirebaseAdminFirestore(targetDbId)
         : getFirebaseAdminFirestore();
     } catch {
       return serverFallbackDb;
@@ -125,6 +129,7 @@ const OWNER_ADMIN_EMAILS = new Set([
   'shamsjiyoo@gmail.com',
   'jiyooshams@gmail.com',
   'syedshams7799@gmail.com',
+  'kishwar.ahmed.vr@gmail.com',
   ...env.ADMIN_SEED_EMAILS.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean),
 ]);
 
@@ -158,6 +163,22 @@ interface ServerCacheEntry<T = any> {
 
 const serverMemoryCache = new Map<string, ServerCacheEntry>();
 const singleflightPromises = new Map<string, Promise<any>>();
+const MAX_SERVER_CACHE_ENTRIES = 1000;
+const negativeMediaLookupCache = new Map<string, number>();
+
+function setBoundedServerCache(key: string, entry: ServerCacheEntry) {
+  if (serverMemoryCache.size >= MAX_SERVER_CACHE_ENTRIES && !serverMemoryCache.has(key)) {
+    const now = Date.now();
+    for (const [k, v] of serverMemoryCache.entries()) {
+      if (v.staleUntil <= now) serverMemoryCache.delete(k);
+    }
+    if (serverMemoryCache.size >= MAX_SERVER_CACHE_ENTRIES) {
+      const oldestKey = serverMemoryCache.keys().next().value;
+      if (oldestKey) serverMemoryCache.delete(oldestKey);
+    }
+  }
+  serverMemoryCache.set(key, entry);
+}
 
 async function withServerCache<T>(
   key: string,
@@ -178,7 +199,7 @@ async function withServerCache<T>(
       const bgPromise = fetcher()
         .then((freshVal) => {
           const doneAt = Date.now();
-          serverMemoryCache.set(key, {
+          setBoundedServerCache(key, {
             value: freshVal,
             expiresAt: doneAt + ttlMs,
             staleUntil: doneAt + ttlMs + staleWhileRevalidateMs,
@@ -203,7 +224,7 @@ async function withServerCache<T>(
   const flight = fetcher()
     .then((freshVal) => {
       const doneAt = Date.now();
-      serverMemoryCache.set(key, {
+      setBoundedServerCache(key, {
         value: freshVal,
         expiresAt: doneAt + ttlMs,
         staleUntil: doneAt + ttlMs + staleWhileRevalidateMs,
@@ -692,18 +713,26 @@ function resolveProductBaseId(item: any): string {
   return derived;
 }
 
-function sanitizePayloadObject(input: any): Record<string, any> {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
+function sanitizePayloadValue(val: any, depth: number): any {
+  if (depth > 6) return null;
+  if (Array.isArray(val)) {
+    return val.slice(0, 500).map((item) => sanitizePayloadValue(item, depth + 1));
+  }
+  if (val && typeof val === 'object') {
+    return sanitizePayloadObject(val, depth + 1);
+  }
+  return val;
+}
+
+function sanitizePayloadObject(input: any, depth = 0): Record<string, any> {
+  if (depth > 6 || !input || typeof input !== 'object' || Array.isArray(input)) return {};
   const clean: Record<string, any> = {};
-  for (const [key, val] of Object.entries(input)) {
-    if (key === '__proto__' || key === 'constructor' || key === 'prototype' || key.startsWith('$')) {
+  const entries = Object.entries(input).slice(0, 200);
+  for (const [key, val] of entries) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype' || key.startsWith('$') || key.includes('.')) {
       continue;
     }
-    if (val && typeof val === 'object' && !Array.isArray(val)) {
-      clean[key] = sanitizePayloadObject(val);
-    } else {
-      clean[key] = val;
-    }
+    clean[key] = sanitizePayloadValue(val, depth);
   }
   return clean;
 }
@@ -804,13 +833,30 @@ async function syncCatalogToFirestore() {
           isDeleted: false,
         }, { merge: true });
         updatedCount++;
-      } else if (!existing.subcategoryId && (p as any).subcategoryId) {
-        // Backfill missing subcategory hierarchy fields without overwriting admin edits
+      } else if (existing.adminEdited !== true) {
+        // Keep bundled catalog pricing, UOM, weights, and hierarchy authoritative unless edited by an admin
         batch.set(docRef, {
-          subcategoryId: (p as any).subcategoryId,
-          subSubcategoryId: existing.subSubcategoryId ?? (p as any).subSubcategoryId ?? null,
-          categoryId: existing.categoryId || (p as any).categoryId,
-          unit: existing.unit || (p as any).unit || '1 kg',
+          name: p.name,
+          category: p.category || existing.category || 'General',
+          categoryId: (p as any).categoryId || existing.categoryId || 'general',
+          subcategoryId: (p as any).subcategoryId ?? existing.subcategoryId ?? null,
+          subSubcategoryId: (p as any).subSubcategoryId ?? existing.subSubcategoryId ?? null,
+          unit: (p as any).unit || existing.unit || '1 kg',
+          price: p.price,
+          numericPrice: numPrice,
+          mrp: (p as any).mrp ?? existing.mrp ?? null,
+          weights: Array.isArray((p as any).weights) && (p as any).weights.length > 0 ? (p as any).weights : (existing.weights || []),
+          wholesalePrice: (p as any).wholesalePrice || numPrice,
+          wholesaleEligible: (p as any).wholesaleEligible === true,
+          wholesaleUnit: (p as any).wholesaleUnit || existing.wholesaleUnit || 'Wholesale Box',
+          wholesaleMinQty: (p as any).wholesaleMinQty || existing.wholesaleMinQty || 1,
+          brand: (p as any).brand ?? existing.brand ?? null,
+          origin: (p as any).origin ?? existing.origin ?? null,
+          count: (p as any).count ?? existing.count ?? null,
+          netWeight: (p as any).netWeight ?? existing.netWeight ?? null,
+          image: p.image || existing.image,
+          images: (p as any).images || existing.images || [p.image],
+          isDeleted: false,
         }, { merge: true });
         updatedCount++;
       }
@@ -1028,9 +1074,23 @@ const trackOrderLimiter = rateLimit({
   message: { success: false, error: 'Too many order lookup attempts. Please try again later.' },
 });
 
+const pincodeCheckLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 400,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many PIN code checks. Please try again in a few minutes.' },
+});
+
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  max: 600,
+  skip: (req) =>
+    req.method === 'GET' &&
+    (req.path.startsWith('/catalog/') ||
+      req.path === '/banners/active' ||
+      req.path === '/admin/settings' ||
+      req.path === '/delivery/check-pincode'),
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Too many requests from this IP, please try again after 15 minutes' },
@@ -2041,7 +2101,9 @@ async function cancelOrderAtomically(
     const reservationId = data?.reservationId ? String(data.reservationId) : null;
     const refundRequired = paymentStatus === 'paid' || paymentStatus === 'captured';
     const nextPaymentStatus = refundRequired ? 'refund_pending' : paymentStatus;
-    const inventoryAction: 'none' | 'release_reservation' | 'restore_stock' = refundRequired ? 'none' : (reservationId ? 'release_reservation' : 'restore_stock');
+    const isUnreservedWhatsApp = !reservationId && (current === 'AWAITING_WHATSAPP_CONFIRMATION' || current === 'whatsapp_pending');
+    const inventoryAction: 'none' | 'release_reservation' | 'restore_stock' =
+      refundRequired || isUnreservedWhatsApp ? 'none' : (reservationId ? 'release_reservation' : 'restore_stock');
     const now = new Date().toISOString();
 
     // A paid order already had its reserved stock finalized. Never restore it here:
@@ -2468,22 +2530,24 @@ async function reconcileRazorpayOrder(razorpayOrderId: string, paymentId?: strin
 }
 
 async function getStoreDeliverySettings(): Promise<{ deliveryFee: number; freeDeliveryThreshold: number; minOrderAmount: number; upiId: string }> {
-  const fallbackUpiId = 'paytm.s27lek5@pty';
-  try {
-    const docSnap = await getFirestore().collection('settings').doc('global').get();
-    if (docSnap.exists) {
-      const data = docSnap.data();
-      const fee = typeof data?.deliveryFee === 'number' ? data.deliveryFee : 40;
-      const threshold = typeof data?.freeDeliveryThreshold === 'number' ? data.freeDeliveryThreshold : 0;
-      const minOrder = typeof data?.minOrderAmount === 'number' ? data.minOrderAmount : 0;
-      const upiId = typeof data?.upiId === 'string' && data.upiId.trim() ? data.upiId.trim() : fallbackUpiId;
-      return { deliveryFee: fee, freeDeliveryThreshold: threshold, minOrderAmount: minOrder, upiId };
+  return withServerCache('delivery:global_settings', 15000, 60000, async () => {
+    const fallbackUpiId = 'paytm.s27lek5@pty';
+    try {
+      const docSnap = await getFirestore().collection('settings').doc('global').get();
+      if (docSnap.exists) {
+        const data = docSnap.data();
+        const fee = typeof data?.deliveryFee === 'number' ? data.deliveryFee : 40;
+        const threshold = typeof data?.freeDeliveryThreshold === 'number' ? data.freeDeliveryThreshold : 0;
+        const minOrder = typeof data?.minOrderAmount === 'number' ? data.minOrderAmount : 0;
+        const upiId = typeof data?.upiId === 'string' && data.upiId.trim() ? data.upiId.trim() : fallbackUpiId;
+        return { deliveryFee: fee, freeDeliveryThreshold: threshold, minOrderAmount: minOrder, upiId };
+      }
+    } catch (err) {
+      console.error('Error reading authoritative store settings:', err);
+      throw new Error('The live store settings are temporarily unavailable. Please try again in a moment.', { cause: err });
     }
-  } catch (err) {
-    console.error('Error reading authoritative store settings:', err);
-    throw new Error('The live store settings are temporarily unavailable. Please try again in a moment.', { cause: err });
-  }
-  return { deliveryFee: 40, freeDeliveryThreshold: 0, minOrderAmount: 0, upiId: fallbackUpiId };
+    return { deliveryFee: 40, freeDeliveryThreshold: 0, minOrderAmount: 0, upiId: fallbackUpiId };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -2501,16 +2565,18 @@ function normalizePincode(raw: unknown): string {
 async function getRetailPincode(pincode: string): Promise<DeliveryPincodeRecord | null> {
   const clean = normalizePincode(pincode);
   if (!/^\d{6}$/.test(clean)) return null;
-  const defaultEntry = DEFAULT_RETAIL_PINCODES[clean] || null;
-  try {
-    const snap = await getFirestore().collection('deliveryPincodes').doc(clean).get();
-    if (snap.exists) {
-      return { pincode: clean, ...(snap.data() as any) };
+  return withServerCache(`delivery:pincode:${clean}`, 30000, 120000, async () => {
+    const defaultEntry = DEFAULT_RETAIL_PINCODES[clean] || null;
+    try {
+      const snap = await getFirestore().collection('deliveryPincodes').doc(clean).get();
+      if (snap.exists) {
+        return { pincode: clean, ...(snap.data() as any) };
+      }
+    } catch (err) {
+      console.warn('[Delivery] Firestore lookup unavailable for retail pincode, using default configuration:', err);
     }
-  } catch (err) {
-    console.warn('[Delivery] Firestore lookup unavailable for retail pincode, using default configuration:', err);
-  }
-  return defaultEntry ? { ...defaultEntry } : null;
+    return defaultEntry ? { ...defaultEntry } : null;
+  });
 }
 
 interface DeliveryPincodeRecord {
@@ -2782,10 +2848,11 @@ const directOrderSchema = z.object({
       id: z.union([z.string(), z.number()]),
       baseId: z.union([z.string(), z.number()]).optional(),
       name: z.string().optional(),
-      quantity: z.number().int().positive().max(100),
+      quantity: z.number().int().positive().max(500),
       price: z.number().optional(),
       selectedWeight: z.string().nullable().optional(),
       selectedCut: z.string().nullable().optional(),
+      selectedCleaning: z.string().max(60).nullable().optional(),
       image: z.string().optional(),
     })
   ).min(1, 'Cart cannot be empty').max(100, 'Too many items in cart'),
@@ -2815,9 +2882,10 @@ const couponItemsSchema = z.array(
   z.object({
     id: z.union([z.string(), z.number()]),
     baseId: z.union([z.string(), z.number()]).optional(),
-    quantity: z.number().int().positive().max(100).default(1),
+    quantity: z.number().int().positive().max(500).default(1),
     selectedWeight: z.string().nullable().optional(),
     selectedCut: z.string().nullable().optional(),
+    selectedCleaning: z.string().max(60).nullable().optional(),
   })
 ).min(1, 'Cart cannot be empty');
 
@@ -2832,9 +2900,10 @@ const createOrderSchema = z.object({
     z.object({
       id: z.union([z.string(), z.number()]),
       baseId: z.union([z.string(), z.number()]).optional(),
-      quantity: z.number().int().positive().max(100).default(1),
+      quantity: z.number().int().positive().max(500).default(1),
       selectedWeight: z.string().nullable().optional(),
       selectedCut: z.string().nullable().optional(),
+      selectedCleaning: z.string().max(60).nullable().optional(),
     })
   ).min(1, 'Order must contain at least one item').max(100, 'Too many items in order'),
   currency: z.string().optional().default('INR'),
@@ -2860,9 +2929,10 @@ const verifyPaymentSchema = z.object({
     z.object({
       id: z.union([z.string(), z.number()]),
       baseId: z.union([z.string(), z.number()]).optional(),
-      quantity: z.number().int().positive().max(100).default(1),
+      quantity: z.number().int().positive().max(500).default(1),
       selectedWeight: z.string().nullable().optional(),
       selectedCut: z.string().nullable().optional(),
+      selectedCleaning: z.string().max(60).nullable().optional(),
       name: z.string().optional(),
       price: z.number().optional(),
       image: z.string().optional(),
@@ -2877,6 +2947,7 @@ const verifyPaymentSchema = z.object({
   customerEmail: z.string().optional().nullable(),
   userId: z.string().optional(),
   couponCode: z.string().optional().nullable(),
+  orderType: z.enum(['retail', 'wholesale']).optional(),
 });
 
 const uploadUrlSchema = z.object({
@@ -3029,7 +3100,14 @@ app.use(compression() as unknown as express.RequestHandler);
   // Image retrieval endpoint (Firestore backed with bounded in-memory LRU & ETag 304)
   app.get('/api/images/:id', async (req, res) => {
     try {
-       const imgId = String(req.params.id || '');
+       const imgId = String(req.params.id || '').trim();
+       if (!/^[a-zA-Z0-9_-]{1,80}$/.test(imgId)) {
+          return res.status(400).send('Invalid image ID');
+       }
+       const negExp = negativeMediaLookupCache.get(`img:${imgId}`);
+       if (negExp && negExp > Date.now()) {
+          return res.status(404).send('Image not found');
+       }
        const cachedImg = imageBufferCache.get(imgId);
        if (cachedImg) {
           if (req.headers['if-none-match'] === cachedImg.etag) {
@@ -3045,6 +3123,8 @@ app.use(compression() as unknown as express.RequestHandler);
 
        const doc = await getFirestore().collection('_images').doc(imgId).get();
        if (!doc.exists) {
+          if (negativeMediaLookupCache.size >= 2000) negativeMediaLookupCache.clear();
+          negativeMediaLookupCache.set(`img:${imgId}`, Date.now() + 60_000);
           return res.status(404).send('Image not found');
        }
        const data = doc.data();
@@ -3232,7 +3312,8 @@ app.use(compression() as unknown as express.RequestHandler);
       if (typeof idToken === 'string' && idToken.trim()) {
         const decoded = await verifyFirebaseIdTokenWithFallback(idToken.trim());
         const emailLower = String(decoded?.email || '').trim().toLowerCase();
-        const emailKey = emailLower ? `adm_${emailLower.replace(/[^a-z0-9]/g, '_')}` : '';
+        const isKnownAdminEmail = Boolean(emailLower && (decoded?.admin === true || OWNER_ADMIN_EMAILS.has(emailLower)));
+        const emailKey = isKnownAdminEmail ? `adm_${emailLower.replace(/[^a-z0-9]/g, '_')}` : '';
 
         if (emailKey) {
           const emailLock = await checkAdminBruteForceLockout([emailKey]);
@@ -3257,17 +3338,17 @@ app.use(compression() as unknown as express.RequestHandler);
         }
 
         if (decoded.email_verified !== true) {
-          await recordAdminAuthFailure([ipKey, emailKey], emailLower, 'Unverified email attempted admin login');
+          await recordAdminAuthFailure(emailKey ? [ipKey, emailKey] : [ipKey], emailLower, 'Unverified email attempted admin login');
           return res.status(403).json({
             success: false,
             error: 'Administrator email address must be verified before accessing the Admin Panel.',
           });
         }
 
-        if (decoded.admin === true || OWNER_ADMIN_EMAILS.has(emailLower)) {
+        if (isKnownAdminEmail) {
           verifiedEmail = emailLower;
         } else {
-          const fail = await recordAdminAuthFailure([ipKey, emailKey], emailLower, `Unauthorized account (${emailLower}) attempted admin login`);
+          const fail = await recordAdminAuthFailure([ipKey], emailLower, `Unauthorized account (${emailLower}) attempted admin login`);
           return res.status(fail.locked ? 429 : 403).json({
             success: false,
             remainingAttempts: fail.remainingAttempts,
@@ -3656,10 +3737,34 @@ app.use(compression() as unknown as express.RequestHandler);
         return res.status(400).json({ success: false, error: '2FA is not configured for this account.' });
       }
 
-      const check = verifyTotpCode(secret, String(code || ''));
-      if (!check.valid) {
-        return res.status(401).json({
+      const ipKey = `ip_${getClientIpHash(req)}`;
+      const lockout = await checkAdminBruteForceLockout([ipKey, emailKey]);
+      if (lockout.locked) {
+        return res.status(429).json({
           success: false,
+          code: 'ADMIN_LOCKED_OUT',
+          retryAfterSeconds: lockout.retryAfterSeconds,
+          error: `Account locked due to multiple failed 2FA attempts. Try again in ${Math.ceil(lockout.retryAfterSeconds / 60)} minute(s).`,
+        });
+      }
+
+      const check = verifyTotpCode(
+        secret,
+        String(code || ''),
+        typeof secRecord.lastUsedTotpStep === 'number' ? secRecord.lastUsedTotpStep : undefined
+      );
+      if (check.replayDetected) {
+        return res.status(400).json({
+          success: false,
+          error: 'This 6-digit code was already used. Please wait for the next 30-second code in your authenticator app.',
+        });
+      }
+      if (!check.valid) {
+        const fail = await recordAdminAuthFailure([ipKey, emailKey], email, 'Invalid 6-digit TOTP code during recovery code regeneration');
+        return res.status(fail.locked ? 429 : 401).json({
+          success: false,
+          remainingAttempts: fail.remainingAttempts,
+          retryAfterSeconds: fail.retryAfterSeconds,
           error: 'Invalid 6-digit authenticator code. Enter a current code from your authenticator app to regenerate recovery codes.',
         });
       }
@@ -3724,6 +3829,7 @@ app.use(compression() as unknown as express.RequestHandler);
         { merge: true }
       );
       invalidateServerCache('settings:');
+      invalidateServerCache('delivery:');
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ success: false, error: 'Failed to save settings on server' });
@@ -3764,13 +3870,16 @@ app.use(compression() as unknown as express.RequestHandler);
     try {
       const col = String(req.params.col || '');
       const id = String(req.params.id || '').trim();
-      if (!ALLOWED_ADMIN_COLLECTIONS.has(col) || !id || id.includes('/')) {
+      if (!ALLOWED_ADMIN_COLLECTIONS.has(col) || !id || id.includes('/') || id.length > 128) {
         return res.status(400).json({ success: false, error: 'Invalid collection or document ID' });
       }
       const payload = sanitizePayloadObject(req.body || {});
       if (col === 'users') {
         delete payload.role;
         delete payload.admin;
+      }
+      if (col === 'products') {
+        payload.adminEdited = true;
       }
       await getFirestore().collection(col).doc(id).set(
         { ...payload, id, updatedAt: new Date().toISOString() },
@@ -3870,6 +3979,10 @@ app.use(compression() as unknown as express.RequestHandler);
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         return res.sendFile(filePath);
       }
+      const negUploadExp = negativeMediaLookupCache.get(`up:${rawName}`);
+      if (negUploadExp && negUploadExp > Date.now()) {
+        return res.status(404).end();
+      }
       const docSnap = await getFirestore().collection('media_uploads').doc(rawName).get();
       if (docSnap.exists) {
         const data = docSnap.data() as any;
@@ -3882,10 +3995,14 @@ app.use(compression() as unknown as express.RequestHandler);
             // ignore disk cache write error
           }
           res.setHeader('Content-Type', data.mimeType || 'image/jpeg');
+          res.setHeader('X-Content-Type-Options', 'nosniff');
+          res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
           res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
           return res.send(buf);
         }
       }
+      if (negativeMediaLookupCache.size >= 2000) negativeMediaLookupCache.clear();
+      negativeMediaLookupCache.set(`up:${rawName}`, Date.now() + 60_000);
       return res.status(404).end();
     } catch {
       return res.status(404).end();
@@ -4303,16 +4420,24 @@ app.use(compression() as unknown as express.RequestHandler);
               return;
             }
             const base = mergedMap.get(id) || {};
+            const hasBase = Boolean(base && base.id);
+            const useAdminOverride = !hasBase || data.adminEdited === true;
             mergedMap.set(id, {
               ...base,
               ...data,
               id,
-              categoryId: data.categoryId || base.categoryId || 'general',
-              subcategoryId: data.subcategoryId || base.subcategoryId,
-              subSubcategoryId: data.subSubcategoryId || base.subSubcategoryId,
-              unit: data.unit || base.unit || '1 kg',
-              image: data.image || base.image || '',
-              weights: Array.isArray(data.weights) && data.weights.length > 0 ? data.weights : base.weights,
+              name: useAdminOverride ? (data.name || base.name) : (base.name || data.name),
+              price: useAdminOverride ? (data.price ?? base.price) : (base.price ?? data.price),
+              numericPrice: useAdminOverride ? (data.numericPrice ?? base.numericPrice) : (base.numericPrice ?? data.numericPrice),
+              mrp: useAdminOverride ? (data.mrp ?? base.mrp) : (base.mrp ?? data.mrp),
+              categoryId: useAdminOverride ? (data.categoryId || base.categoryId || 'general') : (base.categoryId || data.categoryId || 'general'),
+              subcategoryId: useAdminOverride ? (data.subcategoryId || base.subcategoryId) : (base.subcategoryId || data.subcategoryId),
+              subSubcategoryId: useAdminOverride ? (data.subSubcategoryId || base.subSubcategoryId) : (base.subSubcategoryId || data.subSubcategoryId),
+              unit: useAdminOverride ? (data.unit || base.unit || '1 kg') : (base.unit || data.unit || '1 kg'),
+              image: useAdminOverride ? (data.image || base.image || '') : (base.image || data.image || ''),
+              weights: useAdminOverride
+                ? (Array.isArray(data.weights) && data.weights.length > 0 ? data.weights : base.weights)
+                : (Array.isArray(base.weights) && base.weights.length > 0 ? base.weights : data.weights),
             });
           });
         } catch (dbErr) {
@@ -4380,6 +4505,7 @@ app.use(compression() as unknown as express.RequestHandler);
       quantity: z.number().int().min(1).max(500),
       selectedWeight: z.string().max(60).nullable().optional(),
       selectedCut: z.string().max(60).nullable().optional(),
+      selectedCleaning: z.string().max(60).nullable().optional(),
     })).min(1).max(100),
     orderType: z.enum(['retail', 'wholesale']).optional().default('retail'),
     couponCode: z.string().max(50).nullable().optional(),
@@ -4645,7 +4771,7 @@ app.use(compression() as unknown as express.RequestHandler);
   // Public, read-only: checkout calls this to validate one address at a
   // time. Never returns the full list, so the set of serviceable localities
   // is never exposed to the client (per the brief's explicit requirement).
-  app.get('/api/delivery/check-pincode', trackOrderLimiter, async (req, res) => {
+  app.get('/api/delivery/check-pincode', pincodeCheckLimiter, async (req, res) => {
     try {
       const pincode = normalizePincode(req.query.pincode);
       const mode = req.query.mode === 'wholesale' ? 'wholesale' : 'retail';
@@ -4788,17 +4914,21 @@ app.use(compression() as unknown as express.RequestHandler);
           .map((d) => ({ id: d.id, ...(d.data() as any) }))
           .filter((b) => (!b.startDate || b.startDate <= nowIso) && (!b.endDate || b.endDate >= nowIso))
           .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-          .map((b) => ({
-            id: b.id,
-            campaignName: b.campaignName,
-            heading: b.heading,
-            description: b.description || '',
-            desktopImage: b.desktopImage,
-            mobileImage: b.mobileImage || b.desktopImage,
-            ctaLabel: b.ctaLabel || '',
-            ctaLinkType: b.ctaLinkType || 'none',
-            ctaLinkValue: b.ctaLinkValue || '',
-          }));
+          .map((b) => {
+            const rawLink = String(b.ctaLinkValue || '').trim();
+            const safeLink = /^(javascript|data|vbscript):/i.test(rawLink) ? '' : rawLink;
+            return {
+              id: b.id,
+              campaignName: b.campaignName,
+              heading: b.heading,
+              description: b.description || '',
+              desktopImage: b.desktopImage,
+              mobileImage: b.mobileImage || b.desktopImage,
+              ctaLabel: b.ctaLabel || '',
+              ctaLinkType: b.ctaLinkType || 'none',
+              ctaLinkValue: safeLink,
+            };
+          });
       });
       res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
       res.json({ success: true, banners: active });
@@ -5510,7 +5640,12 @@ app.use(compression() as unknown as express.RequestHandler);
   const orderTrackingUpdateSchema = z.object({
     trackingCarrier: z.string().trim().max(120).optional(),
     trackingNumber: z.string().trim().max(120).optional(),
-    trackingUrl: z.string().trim().max(500).optional(),
+    trackingUrl: z
+      .string()
+      .trim()
+      .max(500)
+      .refine((val) => !val || /^https?:\/\//i.test(val), 'Tracking URL must start with http:// or https://')
+      .optional(),
     adminNotes: z.string().trim().max(1000).optional(),
     reason: z.string().trim().max(300).optional(),
   });
@@ -5684,8 +5819,9 @@ app.post('/api/orders/:id/whatsapp-status', trackOrderLimiter, requireAuth, asyn
         return { kind: 'forbidden' as const };
       }
 
-      // SECURITY: Only allow state transitions from 'whatsapp_pending'
-      if (orderData?.status !== 'whatsapp_pending' && orderData?.orderStatus !== 'whatsapp_pending') {
+      // SECURITY: Only allow state transitions from 'whatsapp_pending' or 'AWAITING_WHATSAPP_CONFIRMATION'
+      const currentStatus = String(orderData?.status || orderData?.orderStatus || '');
+      if (currentStatus !== 'whatsapp_pending' && currentStatus !== 'AWAITING_WHATSAPP_CONFIRMATION') {
         return { kind: 'invalid_state' as const };
       }
 
@@ -5697,7 +5833,7 @@ app.post('/api/orders/:id/whatsapp-status', trackOrderLimiter, requireAuth, asyn
         updatedAt: now,
       });
 
-      return { kind: 'updated' as const, reservationId };
+      return { kind: 'updated' as const, reservationId, previousStatus: currentStatus };
     });
 
     if (txResult.kind === 'not_found') {
@@ -5721,13 +5857,13 @@ app.post('/api/orders/:id/whatsapp-status', trackOrderLimiter, requireAuth, asyn
       eventType: status === 'cancelled' ? 'ORDER_CANCELLED' : 'STATUS_CHANGED',
       action: 'UPDATE_WHATSAPP_ORDER_STATUS',
       category: 'ORDERS',
-      previousStatus: 'whatsapp_pending',
+      previousStatus: txResult.previousStatus || 'whatsapp_pending',
       newStatus: status,
       actor: authUser.email || authUser.uid,
       actorUid: authUser.uid,
       actorRole: authUser.admin === true ? 'admin' : 'customer',
       source: '/api/orders/:id/whatsapp-status',
-      details: `WhatsApp Express order ${orderId} transitioned from whatsapp_pending to ${status}`,
+      details: `WhatsApp Express order ${orderId} transitioned from ${txResult.previousStatus || 'whatsapp_pending'} to ${status}`,
     });
 
     res.json({ success: true });
@@ -5877,7 +6013,7 @@ app.post('/api/orders/:id/cancel', orderLimiter, requireAuth, async (req: expres
     
     // Prevent cancellation if already dispatched or in invalid state
     const currentStatus = orderData?.status || orderData?.orderStatus;
-    const validStatuses = ['pending', 'confirmed', 'processing', 'packed'];
+    const validStatuses = ['pending', 'confirmed', 'processing', 'packed', 'whatsapp_pending', 'AWAITING_WHATSAPP_CONFIRMATION', 'RECEIVED', 'paid_upi_pending_verify'];
     const nonCancellableStatuses = ['dispatched', 'out_for_delivery', 'delivered', 'cancelled', 'refunded'];
     if (!validStatuses.includes(currentStatus) || nonCancellableStatuses.includes(currentStatus)) {
       return res.status(400).json({ success: false, error: 'Order cannot be cancelled at this stage' });
@@ -5934,7 +6070,8 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
       const { items, shippingDetails, paymentMethod, couponCode, orderType } = parseResult.data;
       const authUser = (req as any).authUser;
       const normalizedPhoneForGuest = String(shippingDetails?.phone || '').replace(/\D/g, '').slice(-10);
-      const userId = authUser?.uid || (normalizedPhoneForGuest ? `guest_${normalizedPhoneForGuest}` : `guest_${crypto.randomBytes(6).toString('hex')}`);
+      const clientIpTag = getClientIpHash(req);
+      const userId = authUser?.uid || (normalizedPhoneForGuest ? `guest_${normalizedPhoneForGuest}` : `guest_ip_${clientIpTag}`);
 
       const isWhatsAppExpress = paymentMethod === 'WhatsApp Express';
       if (orderType === 'wholesale' && isWhatsAppExpress) {
@@ -5954,31 +6091,29 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
         });
       }
 
-      if (!isWhatsAppExpress) {
-        if (!shippingDetails.name?.trim()) {
-          return res.status(400).json({ success: false, error: 'Name is required' });
-        }
-        const rawPhone = String(shippingDetails.phone || '').trim();
-        const normalizedPhone = rawPhone.replace(/[\s().-]/g, '');
-        if (!/^\+?[1-9]\d{6,14}$/.test(normalizedPhone)) {
-          return res.status(400).json({ success: false, error: 'Invalid phone number format. Please enter a valid phone number.' });
-        }
-        if (!shippingDetails.address?.trim()) {
-          return res.status(400).json({ success: false, error: 'Address is required' });
-        }
-        const addressValue = shippingDetails.address.trim();
-        // eslint-disable-next-line no-control-regex
-        if (addressValue.length < 5 || addressValue.length > 500 || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(addressValue)) {
-          return res.status(400).json({ success: false, error: 'Please enter a valid delivery address.' });
-        }
-        const postalCode = String(shippingDetails.pincode || '').trim();
-        // eslint-disable-next-line no-control-regex
-        if (!postalCode || postalCode.length < 2 || postalCode.length > 12 || /[\u0000-\u001F]/.test(postalCode)) {
-          return res.status(400).json({ success: false, error: 'Valid postal/ZIP code required' });
-        }
+      if (!shippingDetails.name?.trim()) {
+        return res.status(400).json({ success: false, error: 'Name is required' });
+      }
+      const rawPhone = String(shippingDetails.phone || '').trim();
+      const normalizedPhone = rawPhone.replace(/[\s().-]/g, '');
+      if (!/^\+?[1-9]\d{6,14}$/.test(normalizedPhone)) {
+        return res.status(400).json({ success: false, error: 'Invalid phone number format. Please enter a valid phone number.' });
+      }
+      if (!shippingDetails.address?.trim()) {
+        return res.status(400).json({ success: false, error: 'Address is required' });
+      }
+      const addressValue = shippingDetails.address.trim();
+      // eslint-disable-next-line no-control-regex
+      if (addressValue.length < 5 || addressValue.length > 500 || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(addressValue)) {
+        return res.status(400).json({ success: false, error: 'Please enter a valid delivery address.' });
+      }
+      const postalCode = String(shippingDetails.pincode || '').trim();
+      // eslint-disable-next-line no-control-regex
+      if (!postalCode || postalCode.length < 2 || postalCode.length > 12 || /[\u0000-\u001F]/.test(postalCode)) {
+        return res.status(400).json({ success: false, error: 'Valid postal/ZIP code required' });
       }
 
-      // Anti-DoS Inventory Exhaustion Protection: Cap concurrent unpaid COD orders per user / phone number
+      // Anti-DoS Inventory Exhaustion Protection: Cap concurrent unpaid COD & WhatsApp orders per user / phone / IP
       try {
         const userOrdersSnap = await getFirestore()
           .collection('orders')
@@ -5989,12 +6124,18 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
           const data = d.data() || {};
           const st = String(data.orderStatus || data.status || '').toLowerCase();
           const pst = String(data.paymentStatus || '').toLowerCase();
-          return pst === 'unpaid' && (st === 'pending' || st === 'processing');
+          return (
+            pst === 'unpaid' &&
+            (st === 'pending' ||
+              st === 'processing' ||
+              st === 'whatsapp_pending' ||
+              st === 'awaiting_whatsapp_confirmation')
+          );
         }).length;
         if (activeUnpaidCount >= 5) {
           return res.status(429).json({
             success: false,
-            error: 'You already have 5 active Cash on Delivery orders in progress. Please wait for delivery or complete payment online.',
+            error: 'You already have 5 active unpaid orders in progress. Please wait for delivery or complete payment online.',
           });
         }
       } catch {
@@ -6017,7 +6158,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
           return res.status(400).json({ success: false, error: couponErr.message || 'Invalid coupon code' });
         }
       }
-      const discountedSubtotal = subtotal - discountAmount;
+      const discountedSubtotal = Math.max(0, subtotal - discountAmount);
 
       let effectiveDeliveryFee = 0;
       let wholesaleZoneId: string | null = null;
@@ -6028,8 +6169,8 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
         if (!zone) {
           return res.status(400).json({ success: false, error: 'We currently do not ship wholesale orders to this PIN code. Please check your delivery address.' });
         }
-        if (zone.minOrderValue > 0 && discountedSubtotal < zone.minOrderValue) {
-          return res.status(400).json({ success: false, error: `Minimum wholesale order value for this area is ₹${zone.minOrderValue}. Add ₹${(zone.minOrderValue - discountedSubtotal).toFixed(2)} more to checkout.` });
+        if (zone.minOrderValue > 0 && subtotal < zone.minOrderValue) {
+          return res.status(400).json({ success: false, error: `Minimum wholesale order value for this area is ₹${zone.minOrderValue}. Add ₹${(zone.minOrderValue - subtotal).toFixed(2)} more to checkout.` });
         }
         effectiveDeliveryFee = zone.shippingFee;
         wholesaleZoneId = zone.id;
@@ -6041,14 +6182,14 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
         }
         const { deliveryFee, freeDeliveryThreshold, minOrderAmount: globalMinOrder } = await getStoreDeliverySettings();
         const effectiveMinOrder = typeof pin.minOrderAmount === 'number' ? pin.minOrderAmount : globalMinOrder;
-        if (effectiveMinOrder > 0 && discountedSubtotal < effectiveMinOrder) {
-          return res.status(400).json({ success: false, error: `Minimum order amount is ₹${effectiveMinOrder}. Add ₹${(effectiveMinOrder - discountedSubtotal).toFixed(2)} more to checkout.` });
+        if (effectiveMinOrder > 0 && subtotal < effectiveMinOrder) {
+          return res.status(400).json({ success: false, error: `Minimum order amount is ₹${effectiveMinOrder}. Add ₹${(effectiveMinOrder - subtotal).toFixed(2)} more to checkout.` });
         }
         const baseFee = typeof pin.deliveryFee === 'number' ? pin.deliveryFee : deliveryFee;
-        effectiveDeliveryFee = (freeDeliveryThreshold > 0 && discountedSubtotal >= freeDeliveryThreshold) ? 0 : baseFee;
+        effectiveDeliveryFee = (freeDeliveryThreshold > 0 && subtotal >= freeDeliveryThreshold) ? 0 : baseFee;
       } else {
         const { deliveryFee, freeDeliveryThreshold } = await getStoreDeliverySettings();
-        effectiveDeliveryFee = (freeDeliveryThreshold > 0 && discountedSubtotal >= freeDeliveryThreshold) ? 0 : deliveryFee;
+        effectiveDeliveryFee = (freeDeliveryThreshold > 0 && subtotal >= freeDeliveryThreshold) ? 0 : deliveryFee;
       }
 
       const grandTotal = discountedSubtotal + effectiveDeliveryFee;
@@ -6410,7 +6551,9 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
 
       const { items, couponCode, shippingDetails, orderType } = parseResult.data;
       const authUser = (req as any).authUser;
-      const userId = authUser?.uid || (typeof req.body?.userId === 'string' && req.body.userId ? req.body.userId : 'guest');
+      // SECURITY: Never trust unauthenticated client-supplied req.body.userId
+      const guestPhoneDigits = String(shippingDetails?.phone || '').replace(/\D/g, '').slice(-10);
+      const userId = authUser?.uid || (guestPhoneDigits ? `guest_${guestPhoneDigits}` : `guest_ip_${getClientIpHash(req)}`);
       const { subtotal, validatedItems: safeItems } = await calculateOrderTotals(items, orderType);
 
       // Authoritative, server-side coupon discount -- applied before the Razorpay order
@@ -6426,9 +6569,9 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
           return res.status(400).json({ success: false, error: couponErr.message || 'Invalid coupon code' });
         }
       }
-      const discountedSubtotal = subtotal - discountAmount;
+      const discountedSubtotal = Math.max(0, subtotal - discountAmount);
 
-      const { deliveryFee, freeDeliveryThreshold, minOrderAmount, upiId } = await getStoreDeliverySettings();
+      const { deliveryFee, freeDeliveryThreshold, minOrderAmount } = await getStoreDeliverySettings();
 
       // Delivery/shipping validation branches by order type -- see the
       // matching logic (and its rationale) in /api/orders/create above.
@@ -6441,8 +6584,8 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
         if (!zone) {
           return res.status(400).json({ success: false, error: 'We currently do not ship wholesale orders to this PIN code. Please check your delivery address.' });
         }
-        if (zone.minOrderValue > 0 && discountedSubtotal < zone.minOrderValue) {
-          return res.status(400).json({ success: false, error: `Minimum wholesale order value for this area is ₹${zone.minOrderValue}. Add ₹${(zone.minOrderValue - discountedSubtotal).toFixed(2)} more to checkout.` });
+        if (zone.minOrderValue > 0 && subtotal < zone.minOrderValue) {
+          return res.status(400).json({ success: false, error: `Minimum wholesale order value for this area is ₹${zone.minOrderValue}. Add ₹${(zone.minOrderValue - subtotal).toFixed(2)} more to checkout.` });
         }
         effectiveDeliveryFee = zone.shippingFee;
         wholesaleZoneId = zone.id;
@@ -6453,11 +6596,11 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
           return res.status(400).json({ success: false, error: 'Sorry, we do not currently deliver to this PIN code. Please check your delivery address or try a different address.' });
         }
         const effectiveMinOrder = typeof pin.minOrderAmount === 'number' ? pin.minOrderAmount : minOrderAmount;
-        if (effectiveMinOrder > 0 && discountedSubtotal < effectiveMinOrder) {
-          return res.status(400).json({ success: false, error: `Minimum order amount is ₹${effectiveMinOrder}. Add ₹${(effectiveMinOrder - discountedSubtotal).toFixed(2)} more to checkout.` });
+        if (effectiveMinOrder > 0 && subtotal < effectiveMinOrder) {
+          return res.status(400).json({ success: false, error: `Minimum order amount is ₹${effectiveMinOrder}. Add ₹${(effectiveMinOrder - subtotal).toFixed(2)} more to checkout.` });
         }
         const baseFee = typeof pin.deliveryFee === 'number' ? pin.deliveryFee : deliveryFee;
-        effectiveDeliveryFee = (freeDeliveryThreshold > 0 && discountedSubtotal >= freeDeliveryThreshold) ? 0 : baseFee;
+        effectiveDeliveryFee = (freeDeliveryThreshold > 0 && subtotal >= freeDeliveryThreshold) ? 0 : baseFee;
       }
       const totalAmount = discountedSubtotal + effectiveDeliveryFee;
 
@@ -6466,10 +6609,40 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
       }
 
       const razorpayInstance = getRazorpay();
+      if (!razorpayInstance || !env.RAZORPAY_KEY_ID) {
+        return res.status(503).json({
+          success: false,
+          gatewayUnavailable: true,
+          error: 'Online payment gateway is currently being configured. Please complete your order via Cash / UPI on Delivery (Pay at Doorstep) or Order via WhatsApp.',
+        });
+      }
+
       const idempotencyKey = getIdempotencyKey(req);
       const requestHash = requestBodyHash(req.body);
       const idempotencyHash = idempotencyKey ? hashIdempotencyKey('razorpay-order', userId, idempotencyKey) : null;
       const pendingCollection = getFirestore().collection('razorpayPendingOrders');
+
+      // Anti-Hoarding Protection: Limit concurrent active inventory reservations per user/phone/IP to 3
+      try {
+        const activeResSnap = await getFirestore()
+          .collection('inventoryReservations')
+          .where('userId', '==', userId)
+          .limit(10)
+          .get();
+        const nowIso = new Date().toISOString();
+        const activeUserReservations = activeResSnap.docs.filter((d: any) => {
+          const r = d.data() || {};
+          return r.status === 'active' && String(r.expiresAt || '') > nowIso;
+        }).length;
+        if (activeUserReservations >= 3) {
+          return res.status(429).json({
+            success: false,
+            error: 'You already have 3 active payment sessions holding stock. Please complete your open payment window or wait a few minutes.',
+          });
+        }
+      } catch {
+        // Proceed if reservation index lookup is unavailable
+      }
 
       // Resolve an existing idempotent checkout BEFORE reserving inventory.
       // Claim the deterministic idempotency record atomically BEFORE reserving
@@ -6491,8 +6664,17 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
 
       // Online-payment stock is reserved before the gateway is opened so two
       // simultaneous customers cannot both pay for the same last units.
-      await releaseExpiredInventoryReservations(getFirestore()).catch(err => console.warn('[Inventory] cleanup warning:', err));
-      await cleanupExpiredWhatsAppOrders(getFirestore()).catch(err => console.warn('[WhatsApp] expiry cleanup warning:', err));
+      // Throttle background expiry sweeps to at most once every 30s so 10,000
+      // concurrent checkouts do not contend on expired reservation queries.
+      if (!singleflightPromises.has('bg:inventory_cleanup')) {
+        const cleanupPromise = Promise.all([
+          releaseExpiredInventoryReservations(getFirestore()).catch(err => console.warn('[Inventory] cleanup warning:', err)),
+          cleanupExpiredWhatsAppOrders(getFirestore()).catch(err => console.warn('[WhatsApp] expiry cleanup warning:', err)),
+        ]).finally(() => {
+          setTimeout(() => singleflightPromises.delete('bg:inventory_cleanup'), 30000);
+        });
+        singleflightPromises.set('bg:inventory_cleanup', cleanupPromise);
+      }
       const reservationId = `res_${crypto.randomBytes(12).toString('hex')}`;
       const reservationExpiresAtMs = Date.now() + INVENTORY_RESERVATION_TTL_MS;
       try {
@@ -6685,87 +6867,102 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
         if (!pending) {
           orderId = await findOrderByRazorpayId(razorpay_order_id);
         } else {
-          if (pending.userId !== userId) return res.status(403).json({ success: false, error: 'Payment does not belong to the authenticated account.' });
-          const trustedItems = Array.isArray(pending.items) ? pending.items : [];
-          if (!trustedItems.length) {
-            return res.status(400).json({ success: false, error: 'No trusted checkout snapshot exists for this payment.' });
-          }
-
-          const rzp = getRazorpay();
-          if (!rzp) {
-            return res.status(500).json({ success: false, error: 'Payment provider is not configured.' });
-          }
-
-          const rzpOrder = await rzp.orders.fetch(razorpay_order_id);
-          const expectedAmount = Math.round(Number(pending.amount || 0) * 100);
-          const gatewayAmount = Number(rzpOrder.amount);
-          const gatewayCurrency = String(rzpOrder.currency || '');
-          if (!Number.isFinite(gatewayAmount) || gatewayAmount !== expectedAmount || gatewayCurrency !== String(pending.currency || 'INR')) {
-            return res.status(400).json({ success: false, error: 'Payment amount or currency could not be validated.' });
-          }
-          if (Number(payment.amount) !== expectedAmount || String(payment.currency || 'INR') !== String(pending.currency || 'INR')) {
-            return res.status(400).json({ success: false, error: 'Captured payment amount or currency does not match the checkout.' });
-          }
-
-          const trustedPayload = {
-            items: trustedItems,
-            subtotal: Number(pending.subtotal || 0),
-            discountAmount: Number(pending.discountAmount || 0),
-            couponCode: pending.couponCode || null,
-            deliveryFee: Number(pending.deliveryFee || 0),
-            amount: Number(pending.amount || 0),
-            grandTotal: Number(pending.amount || 0),
-            status: 'confirmed',
-            orderStatus: 'confirmed',
-            paymentStatus: 'paid',
-            paymentMethod: 'Online Payment (Razorpay)',
-            razorpay_order_id,
-            razorpay_payment_id,
-            reservationId: pending.reservationId || null,
-            customerEmail: pending.customerEmail || authUser?.email || pending.shippingDetails?.email || null,
-            shippingDetails: pending.shippingDetails || {},
-            userId: pending.userId || null,
-            orderType: pending.orderType || 'retail',
-            ...(pending.wholesaleZoneId ? { wholesaleZoneId: pending.wholesaleZoneId, wholesaleZoneLabel: pending.wholesaleZoneLabel } : {}),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-
-          const created = await createOrderWithUniqueId(
-            getFirestore(),
-            (id) => ({ ...trustedPayload, id, orderId: id }),
-            {
-              couponCode: pending.couponCode,
-              userId: pending.userId,
-              enforceCouponLimit: false,
-              auditActor: authUser?.email || userId,
-              auditActorUid: userId,
-              auditActorRole: 'customer',
-              auditSource: '/api/razorpay/verify',
-            }
-          );
-          orderId = created.orderId;
-
           try {
-            if (pending.reservationId) await finalizeInventoryReservation(getFirestore(), String(pending.reservationId));
-            else await decrementInventory(trustedItems);
-          } catch (stockErr: any) {
-            await getFirestore().collection('orders').doc(orderId).update({ stockConflict: true, stockConflictReason: stockErr.message });
-            await recordOrderAuditLog(getFirestore(), {
-              orderId,
-              eventType: 'STOCK_CONFLICT_FLAGGED',
-              action: 'FLAG_STOCK_CONFLICT',
-              category: 'ORDERS',
-              previousStatus: 'confirmed',
-              newStatus: 'confirmed',
-              previousPaymentStatus: 'paid',
-              newPaymentStatus: 'paid',
-              actor: 'system:razorpay-verify',
-              actorRole: 'system',
-              source: '/api/razorpay/verify',
-              reason: stockErr.message || 'Stock conflict after payment verification',
-              changes: { stockConflict: { from: false, to: true } },
-            });
+            if (pending.userId !== userId) {
+              await resetPendingRazorpayClaim(razorpay_order_id, 'user_mismatch');
+              return res.status(403).json({ success: false, error: 'Payment does not belong to the authenticated account.' });
+            }
+            const trustedItems = Array.isArray(pending.items) ? pending.items : [];
+            if (!trustedItems.length) {
+              await resetPendingRazorpayClaim(razorpay_order_id, 'empty_trusted_items');
+              return res.status(400).json({ success: false, error: 'No trusted checkout snapshot exists for this payment.' });
+            }
+
+            const rzp = getRazorpay();
+            if (!rzp) {
+              await resetPendingRazorpayClaim(razorpay_order_id, 'provider_not_configured');
+              return res.status(500).json({ success: false, error: 'Payment provider is not configured.' });
+            }
+
+            const rzpOrder = await rzp.orders.fetch(razorpay_order_id);
+            const expectedAmount = Math.round(Number(pending.amount || 0) * 100);
+            const gatewayAmount = Number(rzpOrder.amount);
+            const gatewayCurrency = String(rzpOrder.currency || '');
+            if (!Number.isFinite(gatewayAmount) || gatewayAmount !== expectedAmount || gatewayCurrency !== String(pending.currency || 'INR')) {
+              await resetPendingRazorpayClaim(razorpay_order_id, 'amount_or_currency_mismatch');
+              return res.status(400).json({ success: false, error: 'Payment amount or currency could not be validated.' });
+            }
+            if (Number(payment.amount) !== expectedAmount || String(payment.currency || 'INR') !== String(pending.currency || 'INR')) {
+              await resetPendingRazorpayClaim(razorpay_order_id, 'captured_amount_mismatch');
+              return res.status(400).json({ success: false, error: 'Captured payment amount or currency does not match the checkout.' });
+            }
+
+            const trustedPayload = {
+              items: trustedItems,
+              subtotal: Number(pending.subtotal || 0),
+              discountAmount: Number(pending.discountAmount || 0),
+              couponCode: pending.couponCode || null,
+              deliveryFee: Number(pending.deliveryFee || 0),
+              amount: Number(pending.amount || 0),
+              grandTotal: Number(pending.amount || 0),
+              status: 'confirmed',
+              orderStatus: 'confirmed',
+              paymentStatus: 'paid',
+              paymentMethod: 'Online Payment (Razorpay)',
+              razorpay_order_id,
+              razorpay_payment_id,
+              reservationId: pending.reservationId || null,
+              customerEmail: pending.customerEmail || authUser?.email || pending.shippingDetails?.email || null,
+              shippingDetails: pending.shippingDetails || {},
+              userId: pending.userId || null,
+              orderType: pending.orderType || 'retail',
+              ...(pending.wholesaleZoneId ? { wholesaleZoneId: pending.wholesaleZoneId, wholesaleZoneLabel: pending.wholesaleZoneLabel } : {}),
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+
+            const created = await createOrderWithUniqueId(
+              getFirestore(),
+              (id) => ({ ...trustedPayload, id, orderId: id }),
+              {
+                couponCode: pending.couponCode,
+                userId: pending.userId,
+                enforceCouponLimit: false,
+                auditActor: authUser?.email || userId,
+                auditActorUid: userId,
+                auditActorRole: 'customer',
+                auditSource: '/api/razorpay/verify',
+              }
+            );
+            orderId = created.orderId;
+            await markPendingRazorpayCommitted(razorpay_order_id);
+
+            try {
+              if (pending.reservationId) await finalizeInventoryReservation(getFirestore(), String(pending.reservationId));
+              else await decrementInventory(trustedItems);
+            } catch (stockErr: any) {
+              await getFirestore().collection('orders').doc(orderId).update({ stockConflict: true, stockConflictReason: stockErr.message });
+              await recordOrderAuditLog(getFirestore(), {
+                orderId,
+                eventType: 'STOCK_CONFLICT_FLAGGED',
+                action: 'FLAG_STOCK_CONFLICT',
+                category: 'ORDERS',
+                previousStatus: 'confirmed',
+                newStatus: 'confirmed',
+                previousPaymentStatus: 'paid',
+                newPaymentStatus: 'paid',
+                actor: 'system:razorpay-verify',
+                actorRole: 'system',
+                source: '/api/razorpay/verify',
+                reason: stockErr.message || 'Stock conflict after payment verification',
+                changes: { stockConflict: { from: false, to: true } },
+              });
+            }
+          } catch (claimErr: any) {
+            if (!orderId) {
+              await resetPendingRazorpayClaim(razorpay_order_id, String(claimErr?.message || claimErr)).catch(() => {});
+            }
+            throw claimErr;
           }
         }
       }
@@ -6781,7 +6978,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
     }
   };
 
-  app.post('/api/razorpay/verify', optionalAuth, handleVerifyPayment);
+  app.post('/api/razorpay/verify', orderLimiter, optionalAuth, handleVerifyPayment);
 
   // Webhook Handling. Razorpay delivers webhooks at-least-once and can deliver
   // events out of order, so the event record is durable and processing is idempotent.
@@ -6863,12 +7060,33 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
   app.post('/api/razorpay/webhook', handleWebhook);
 
   // Serve static public assets (products, banners, icons)
+  try {
+    (express.static as any).mime?.define?.({ 'image/jpeg': ['jfif'] }, true);
+  } catch {
+    // ignore if mime table is frozen
+  }
   const publicDir = path.join(process.cwd(), 'public');
   app.use(
     express.static(publicDir, {
       dotfiles: 'deny',
       index: false,
-      maxAge: '1h',
+      maxAge: '7d',
+      setHeaders: (res, filePath) => {
+        const lower = filePath.toLowerCase();
+        if (lower.endsWith('.jfif')) {
+          res.setHeader('Content-Type', 'image/jpeg');
+        }
+        if (
+          lower.endsWith('.jpg') ||
+          lower.endsWith('.jpeg') ||
+          lower.endsWith('.jfif') ||
+          lower.endsWith('.png') ||
+          lower.endsWith('.webp') ||
+          lower.endsWith('.svg')
+        ) {
+          res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
+        }
+      },
     })
   );
 
@@ -7097,8 +7315,12 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
     const distPath = path.join(process.cwd(), 'dist');
     app.use(
       express.static(distPath, {
-        setHeaders: (res, path) => {
-          if (path.endsWith('.html')) {
+        setHeaders: (res, filePath) => {
+          const lower = filePath.toLowerCase();
+          if (lower.endsWith('.jfif')) {
+            res.setHeader('Content-Type', 'image/jpeg');
+          }
+          if (lower.endsWith('.html')) {
             res.setHeader('Cache-Control', 'no-cache');
           } else {
             res.setHeader('Cache-Control', 'public, max-age=31536000');
@@ -7125,13 +7347,20 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
       const db = getFirestore();
       let isInitialOrderSnapshot = true;
       const lastObservedStatusByOrder = new Map<string, string>();
-      db.collection('orders').onSnapshot(
+      db.collection('orders')
+        .orderBy('updatedAt', 'desc')
+        .limit(100)
+        .onSnapshot(
         (snapshot) => {
           for (const change of snapshot.docChanges()) {
             const docId = change.doc.id;
             const data = change.doc.data() as any;
             const currentStatus = String(data?.orderStatus || data?.status || 'pending').trim();
             const previousStatus = lastObservedStatusByOrder.get(docId);
+            if (lastObservedStatusByOrder.size >= 2000 && !lastObservedStatusByOrder.has(docId)) {
+              const oldestOrderKey = lastObservedStatusByOrder.keys().next().value;
+              if (oldestOrderKey) lastObservedStatusByOrder.delete(oldestOrderKey);
+            }
             lastObservedStatusByOrder.set(docId, currentStatus);
 
             if (isInitialOrderSnapshot) continue;

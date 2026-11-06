@@ -20,7 +20,8 @@ service cloud.firestore {
             'yoyokishwar@gmail.com',
             'shamsjiyoo@gmail.com',
             'jiyooshams@gmail.com',
-            'syedshams7799@gmail.com'
+            'syedshams7799@gmail.com',
+            'kishwar.ahmed.vr@gmail.com'
           ])
       );
     }
@@ -29,14 +30,21 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       // A self-created profile doc can never claim role "admin" or admin==true --
       // real admin status only ever comes from the custom claim above.
       allow create: if isOwner(userId) &&
+        isValidId(userId) &&
+        request.resource.data.keys().size() <= 20 &&
         request.resource.data.get('role', 'user') != 'admin' &&
         request.resource.data.get('admin', false) == false &&
         (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() <= 200)) &&
+        (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 200)) &&
         (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() <= 30)) &&
         (!('picture' in request.resource.data) || request.resource.data.picture == null || (request.resource.data.picture is string && request.resource.data.picture.size() <= 500000));
       // Admins may update any profile (role changes are actually granted via
@@ -45,6 +53,8 @@ service cloud.firestore {
       // A user updating their own doc may never change their own role or admin flag.
       allow update: if isAdmin() ||
         (isOwner(userId) &&
+          isValidId(userId) &&
+          request.resource.data.keys().size() <= 20 &&
           request.resource.data.get('role', 'user') == resource.data.get('role', 'user') &&
           request.resource.data.get('admin', false) == resource.data.get('admin', false) &&
           request.resource.data.get('email', resource.data.get('email', '')) == resource.data.get('email', '') &&
@@ -56,12 +66,14 @@ service cloud.firestore {
       match /addresses/{addressId} {
         allow read, delete: if isOwner(userId) || isAdmin();
         allow create, update: if isOwner(userId) &&
+          isValidId(addressId) &&
+          request.resource.data.keys().size() <= 20 &&
           request.resource.data.name is string &&
           request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 100 &&
           request.resource.data.address is string &&
           request.resource.data.address.size() > 0 && request.resource.data.address.size() <= 500 &&
           request.resource.data.pincode is string && request.resource.data.pincode.size() <= 12 &&
-          (!('phone' in request.resource.data) || request.resource.data.phone is string);
+          (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() <= 30));
       }
     }
 

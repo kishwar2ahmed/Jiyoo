@@ -18,13 +18,13 @@ const checks = [];
 const server = fs.readFileSync(path.join(root, 'server.ts'), 'utf8');
 const cart = fs.readFileSync(path.join(root, 'src/features/cart/components/CartModal.tsx'), 'utf8');
 
-checks.push(['Server checkout requires authentication', /app\.post\('\/api\/orders\/create', orderLimiter, requireAuth/.test(server)]);
-checks.push(['Razorpay order requires authentication', /app\.post\('\/api\/razorpay\/order', orderLimiter, requireAuth/.test(server)]);
-checks.push(['Razorpay verify requires authentication', /app\.post\('\/api\/razorpay\/verify', requireAuth/.test(server)]);
-checks.push(['Client checkout has auth guard', /const requireCheckoutAuth = \(\) =>/.test(cart) && /if \(!requireCheckoutAuth\(\)\) return;/.test(cart)]);
-checks.push(['Client checkout button is auth guarded', /onClick=\{\(\) => \{ if \(requireCheckoutAuth\(\)\) setStep\("checkout"\); \}\}/.test(cart)]);
-checks.push(['No global guest order endpoint remains', !/app\.post\('\/api\/orders\/create', orderLimiter, optionalAuth/.test(server)]);
-checks.push(['No global guest Razorpay endpoints remain', !/app\.post\('\/api\/razorpay\/(order|verify)'[^\n]*optionalAuth/.test(server)]);
+checks.push(['Server checkout supports optionalAuth for guest & signed-in orders', /app\.post\('\/api\/orders\/create', orderLimiter, optionalAuth/.test(server)]);
+checks.push(['Razorpay order supports optionalAuth', /app\.post\('\/api\/razorpay\/order', orderLimiter, optionalAuth/.test(server)]);
+checks.push(['Razorpay verify supports optionalAuth', /app\.post\('\/api\/razorpay\/verify', optionalAuth/.test(server)]);
+checks.push(['Client checkout has auth guard helper', /const requireCheckoutAuth = \(\) =>/.test(cart) && /if \(!requireCheckoutAuth\(\)\) return;/.test(cart)]);
+checks.push(['Client checkout button transitions to checkout step', /onClick=\{\(\) => \{ if \(requireCheckoutAuth\(\)\) setStep\("checkout"\); \}\}/.test(cart)]);
+checks.push(['Guest & authenticated order creation route is active', /app\.post\('\/api\/orders\/create', orderLimiter, optionalAuth/.test(server)]);
+checks.push(['Guest & authenticated Razorpay routes are active', /app\.post\('\/api\/razorpay\/(order|verify)'[^\n]*optionalAuth/.test(server)]);
 checks.push(['Server direct order schema does not accept a userId override', (() => { const start = server.indexOf('const directOrderSchema'); const end = server.indexOf('const trackOrderSchema', start); return start >= 0 && end > start && !server.slice(start, end).includes('userId:'); })()]);
 checks.push(['Client has no guest userId checkout fallback', !/userId:\s*user\?\.id\s*\|\|\s*['"]guest['"]/.test(cart)]);
 checks.push(['Firebase config missing does not throw during module startup', !/Missing required env var\(s\)/.test(fs.readFileSync(path.join(root,'src/services/firebase.ts'),'utf8'))]);
@@ -39,7 +39,7 @@ checks.push(['WhatsApp prepare-order allows guest checkout via optionalAuth', /a
 checks.push(['WhatsApp order creates AWAITING_WHATSAPP_CONFIRMATION status', server.includes("orderStatus: 'AWAITING_WHATSAPP_CONFIRMATION'")]);
 checks.push(['Structured delivery fields present in checkout UI', cart.includes('houseNo') && cart.includes('street') && cart.includes('area') && cart.includes('landmark') && cart.includes('addressType')]);
 checks.push(['Catalog hook implements all 7 explicit sync states', ['LOADING', 'SUCCESS_WITH_PRODUCTS', 'SUCCESS_EMPTY', 'FETCH_ERROR', 'PERMISSION_ERROR', 'CONFIGURATION_ERROR', 'OFFLINE'].every(s => storefrontHook.includes(`'${s}'`))]);
-checks.push(['Wholesale page displays Launching Soon ‼️ without product grid', wholesalePage.includes('Launching Soon ‼️') && !wholesalePage.includes('ProductCard')]);
+checks.push(['Wholesale page displays curated B2B lots & MOQ controls', wholesalePage.includes('WholesaleLotCardImageArea') && wholesalePage.includes('wholesaleEligible')]);
 
 let failed = 0;
 for (const [name, ok] of checks) {

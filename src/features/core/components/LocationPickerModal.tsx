@@ -56,13 +56,16 @@ export function LocationPickerModal({
         if (data.address.state) parts.push(data.address.state);
 
         const fullAddr = parts.join(', ');
-        setFormattedAddress(fullAddr || data.display_name || '');
+        setFormattedAddress(fullAddr || data.display_name || `Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`);
         if (data.address.postcode) {
           setPincode(data.address.postcode);
         }
+      } else {
+        setFormattedAddress(`Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`);
       }
     } catch (e) {
       console.warn('Reverse geocode failed:', e);
+      setFormattedAddress((prev) => prev || `Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`);
     }
   };
 
@@ -122,10 +125,10 @@ export function LocationPickerModal({
   };
 
   useEffect(() => {
-    if (isOpen && !formattedAddress) {
+    if (isOpen && initialTab === 'map' && !formattedAddress) {
       handleDetectGps();
     }
-  }, [isOpen]);
+  }, [isOpen, initialTab]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();

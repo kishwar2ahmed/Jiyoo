@@ -413,9 +413,11 @@ export function AuthModal({
                             <div className="flex justify-between items-start mb-3">
                               <div>
                                 <p className="text-xs text-stone-500 mb-1">
-                                  {new Date(
-                                    order.createdAt?.seconds * 1000 || 0,
-                                  ).toLocaleDateString()}
+                                  {order.createdAt?.seconds
+                                    ? new Date(order.createdAt.seconds * 1000).toLocaleDateString()
+                                    : order.createdAt
+                                    ? new Date(order.createdAt).toLocaleDateString()
+                                    : "Recent"}
                                 </p>
                                 <p className="text-sm font-semibold text-stone-900">
                                   Order #{order.orderId || order.id}

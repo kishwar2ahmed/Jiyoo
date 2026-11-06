@@ -88,8 +88,17 @@ export function ProductDetailModal({
 
   const isMeat = product.categoryId === "meat";
   const isOutOfStock = product.stock === 0 || product.stockStatus === 'out_of_stock';
-  const currentPrice = selectedWeight ? selectedWeight.price : product.price;
-  const currentUnit = selectedWeight ? selectedWeight.label : product.unit;
+  const isWholesaleProduct = Boolean(product.wholesaleEligible && product.wholesalePrice);
+  const currentPrice = selectedWeight
+    ? selectedWeight.price
+    : isWholesaleProduct
+    ? product.wholesalePrice!
+    : product.price;
+  const currentUnit = selectedWeight
+    ? selectedWeight.label
+    : isWholesaleProduct
+    ? product.wholesaleUnit || product.unit
+    : product.unit;
 
   const handleDecrease = () => {
     if (quantity > 1) {
@@ -143,7 +152,7 @@ export function ProductDetailModal({
 
     addToCart(
       {
-        id: `${product.id}-${currentUnit}-${selectedCut || ""}-${selectedCleaning || ""}`,
+        id: `${product.id}-${currentUnit || ""}-${selectedCut || ""}-${selectedCleaning || ""}`,
         baseId: product.id,
         selectedWeight: currentUnit,
         selectedCut: selectedCut || undefined,
@@ -156,8 +165,16 @@ export function ProductDetailModal({
             : parseFloat(String(currentPrice).replace(/[^0-9.]/g, "")),
         image: activeRenderedImage,
         badge: currentUnit,
-      },
-      quantity,
+        ...(isWholesaleProduct
+          ? {
+              wholesaleEligible: true,
+              wholesaleMinQty: product.wholesaleMinQty || 1,
+            }
+          : {}),
+      } as any,
+      isWholesaleProduct
+        ? Math.max(quantity, product.wholesaleMinQty || 1)
+        : quantity,
     );
 
     setJustAdded(true);
@@ -180,7 +197,7 @@ export function ProductDetailModal({
 
     addToCart(
       {
-        id: `${product.id}-${currentUnit}-${selectedCut || ""}-${selectedCleaning || ""}`,
+        id: `${product.id}-${currentUnit || ""}-${selectedCut || ""}-${selectedCleaning || ""}`,
         baseId: product.id,
         selectedWeight: currentUnit,
         selectedCut: selectedCut || undefined,
@@ -193,8 +210,16 @@ export function ProductDetailModal({
             : parseFloat(String(currentPrice).replace(/[^0-9.]/g, "")),
         image: activeRenderedImage,
         badge: currentUnit,
-      },
-      quantity,
+        ...(isWholesaleProduct
+          ? {
+              wholesaleEligible: true,
+              wholesaleMinQty: product.wholesaleMinQty || 1,
+            }
+          : {}),
+      } as any,
+      isWholesaleProduct
+        ? Math.max(quantity, product.wholesaleMinQty || 1)
+        : quantity,
     );
 
     onClose();
@@ -296,7 +321,6 @@ export function ProductDetailModal({
                         );
 
                         if (currentAttempt < fallbackSequence.length) {
-                          target.dataset.attempt = String(currentAttempt + 1);
                           if (
                             target.src.endsWith(fallbackSequence[currentAttempt]) ||
                             target.src === fallbackSequence[currentAttempt]
@@ -308,9 +332,10 @@ export function ProductDetailModal({
                                   fallbackSequence.length - 1,
                                 )
                               ];
-                            target.dataset.attempt = String(currentAttempt + 1);
+                            target.dataset.attempt = String(currentAttempt + 2);
                           } else {
                             target.src = fallbackSequence[currentAttempt];
+                            target.dataset.attempt = String(currentAttempt + 1);
                           }
                         } else {
                           target.dataset.failed = "true";

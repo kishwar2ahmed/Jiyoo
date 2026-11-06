@@ -9,6 +9,7 @@ import { Search, RefreshCw, AlertCircle } from 'lucide-react';
 import { useStorefrontCategories } from '../hooks/useStorefrontCategories';
 import { searchCatalogProducts } from '../../../utils/fuzzyMatch';
 import { useStorefrontProducts } from '../hooks/useStorefrontProducts';
+import { createSvgPlaceholder } from '../../../utils/imageUtils';
 
 export function Storefront() {
   const { categoriesList } = useStorefrontCategories();
@@ -214,6 +215,34 @@ export function Storefront() {
     activeSubSubcategoryId,
   ]);
 
+  // Pre-warm the top visible product images for the active view and adjacent categories
+  useEffect(() => {
+    const topActive = displayedProducts.slice(0, 12);
+    topActive.forEach((p) => {
+      if (p.image) {
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = p.image;
+      }
+    });
+
+    const idleTimer = window.setTimeout(() => {
+      categoriesList.forEach((cat) => {
+        if (cat.id === activeCategoryId) return;
+        const catTop = currentProducts
+          .filter((p) => p.categoryId === cat.id && p.image)
+          .slice(0, 8);
+        catTop.forEach((p) => {
+          const img = new Image();
+          img.decoding = 'async';
+          img.src = p.image!;
+        });
+      });
+    }, 900);
+
+    return () => window.clearTimeout(idleTimer);
+  }, [displayedProducts, categoriesList, activeCategoryId, currentProducts]);
+
   useEffect(() => {
     const activateAndScrollCategory = (categoryId: string) => {
       if (categoryId === activeCategoryIdRef.current) {
@@ -319,7 +348,7 @@ export function Storefront() {
                 className="group relative flex min-w-0 w-full flex-col items-center outline-none gap-1 sm:gap-3.5 cursor-pointer pb-1.5 sm:pb-2.5"
               >
                 <div 
-                  className={`luxury-sheen-sweep relative w-full aspect-square sm:aspect-[4/5] max-w-[54px] sm:max-w-none mx-auto rounded-xl sm:rounded-[20px] overflow-hidden bg-brand-white border transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] sm:group-hover:shadow-[0_16px_32px_-8px_rgba(28,25,23,0.16)] ${
+                  className={`luxury-sheen-sweep relative w-full aspect-square sm:aspect-[4/5] max-w-[60px] sm:max-w-none mx-auto rounded-xl sm:rounded-[20px] overflow-hidden bg-brand-white border transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] sm:group-hover:shadow-[0_16px_32px_-8px_rgba(28,25,23,0.16)] ${
                     isActive
                       ? 'border-[#C5A880] shadow-[0_10px_24px_-6px_rgba(28,25,23,0.14)] ring-2 ring-[#1C1917]/20'
                       : 'border-brand-gray-100 sm:group-hover:border-[#C5A880]/60 shadow-[0_4px_12px_-4px_rgba(0,0,0,0.05)]'
@@ -329,6 +358,20 @@ export function Storefront() {
                     <img 
                       src={thumbData.urls[0]} 
                       alt={category.label} 
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (!target.dataset.fallback) {
+                          target.dataset.fallback = 'true';
+                          const localCategoryFallbacks: Record<string, string> = {
+                            fruits: '/banners/02_Indian_Fruits_Original.webp',
+                            vegetables: '/banners/04_Indian_Thai_Vegetables_Original.webp',
+                            meat: '/banners/05_Fresh_Meat_Cuts.webp',
+                            smoothies: '/category-icons/smoothies.jpg',
+                            'fast-foods': '/category-icons/fast-foods.webp',
+                          };
+                          target.src = localCategoryFallbacks[category.id] || createSvgPlaceholder(category.label, 360, 450);
+                        }
+                      }}
                       className={`w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] sm:group-hover:scale-108 ${isActive ? 'scale-105' : 'scale-100'}`}
                       loading="eager"
                       fetchPriority="high"
@@ -343,7 +386,7 @@ export function Storefront() {
                 </div>
                 
                 <span 
-                  className={`font-serif text-[10px] sm:text-base leading-tight tracking-tight sm:tracking-wide text-center w-full break-words transition-colors duration-200 ${isActive ? 'text-brand-black font-semibold' : 'text-brand-gray-600 sm:group-hover:text-brand-black'}`}
+                  className={`font-serif text-[10.5px] sm:text-base leading-tight tracking-tight sm:tracking-wide text-center w-full break-words transition-colors duration-200 ${isActive ? 'text-brand-black font-semibold' : 'text-brand-gray-600 sm:group-hover:text-brand-black'}`}
                 >
                   {category.label}
                 </span>
@@ -360,14 +403,14 @@ export function Storefront() {
           })}
         </div>
 
-        {/* Subcategories - Refined Underline Tabs with Scroll-Drawn Border */}
+        {/* Subcategories - Refined Single-Row Underline Tabs with Scroll-Drawn Border */}
         {!trimmedQuery && activeCategory?.items && (
           <motion.div
             key={`subcats-${activeCategoryId}`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-wrap sm:flex-nowrap gap-x-5 gap-y-2 sm:gap-8 overflow-x-auto pb-2 scrollbar-hide border-b border-brand-gray-200"
+            className="flex flex-nowrap gap-x-5 sm:gap-8 overflow-x-auto pb-2 scrollbar-hide border-b border-brand-gray-200"
           >
             {activeCategory.items.map(sub => {
               const isActive = activeSubcategoryId === sub.id;

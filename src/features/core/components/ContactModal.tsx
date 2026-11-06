@@ -21,6 +21,11 @@ interface ContactModalProps {
 export function ContactModal({ isOpen, onClose }: ContactModalProps) {
   const { settings } = useSettings();
   useModalBackButton(isOpen, onClose);
+  const contactPhone = settings.contactPhone || settings.aboutUs?.contactPhone || "+91 97393 91891";
+  const contactPhoneTel = contactPhone.replace(/\s+/g, "");
+  const primaryEmail =
+    settings.contactEmail?.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] ||
+    "shamsjiyoo@gmail.com";
 
   const whatsappHref = (type: 'support' | 'sales') => {
     const number = settings.whatsappNumber?.replace(/\D/g, "") || "919739391891";
@@ -138,7 +143,7 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                     </span>
                   </div>
                   <p className="text-stone-900 font-mono text-xs font-semibold mb-0.5 truncate">
-                    shamsjiyoo@gmail.com
+                    {primaryEmail}
                   </p>
                   <p className="text-stone-400 font-mono text-[11px] mb-3 truncate">
                     Backup: jiyooshams@gmail.com
@@ -147,7 +152,7 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                     <Clock className="w-3.5 h-3.5" /> Avg response: 24 hrs
                   </div>
                   <a
-                    href="mailto:shamsjiyoo@gmail.com?cc=jiyooshams@gmail.com"
+                    href={`mailto:${primaryEmail}?cc=jiyooshams@gmail.com`}
                     className="w-full py-3 bg-[#1C1917] hover:bg-black text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 active:scale-[0.98] shadow-sm"
                   >
                     <EmailEnvelopeIcon className="w-4 h-4" /> Email Us
@@ -188,8 +193,8 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
             <div className="pt-8 border-t border-stone-200 grid sm:grid-cols-2 gap-6">
               <div>
                 <h4 className="text-sm font-bold text-stone-900 mb-2">Direct Call Support</h4>
-                <a href="tel:+919739391891" className="text-stone-600 hover:text-emerald-600 transition-colors flex items-center gap-2 text-lg font-mono mb-1 tabular-nums">
-                  <PhoneCallIcon className="w-4 h-4 text-[#D97706]" /> +91 97393 91891
+                <a href={`tel:${contactPhoneTel}`} className="text-stone-600 hover:text-emerald-600 transition-colors flex items-center gap-2 text-lg font-mono mb-1 tabular-nums">
+                  <PhoneCallIcon className="w-4 h-4 text-[#D97706]" /> {contactPhone}
                 </a>
                 <p className="text-xs text-stone-400">Available Daily, 7:00 AM to 10:00 PM</p>
               </div>
@@ -198,9 +203,9 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                 <h4 className="text-sm font-bold text-stone-900 mb-3">Official Socials</h4>
                 <div className="flex items-center gap-3">
                   <a
-                    href="tel:+919739391891"
-                    aria-label="Call Support (+91 97393 91891)"
-                    title="Call Support: +91 97393 91891"
+                    href={`tel:${contactPhoneTel}`}
+                    aria-label={`Call Support (${contactPhone})`}
+                    title={`Call Support: ${contactPhone}`}
                     className="w-10 h-10 rounded-full bg-white border border-stone-200 flex items-center justify-center text-[#10B981] hover:border-[#1C1917] hover:shadow-md transition-all"
                   >
                     <PhoneCallIcon className="w-4 h-4" />
@@ -225,9 +230,9 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                     <WhatsAppIcon className="w-4 h-4" />
                   </a>
                   <a
-                    href="mailto:shamsjiyoo@gmail.com?cc=jiyooshams@gmail.com"
-                    aria-label="Email Primary (shamsjiyoo@gmail.com)"
-                    title="Primary Support: shamsjiyoo@gmail.com"
+                    href={`mailto:${primaryEmail}?cc=jiyooshams@gmail.com`}
+                    aria-label={`Email Primary (${primaryEmail})`}
+                    title={`Primary Support: ${primaryEmail}`}
                     className="w-10 h-10 rounded-full bg-white border border-stone-200 flex items-center justify-center text-[#3B82F6] hover:border-[#1C1917] hover:shadow-md transition-all"
                   >
                     <EmailEnvelopeIcon className="w-4 h-4" />

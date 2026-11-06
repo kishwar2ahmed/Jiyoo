@@ -99,12 +99,15 @@ export const ProductCard = React.memo(function ProductCard({
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const currentImg = allImages[activeImgIdx] || product.image;
 
-  const isAboveFold = index < 8;
+  const isAboveFold = index < 16;
   const optimizedImage = getOptimizedImageUrl(currentImg, 420, 78);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     if (productImgRef.current?.complete && productImgRef.current?.naturalWidth > 0) {
       setIsImgLoaded(true);
+      preloadProductCutout(productImgRef.current.currentSrc || optimizedImage);
+    } else {
+      setIsImgLoaded(false);
     }
   }, [optimizedImage]);
 
@@ -146,7 +149,7 @@ export const ProductCard = React.memo(function ProductCard({
 
     addToCart(
       {
-        id: `${product.id}-${currentUnit}-${selectedCut || ""}-${selectedCleaning || ""}`,
+        id: `${product.id}-${currentUnit || ""}-${selectedCut || ""}-${selectedCleaning || ""}`,
         baseId: product.id,
         selectedWeight: currentUnit,
         selectedCut: selectedCut || undefined,
@@ -169,36 +172,24 @@ export const ProductCard = React.memo(function ProductCard({
 
   return (
     <motion.div
-      initial={{ opacity: isAboveFold ? 1 : 0, y: isAboveFold ? 0 : 14, scale: isAboveFold ? 1 : 0.985 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true, margin: "100px", amount: 0.05 }}
-      exit={{ opacity: 0, scale: 0.96 }}
+      initial={false}
       whileHover={{ y: -4, transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } }}
       whileTap={{ scale: 0.99 }}
-      transition={{
-        duration: 0.36,
-        delay: isAboveFold ? 0 : (index % 4) * 0.03,
-        ease: [0.16, 1, 0.3, 1],
-      }}
       onClick={() => onProductClick?.(product)}
       onPointerEnter={() => preloadProductCutout(productImgRef.current?.currentSrc || optimizedImage, true)}
       onTouchStart={() => preloadProductCutout(productImgRef.current?.currentSrc || optimizedImage, true)}
       className="group relative flex flex-col bg-white rounded-xl overflow-hidden shadow-xs hover:shadow-[0_20px_40px_-14px_rgba(28,25,23,0.12)] transition-shadow duration-300 border border-[#E7E3DA] hover:border-[#C5A880]/70 cursor-pointer h-full"
     >
-      {/* Scroll-Triggered Top Gold Shimmer Accent Line */}
-      <motion.span
+      {/* Top Gold Shimmer Accent Line */}
+      <span
         aria-hidden="true"
-        initial={{ scaleX: 0, opacity: 0 }}
-        whileInView={{ scaleX: 1, opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.55, delay: 0.05 + (index % 4) * 0.04, ease: [0.16, 1, 0.3, 1] }}
-        className="pointer-events-none absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#C5A880]/70 to-transparent origin-left z-20"
+        className="pointer-events-none absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#C5A880]/70 to-transparent z-20"
       />
 
-      {/* Product Image Area (Full uncropped product view) */}
+      {/* Product Image Area (Full uncropped product view, instant progressive paint) */}
       <div className="luxury-sheen-sweep relative aspect-[4/3] overflow-hidden bg-white p-2 sm:p-3 flex items-center justify-center">
         {!isImgLoaded && (
-          <div className="absolute inset-0 z-0 bg-brand-gray-100 animate-pulse" />
+          <div className="absolute inset-0 z-0 bg-[#F4F1EA]/70 animate-pulse pointer-events-none" />
         )}
         <img
           ref={productImgRef}
@@ -208,10 +199,9 @@ export const ProductCard = React.memo(function ProductCard({
             setIsImgLoaded(true);
             preloadProductCutout(e.currentTarget.currentSrc || optimizedImage);
           }}
-          className={`w-full h-full object-contain transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] sm:group-hover:scale-[1.045] ${isImgLoaded ? "opacity-100 scale-100" : "opacity-0 scale-98"}`}
-          referrerPolicy="no-referrer"
+          className="relative z-10 w-full h-full object-contain transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] sm:group-hover:scale-[1.045]"
           loading={isAboveFold ? "eager" : "lazy"}
-          fetchPriority={index < 4 ? "high" : "auto"}
+          fetchPriority={index < 8 ? "high" : "auto"}
           decoding="async"
           onError={(e) => {
             const target = e.target as HTMLImageElement;
@@ -225,20 +215,16 @@ export const ProductCard = React.memo(function ProductCard({
             const currentAttempt = parseInt(target.dataset.attempt || "0", 10);
 
             if (currentAttempt < fallbackSequence.length) {
-              target.dataset.attempt = String(currentAttempt + 1);
               if (
                 target.src.endsWith(fallbackSequence[currentAttempt]) ||
                 target.src === fallbackSequence[currentAttempt]
               ) {
-                target.src =
-                  fallbackSequence[
-                    Math.min(currentAttempt + 1, fallbackSequence.length - 1)
-                  ];
-                target.dataset.attempt = String(currentAttempt + 1);
-                setIsImgLoaded(true);
+                const nextIdx = Math.min(currentAttempt + 1, fallbackSequence.length - 1);
+                target.src = fallbackSequence[nextIdx];
+                target.dataset.attempt = String(currentAttempt + 2);
               } else {
                 target.src = fallbackSequence[currentAttempt];
-                setIsImgLoaded(true);
+                target.dataset.attempt = String(currentAttempt + 1);
               }
             } else {
               target.dataset.failed = "true";
@@ -331,10 +317,10 @@ export const ProductCard = React.memo(function ProductCard({
       </div>
 
       {/* Product Information Card (No cropped titles or badges on mobile) */}
-      <div className="flex-1 flex flex-col p-3 sm:p-5">
-        <div className="flex justify-between items-start mb-1.5 sm:mb-2">
+      <div className="flex-1 flex flex-col p-3 sm:p-4">
+        <div className="flex justify-between items-start mb-1 sm:mb-1.5">
           <div className="min-w-0 w-full">
-            <h4 className="text-sm sm:text-lg font-serif-luxury font-semibold text-[#1C1917] leading-snug mb-1 break-words group-hover:text-[#0C0A09] transition-colors">
+            <h4 className="text-sm sm:text-lg font-serif-luxury font-semibold text-[#1C1917] leading-tight mb-0.5 break-words line-clamp-2 group-hover:text-[#0C0A09] transition-colors">
               {product.name}
             </h4>
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:text-[11px] text-[#78716C] font-medium">
@@ -348,20 +334,9 @@ export const ProductCard = React.memo(function ProductCard({
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 text-[#1C1917] font-semibold uppercase text-[9px] sm:text-[10px]">
-                  <motion.span
-                    initial={{ scale: 0, rotate: -35 }}
-                    whileInView={{ scale: 1, rotate: 0 }}
-                    viewport={{ once: true }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 420,
-                      damping: 18,
-                      delay: 0.14 + (index % 4) * 0.065,
-                    }}
-                    className="inline-flex items-center justify-center shrink-0"
-                  >
+                  <span className="inline-flex items-center justify-center shrink-0">
                     <InstaBlueTickIcon className="w-3.5 h-3.5 shrink-0" />
-                  </motion.span>
+                  </span>
                   <span>In Stock</span>
                 </span>
               )}
@@ -381,13 +356,13 @@ export const ProductCard = React.memo(function ProductCard({
         </div>
 
         {product.description && (
-          <p className="hidden sm:line-clamp-2 text-xs text-[#78716C] mb-3 leading-relaxed font-normal">
+          <p className="hidden sm:line-clamp-2 text-xs text-[#78716C] mb-2 leading-relaxed font-normal">
             {product.description}
           </p>
         )}
 
         {/* Option selectors (Wrapped cleanly so options are never cropped off-screen) */}
-        <div className="mt-auto space-y-2.5 sm:space-y-4 pt-2">
+        <div className="mt-auto space-y-2 sm:space-y-3 pt-1.5">
           <div className="space-y-1.5 sm:space-y-2">
             {/* Weights */}
             {product.weights && product.weights.length > 0 && (

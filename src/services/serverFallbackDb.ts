@@ -142,32 +142,46 @@ function ensureInitialized() {
       parseFloat(String(p.price).replace(/[^0-9.]/g, '')) ||
       0;
     const existing = store.products[id];
+    const isAdminEdited = existing?.adminEdited === true;
     store.products[id] = {
       ...(existing || {}),
       ...p,
       id,
-      name: p.name,
+      name: isAdminEdited ? (existing?.name || p.name) : p.name,
       category: p.category || 'General',
       categoryId:
         (p as any).categoryId ||
         (p.category ? String(p.category).toLowerCase().replace(/\s+/g, '-') : 'general'),
-      subcategoryId: (p as any).subcategoryId || existing?.subcategoryId || null,
+      subcategoryId: isAdminEdited
+        ? (existing?.subcategoryId ?? (p as any).subcategoryId ?? null)
+        : ((p as any).subcategoryId || existing?.subcategoryId || null),
       subSubcategoryId: (p as any).subSubcategoryId || existing?.subSubcategoryId || null,
-      unit: (p as any).unit || existing?.unit || '1 kg',
-      price: existing?.price ?? p.price,
-      numericPrice: existing?.numericPrice ?? numPrice,
+      unit: isAdminEdited
+        ? (existing?.unit || (p as any).unit || '1 kg')
+        : ((p as any).unit || existing?.unit || '1 kg'),
+      price: isAdminEdited ? (existing?.price ?? p.price) : p.price,
+      numericPrice: isAdminEdited ? (existing?.numericPrice ?? numPrice) : numPrice,
+      mrp: isAdminEdited ? (existing?.mrp ?? (p as any).mrp) : (p as any).mrp,
+      originalPrice: isAdminEdited ? (existing?.originalPrice ?? (p as any).originalPrice) : (p as any).originalPrice,
+      discount: isAdminEdited ? (existing?.discount ?? (p as any).discount) : (p as any).discount,
+      weights: isAdminEdited
+        ? (Array.isArray(existing?.weights) ? existing.weights : (p as any).weights)
+        : (p as any).weights,
       wholesalePrice: (p as any).wholesalePrice || existing?.wholesalePrice || numPrice,
       wholesaleEligible: (p as any).wholesaleEligible === true || existing?.wholesaleEligible === true,
       wholesaleUnit: (p as any).wholesaleUnit || existing?.wholesaleUnit || (p as any).unit || 'Wholesale Box',
       wholesaleMinQty: (p as any).wholesaleMinQty || existing?.wholesaleMinQty || 1,
       brand: (p as any).brand ?? existing?.brand ?? null,
-      origin: (p as any).origin ?? existing?.origin ?? null,
+      origin: isAdminEdited
+        ? (existing?.origin ?? (p as any).origin ?? null)
+        : ((p as any).origin ?? existing?.origin ?? null),
       count: (p as any).count ?? existing?.count ?? null,
       netWeight: (p as any).netWeight ?? existing?.netWeight ?? null,
       stock: typeof existing?.stock === 'number' ? existing.stock : 250,
       reservedStock: typeof existing?.reservedStock === 'number' ? existing.reservedStock : 0,
       stockStatus: existing?.stockStatus || 'in_stock',
       isDeleted: existing?.isDeleted === true ? true : false,
+      adminEdited: isAdminEdited,
       updatedAt: existing?.updatedAt || new Date().toISOString(),
     };
   }
@@ -276,6 +290,9 @@ class FallbackDocumentReference {
     for (const [k, v] of Object.entries(data || {})) {
       setByPath(current, k, v);
     }
+    if (this.collectionName === 'products') {
+      current.adminEdited = true;
+    }
     col[this.id] = current;
     scheduleSave();
   }
@@ -285,6 +302,9 @@ class FallbackDocumentReference {
     const current = col[this.id] ? { ...col[this.id] } : {};
     for (const [k, v] of Object.entries(data || {})) {
       setByPath(current, k, v);
+    }
+    if (this.collectionName === 'products') {
+      current.adminEdited = true;
     }
     col[this.id] = current;
     scheduleSave();

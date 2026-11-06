@@ -52,14 +52,23 @@ const firestoreConfig: any = {
   localCache: persistentLocalCache()
 };
 
+const customDbId =
+  appletConfig?.firestoreDatabaseId && appletConfig.firestoreDatabaseId !== '(default)'
+    ? appletConfig.firestoreDatabaseId
+    : undefined;
+
 try {
-  firestoreDb = initializeFirestore(app, firestoreConfig, appletConfig.firestoreDatabaseId);
+  firestoreDb = customDbId
+    ? initializeFirestore(app, firestoreConfig, customDbId)
+    : initializeFirestore(app, firestoreConfig);
 } catch (e) {
   try {
     firestoreConfig.localCache = memoryLocalCache();
-    firestoreDb = initializeFirestore(app, firestoreConfig, appletConfig.firestoreDatabaseId);
+    firestoreDb = customDbId
+      ? initializeFirestore(app, firestoreConfig, customDbId)
+      : initializeFirestore(app, firestoreConfig);
   } catch (err) {
-    firestoreDb = getFirestore(app, appletConfig.firestoreDatabaseId);
+    firestoreDb = customDbId ? getFirestore(app, customDbId) : getFirestore(app);
   }
 }
 

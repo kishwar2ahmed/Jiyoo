@@ -25,12 +25,6 @@ const HERO_TYPEWRITER_PHRASES = [
   'pure cold-pressed smoothies, made to order.',
 ] as const;
 
-const MOBILE_HERO_TYPEWRITER_PHRASES = [
-  'Exotic fruits, daily veggies & fresh custom-cut meats.',
-  'Cleaned with pure RO water & delivered cold to your home.',
-  'Handpicked imported fruits, coastal fish & rich smoothies.',
-] as const;
-
 export function Hero({
   onOpenWholesale: _onOpenWholesale,
 }: {
@@ -52,12 +46,10 @@ export function Hero({
   });
 
   // Multi-layer GPU-accelerated scroll parallax & kinetic typography transforms
-  const eyebrowY = useTransform(smoothProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, -18]);
-  const headlineY = useTransform(smoothProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, -38]);
-  const headlineScale = useTransform(smoothProgress, [0, 1], prefersReducedMotion ? [1, 1] : [1, 0.975]);
-  const subcopyY = useTransform(smoothProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, -24]);
-  const ctaY = useTransform(smoothProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, -14]);
-  const heroOpacity = useTransform(smoothProgress, [0, 0.88], prefersReducedMotion ? [1, 1] : [1, 0.2]);
+  const eyebrowY = useTransform(smoothProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, -12]);
+  const headlineY = useTransform(smoothProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, -20]);
+  const subcopyY = useTransform(smoothProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, -16]);
+  const ctaY = useTransform(smoothProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, -10]);
   const ambientY = useTransform(smoothProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, 48]);
   const horizonScaleX = useTransform(smoothProgress, [0, 0.65], prefersReducedMotion ? [1, 1] : [0.15, 1]);
 
@@ -139,27 +131,23 @@ export function Hero({
       </motion.div>
 
       <div className="relative z-10 max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-12 pt-2 pb-2.5 sm:pt-8 sm:pb-10 lg:pt-14 lg:pb-16">
-        <motion.div
-          style={{ opacity: heroOpacity }}
-          className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-6 lg:gap-10 items-center"
-        >
-          {/* Left Column on Desktop / Top Strip Above Banner on Mobile */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-6 lg:gap-10 items-center">
+          {/* Left Column on Desktop / Top Header Above Banner on Mobile */}
           <div className="order-1 lg:order-1 lg:col-span-6 xl:col-span-6 flex flex-col justify-between">
-            {/* Desktop Editorial Headline & Value Prop */}
-            <div className="hidden lg:block">
-              {/* Unboxed Bold Editorial Eyebrow (JIYOO PREMIUM) with Champagne-Gold Pulse */}
-              <motion.div
-                style={{ y: eyebrowY }}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.55, ease: EASE_OUT_EXPO }}
-                className="mb-3 sm:mb-4 flex items-center gap-2.5 text-xs sm:text-sm text-[#1C1917] font-sans-clean"
-              >
-                <span className="relative flex h-2 w-2 items-center justify-center" aria-hidden="true">
+            {/* Row 1 (div:nth-of-type(1)): Bold Editorial Eyebrow (JIYOO PREMIUM) + Mobile WhatsApp Pill */}
+            <motion.div
+              style={{ y: eyebrowY }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: EASE_OUT_EXPO }}
+              className="flex items-center justify-between gap-2 mb-1 sm:mb-2 lg:mb-4"
+            >
+              <div className="min-w-0 flex items-center gap-2 sm:gap-2.5 text-xs sm:text-sm text-[#1C1917] font-sans-clean">
+                <span className="relative flex h-2 w-2 items-center justify-center shrink-0" aria-hidden="true">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C5A880] opacity-75" />
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#8A5A36]" />
                 </span>
-                <span className="font-extrabold tracking-[0.18em] uppercase text-[#1C1917]">
+                <span className="font-extrabold text-xs sm:text-sm tracking-[0.15em] lg:tracking-[0.18em] uppercase text-[#1C1917] block truncate">
                   JIYOO PREMIUM
                 </span>
                 <motion.span
@@ -167,71 +155,86 @@ export function Hero({
                   initial={{ scaleX: 0, opacity: 0 }}
                   animate={{ scaleX: 1, opacity: 1 }}
                   transition={{ duration: 0.85, delay: 0.25, ease: EASE_OUT_EXPO }}
-                  className="h-[1px] w-12 bg-gradient-to-r from-[#C5A880] to-transparent origin-left"
+                  className="hidden lg:inline-block h-[1px] w-12 bg-gradient-to-r from-[#C5A880] to-transparent origin-left"
+                />
+              </div>
+
+              <div className="shrink-0 flex lg:hidden items-center justify-end">
+                <VelvetWhatsAppButton
+                  href={whatsappHref}
+                  label="Order via WhatsApp"
+                  size="compact"
+                />
+              </div>
+            </motion.div>
+
+            {/* Row 2 (div:nth-of-type(2)): Unified Responsive Display Headline & Typewriter Tagline (Visible on Mobile & Desktop) */}
+            <motion.div
+              role="heading"
+              aria-level={1}
+              style={{ y: headlineY }}
+              className="editorial-hero-headline font-medium text-[#1C1917] origin-left pb-0.5"
+            >
+              {/* Line 1 (div:nth-of-type(1)): Static Display Words */}
+              <div className="flex flex-wrap gap-x-[0.22em] sm:gap-x-[0.25em] pb-0.5 text-[15px] sm:text-[19px] lg:text-[clamp(1.75rem,3.1vw,3.25rem)] font-serif-luxury font-semibold lg:font-medium text-[#1C1917] leading-[1.2] lg:leading-[1.15]">
+                {HEADLINE_LINE_1.map((word, index) => (
+                  <span
+                    key={word}
+                    className="inline-block overflow-hidden py-0.5 -my-0.5 px-0.5 -mx-0.5"
+                  >
+                    <motion.span
+                      initial={{
+                        opacity: 0,
+                        y: prefersReducedMotion ? 0 : '100%',
+                      }}
+                      animate={{ opacity: 1, y: '0%' }}
+                      transition={{
+                        duration: 0.65,
+                        delay: 0.03 + index * 0.04,
+                        ease: EASE_OUT_EXPO,
+                      }}
+                      className="inline-block origin-bottom-left"
+                    >
+                      {word}
+                    </motion.span>
+                  </span>
+                ))}
+              </div>
+
+              {/* Line 2 (div:nth-of-type(2)): Animated Editorial Typewriter Tagline */}
+              <motion.div
+                initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.65, delay: 0.2, ease: EASE_OUT_EXPO }}
+                className="relative flex items-center pt-0.5 pb-1.5 lg:pb-2.5 min-h-[1.5rem] sm:min-h-[1.85rem] lg:min-h-0 w-full text-[15px] sm:text-[17px] lg:text-[clamp(1.75rem,3.1vw,3.25rem)] leading-snug lg:leading-[1.15]"
+              >
+                <TypewriterText
+                  phrases={HERO_TYPEWRITER_PHRASES}
+                  typingSpeed={34}
+                  deletingSpeed={16}
+                  pauseDuration={3200}
+                  startDelay={700}
+                  reserveLongestSpace={true}
+                  className="max-w-full text-[15px] sm:text-[17px] lg:text-[clamp(1.75rem,3.1vw,3.25rem)] leading-snug lg:leading-[1.15]"
+                  textClassName="font-serif-luxury italic font-semibold lg:font-normal text-[#7C4A24] lg:text-[#8A5A36] tracking-[0.01em] lg:tracking-[-0.01em]"
+                  cursorClassName="bg-[#7C4A24] lg:bg-[#8A5A36]"
+                  ariaLabel="fresh custom-cut meats, delivered fast."
+                />
+
+                {/* Scroll-linked & Entrance-drawn Editorial Accent Hairline */}
+                <motion.span
+                  aria-hidden="true"
+                  style={{ scaleX: horizonScaleX }}
+                  initial={{ scaleX: 0, opacity: 0 }}
+                  animate={{ scaleX: 1, opacity: 1 }}
+                  transition={{ duration: 1.05, delay: 0.52, ease: EASE_OUT_EXPO }}
+                  className="pointer-events-none absolute left-0 bottom-0 h-[1.5px] w-full max-w-[260px] sm:max-w-[360px] bg-gradient-to-r from-[#8A5A36]/70 via-[#C5A880]/60 to-transparent origin-left"
                 />
               </motion.div>
+            </motion.div>
 
-              {/* Word-by-Word Mask-Clipped Kinetic Display Headline with Editorial Typewriter & Underline */}
-              <motion.h1
-                style={{ y: headlineY, scale: headlineScale }}
-                className="editorial-hero-headline font-medium text-[#1C1917] origin-left"
-              >
-                <span className="flex flex-wrap gap-x-[0.25em] pb-0.5">
-                  {HEADLINE_LINE_1.map((word, index) => (
-                    <span
-                      key={word}
-                      className="inline-block overflow-hidden py-1 -my-1 px-0.5 -mx-0.5"
-                    >
-                      <motion.span
-                        initial={{
-                          opacity: 0,
-                          y: prefersReducedMotion ? 0 : '108%',
-                          rotateZ: prefersReducedMotion ? 0 : 1.75,
-                        }}
-                        animate={{ opacity: 1, y: '0%', rotateZ: 0 }}
-                        transition={{
-                          duration: 0.76,
-                          delay: 0.04 + index * 0.048,
-                          ease: EASE_OUT_EXPO,
-                        }}
-                        className="inline-block origin-bottom-left"
-                      >
-                        {word}
-                      </motion.span>
-                    </span>
-                  ))}
-                </span>
-
-                <motion.span
-                  initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.78, delay: 0.26, ease: EASE_OUT_EXPO }}
-                  className="relative block pt-0.5 pb-2.5"
-                >
-                  <TypewriterText
-                    phrases={HERO_TYPEWRITER_PHRASES}
-                    typingSpeed={44}
-                    deletingSpeed={22}
-                    pauseDuration={2900}
-                    startDelay={1100}
-                    textClassName="italic font-normal bg-gradient-to-r from-[#57534E] via-[#8A5A36] to-[#57534E] bg-clip-text text-transparent tracking-[-0.01em]"
-                    cursorClassName="bg-[#8A5A36]"
-                    ariaLabel="fresh custom-cut meats, delivered fast."
-                  />
-
-                  {/* Scroll-linked & Entrance-drawn Editorial Accent Hairline */}
-                  <motion.span
-                    aria-hidden="true"
-                    style={{ scaleX: horizonScaleX }}
-                    initial={{ scaleX: 0, opacity: 0 }}
-                    animate={{ scaleX: 1, opacity: 1 }}
-                    transition={{ duration: 1.05, delay: 0.52, ease: EASE_OUT_EXPO }}
-                    className="pointer-events-none absolute left-0 bottom-0 h-[1.5px] w-full max-w-[360px] bg-gradient-to-r from-[#8A5A36]/70 via-[#C5A880]/60 to-transparent origin-left"
-                  />
-                </motion.span>
-              </motion.h1>
-
-              {/* Concise Editorial Value Proposition */}
+            {/* Desktop Subcopy & Primary CTA Row */}
+            <div className="hidden lg:block">
               <motion.p
                 style={{ y: subcopyY }}
                 initial={{ opacity: 0, y: 18 }}
@@ -242,7 +245,6 @@ export function Hero({
                 Fresh imported fruits, farm-fresh daily vegetables, and clean custom-cut meats made just how you like.
               </motion.p>
 
-              {/* Primary & Secondary Conversion Actions */}
               <motion.div
                 style={{ y: ctaY }}
                 initial={{ opacity: 0, y: 18 }}
@@ -273,41 +275,9 @@ export function Hero({
                 />
               </motion.div>
             </div>
-
-            {/* Mobile Strip Above Banner: Bold JIYOO PREMIUM + Velvet Maroon WhatsApp Pill Button + Compact Editorial Typewriter */}
-            <div className="block lg:hidden pb-0.5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <span className="font-extrabold text-xs sm:text-sm tracking-[0.15em] uppercase text-[#1C1917] block truncate">
-                    JIYOO PREMIUM
-                  </span>
-                  <div className="min-h-[1.15rem] flex items-center overflow-hidden">
-                    <TypewriterText
-                      phrases={MOBILE_HERO_TYPEWRITER_PHRASES}
-                      typingSpeed={42}
-                      deletingSpeed={20}
-                      pauseDuration={2700}
-                      startDelay={800}
-                      reserveLongestSpace={false}
-                      className="truncate max-w-full"
-                      textClassName="font-serif-luxury italic text-[11.5px] sm:text-xs text-[#6B4C35] tracking-wide"
-                      cursorClassName="bg-[#8A5A36]"
-                    />
-                  </div>
-                </div>
-
-                <div className="shrink-0 flex items-center justify-end">
-                  <VelvetWhatsAppButton
-                    href={whatsappHref}
-                    label="Order via WhatsApp"
-                    size="compact"
-                  />
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Right Column on Desktop / Order 2 on Mobile (Below JIYOO PREMIUM bar): Hero Banner Slideshow */}
+          {/* Right Column on Desktop / Order 2 on Mobile: Hero Banner Slideshow */}
           <motion.div
             initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 18, scale: prefersReducedMotion ? 1 : 0.985 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -321,7 +291,7 @@ export function Hero({
           >
             <HeroSlideshow />
           </motion.div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

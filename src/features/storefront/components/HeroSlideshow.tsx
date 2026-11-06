@@ -199,26 +199,18 @@ export function HeroSlideshow() {
     }
   };
 
-  // Preload and decode upcoming slide images to guarantee instantaneous, stutter-free transitions
+  // Preload only the immediate next slide so hero banners never compete with storefront product images
   useEffect(() => {
     if (slides.length <= 1) return;
-    const indicesToPreload = [
-      (currentIndex + 1) % slides.length,
-      (currentIndex + 2) % slides.length,
-      (currentIndex + 3) % slides.length,
-    ];
-    indicesToPreload.forEach((idx) => {
-      const slide = slides[idx];
-      if (slide?.image) {
-        const img = new Image();
-        img.decoding = 'async';
-        img.src = slide.image;
-        img.decode?.().catch(() => {});
-      }
-    });
+    const nextSlide = slides[(currentIndex + 1) % slides.length];
+    if (nextSlide?.image) {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = nextSlide.image;
+    }
   }, [currentIndex, slides]);
 
-  // Warm the browser cache with all remaining unique banner slides during idle time
+  // Warm remaining banner slides only after initial storefront product images have loaded
   useEffect(() => {
     const timer = setTimeout(() => {
       const uniqueUrls = Array.from(new Set(slides.map((s) => s.image).filter(Boolean)));
@@ -227,7 +219,7 @@ export function HeroSlideshow() {
         img.decoding = 'async';
         img.src = url;
       });
-    }, 450);
+    }, 4500);
     return () => clearTimeout(timer);
   }, [slides]);
 
@@ -276,6 +268,12 @@ export function HeroSlideshow() {
               loading="eager"
               fetchPriority="high"
               decoding="async"
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (!target.src.endsWith('/banners/diwali_special_sale.webp')) {
+                  target.src = '/banners/diwali_special_sale.webp';
+                }
+              }}
               initial={
                 prefersReducedMotion
                   ? { scale: 1 }

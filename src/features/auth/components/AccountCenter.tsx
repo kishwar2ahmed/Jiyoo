@@ -1046,6 +1046,12 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                           </button>
                         </form>
 
+                        {lookupError && (
+                          <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-medium text-red-700">
+                            {lookupError}
+                          </div>
+                        )}
+
                         {trackedLookupOrder && (
                           <div className="pt-3 border-t border-stone-100">
                             <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
@@ -1231,12 +1237,12 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                                             const currentAttempt = parseInt(target.dataset.attempt || '0', 10);
                                             
                                             if (currentAttempt < fallbackSequence.length) {
-                                              target.dataset.attempt = String(currentAttempt + 1);
                                               if (target.src.endsWith(fallbackSequence[currentAttempt]) || target.src === fallbackSequence[currentAttempt]) {
                                                   target.src = fallbackSequence[Math.min(currentAttempt + 1, fallbackSequence.length - 1)];
-                                                  target.dataset.attempt = String(currentAttempt + 1);
+                                                  target.dataset.attempt = String(currentAttempt + 2);
                                               } else {
                                                   target.src = fallbackSequence[currentAttempt];
+                                                  target.dataset.attempt = String(currentAttempt + 1);
                                               }
                                             } else {
                                               target.dataset.failed = "true";
@@ -1491,15 +1497,15 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                                      await updateDoc(doc(db, "users", user.id, "addresses", editingAddress.id), {
                                        name, phone, address, pincode
                                      });
+                                     setAddresses(prev => prev.map(a => a.id === editingAddress.id ? { ...a, name, phone, address, pincode } : a));
                                    } else {
-                                     await addDoc(collection(db, "users", user.id, "addresses"), {
+                                     const addedRef = await addDoc(collection(db, "users", user.id, "addresses"), {
                                        name, phone, address, pincode, createdAt: serverTimestamp()
                                      });
+                                     setAddresses(prev => [{ id: addedRef.id, name, phone, address, pincode }, ...prev]);
                                    }
                                    setShowAddressForm(false);
                                    setEditingAddress(null);
-                                   setActiveTab('profile');
-                                   setTimeout(() => setActiveTab('addresses'), 100);
                                  } catch (e) {
                                    showToast('Failed to save address', 'error');
                                  } finally {
@@ -1789,7 +1795,13 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                              </div>
                            </div>
                            <p className="text-sm text-stone-600 mb-2">{review.comment}</p>
-                           <p className="text-xs text-stone-400">{new Date(review.createdAt?.seconds * 1000).toLocaleDateString()}</p>
+                           <p className="text-xs text-stone-400">
+                             {review.createdAt?.seconds
+                               ? new Date(review.createdAt.seconds * 1000).toLocaleDateString()
+                               : review.createdAt
+                               ? new Date(review.createdAt).toLocaleDateString()
+                               : 'Recent'}
+                           </p>
                         </div>
                       ))
                      }

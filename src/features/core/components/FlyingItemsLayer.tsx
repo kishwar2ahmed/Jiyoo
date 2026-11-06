@@ -7,7 +7,7 @@ interface CartCoordinates {
   y: number;
 }
 
-// In-memory cache of background-stripped transparent product cutouts
+// In-memory cache of background-stripped transparent product cutouts (keyed by normalized URL)
 const cutoutCache = new Map<string, string>();
 const inFlightCutouts = new Map<string, Promise<string>>();
 
@@ -16,11 +16,28 @@ const idlePreloadQueue: string[] = [];
 const queuedSet = new Set<string>();
 let isProcessingIdleQueue = false;
 
+function normalizeCutoutKey(imageUrl: string): string {
+  if (!imageUrl || imageUrl.startsWith("data:") || imageUrl.startsWith("blob:")) {
+    return imageUrl;
+  }
+  try {
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+    const parsed = new URL(imageUrl, origin);
+    if (parsed.origin === origin) {
+      return parsed.pathname + parsed.search;
+    }
+    return parsed.href;
+  } catch {
+    return imageUrl;
+  }
+}
+
 function scheduleIdleWork(cb: () => void) {
   if (typeof window !== "undefined" && "requestIdleCallback" in window) {
     (window as any).requestIdleCallback(cb, { timeout: 1200 });
   } else {
-    setTimeout(cb, 64);
+    setTimeout(cb, 48);
   }
 }
 
@@ -33,7 +50,8 @@ function drainIdlePreloadQueue() {
       isProcessingIdleQueue = false;
       return;
     }
-    queuedSet.delete(nextUrl);
+    const key = normalizeCutoutKey(nextUrl);
+    queuedSet.delete(key);
     stripProductBackground(nextUrl).finally(() => {
       isProcessingIdleQueue = false;
       if (idlePreloadQueue.length > 0) {
@@ -48,39 +66,412 @@ function drainIdlePreloadQueue() {
  * or prioritizes it immediately when `immediate = true` (e.g. on pointer hover / touchstart).
  */
 export function preloadProductCutout(imageUrl: string, immediate = false): void {
-  if (
-    !imageUrl ||
-    imageUrl.endsWith(".mp4") ||
-    cutoutCache.has(imageUrl) ||
-    inFlightCutouts.has(imageUrl)
-  ) {
+  if (!imageUrl || imageUrl.endsWith(".mp4")) {
+    return;
+  }
+  const key = normalizeCutoutKey(imageUrl);
+  if (cutoutCache.has(key) || inFlightCutouts.has(key)) {
     return;
   }
   if (immediate) {
     void stripProductBackground(imageUrl);
     return;
   }
-  if (!queuedSet.has(imageUrl) && idlePreloadQueue.length < 48) {
-    queuedSet.add(imageUrl);
+  if (!queuedSet.has(key) && idlePreloadQueue.length < 256) {
+    queuedSet.add(key);
     idlePreloadQueue.push(imageUrl);
     drainIdlePreloadQueue();
   }
 }
 
+function isCorsSafeImageUrl(imageUrl: string): boolean {
+  if (
+    imageUrl.startsWith("/") ||
+    imageUrl.startsWith("data:") ||
+    imageUrl.startsWith("blob:")
+  ) {
+    return true;
+  }
+  try {
+    const parsed = new URL(
+      imageUrl,
+      typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"
+    );
+    if (typeof window !== "undefined" && parsed.origin === window.location.origin) {
+      return true;
+    }
+    return (
+      parsed.hostname.endsWith("unsplash.com") ||
+      parsed.hostname.endsWith("wikimedia.org")
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Removes solid white / cream / studio backgrounds from a product image
- * using edge-connected flood-fill matting while strictly protecting interior
- * product details and ensuring the central product remains 100% opaque and vivid.
+ * Core synchronous pixel matting engine:
+ * 1. Local-seed gradient flood-fill from all 4 edges removes white, cream, grey, cool-blue,
+ *    warm-tan, and dark studio backdrops (including studio lighting gradients and contact shadows)
+ *    while strictly preserving the central product subject.
+ * 2. If the outer perimeter is a full-bleed tabletop/plated dish scene (where <76% of the border
+ *    is uniform studio background), applies a clean circular dish/subject cutout mask in addition
+ *    to removing any visited background regions, guaranteeing zero rectangular background corners.
  */
+function extractCutoutFromLoadedImage(
+  img: HTMLImageElement,
+  cacheKey: string,
+  fallbackUrl: string
+): string {
+  try {
+    const maxDim = 160;
+    const scale = Math.min(
+      1,
+      maxDim / Math.max(img.naturalWidth || 1, img.naturalHeight || 1)
+    );
+    const width = Math.max(1, Math.round((img.naturalWidth || 160) * scale));
+    const height = Math.max(1, Math.round((img.naturalHeight || 160) * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) {
+      return fallbackUrl;
+    }
+
+    ctx.drawImage(img, 0, 0, width, height);
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    const totalPixels = width * height;
+
+    // 1. Check if already a transparent PNG cutout
+    let transparentBorderCount = 0;
+    const totalBorderCount = 2 * width + 2 * Math.max(0, height - 2);
+
+    const checkTransparent = (x: number, y: number) => {
+      if (data[(y * width + x) * 4 + 3] < 25) {
+        transparentBorderCount++;
+      }
+    };
+
+    for (let x = 0; x < width; x++) {
+      checkTransparent(x, 0);
+      checkTransparent(x, height - 1);
+    }
+    for (let y = 1; y < height - 1; y++) {
+      checkTransparent(0, y);
+      checkTransparent(width - 1, y);
+    }
+
+    if (transparentBorderCount > totalBorderCount * 0.6) {
+      cutoutCache.set(cacheKey, fallbackUrl);
+      return fallbackUrl;
+    }
+
+    const cxCenter = width / 2;
+    const cyCenter = height / 2;
+    const maxRadius = Math.hypot(cxCenter, cyCenter);
+
+    // 2. Local-seed gradient & studio flood-fill from all 4 outer edges inward
+    const visited = new Uint8Array(totalPixels);
+    const seedOf = new Int32Array(totalPixels);
+    const queue = new Int32Array(totalPixels);
+    let head = 0;
+    let tail = 0;
+
+    const isSmoothBorderSeed = (x: number, y: number): boolean => {
+      const idx = y * width + x;
+      const i = idx * 4;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const a = data[i + 3];
+      if (a < 25) return true;
+
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+      if (lum > 200 && chroma < 38) return true;
+
+      // Check inward & tangent smoothness so uniform grey/black/tan studio backdrops seed cleanly
+      const nx = x === 0 ? 1 : x === width - 1 ? width - 2 : x;
+      const ny = y === 0 ? 1 : y === height - 1 ? height - 2 : y;
+      const ni = (ny * width + nx) * 4;
+      const inwardStep = Math.hypot(
+        r - data[ni],
+        g - data[ni + 1],
+        b - data[ni + 2]
+      );
+
+      const tx =
+        x === 0 || x === width - 1 ? x : Math.min(width - 1, x + 1);
+      const ty =
+        y === 0 || y === height - 1 ? y : Math.min(height - 1, y + 1);
+      const ti = (ty * width + tx) * 4;
+      const tangentStep = Math.hypot(
+        r - data[ti],
+        g - data[ti + 1],
+        b - data[ti + 2]
+      );
+
+      return inwardStep < 24 && tangentStep < 24;
+    };
+
+    const seedBorderPixel = (x: number, y: number) => {
+      const idx = y * width + x;
+      if (!visited[idx] && isSmoothBorderSeed(x, y)) {
+        visited[idx] = 1;
+        seedOf[idx] = idx;
+        queue[tail++] = idx;
+      }
+    };
+
+    for (let x = 0; x < width; x++) {
+      seedBorderPixel(x, 0);
+      seedBorderPixel(x, height - 1);
+    }
+    for (let y = 1; y < height - 1; y++) {
+      seedBorderPixel(0, y);
+      seedBorderPixel(width - 1, y);
+    }
+
+    const trySpread = (nx: number, ny: number, parentIdx: number) => {
+      const idx = ny * width + nx;
+      if (visited[idx]) return;
+      const i = idx * 4;
+      if (data[i + 3] < 25) {
+        visited[idx] = 1;
+        seedOf[idx] = seedOf[parentIdx];
+        queue[tail++] = idx;
+        return;
+      }
+
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+      const dw = Math.hypot(255 - r, 255 - g, 255 - b);
+
+      // Pure white / bright neutral studio background
+      if ((dw < 38 || lum > 220) && chroma < 32) {
+        visited[idx] = 1;
+        seedOf[idx] = seedOf[parentIdx];
+        queue[tail++] = idx;
+        return;
+      }
+      if (r > 236 && g > 234 && b > 228 && chroma < 26) {
+        visited[idx] = 1;
+        seedOf[idx] = seedOf[parentIdx];
+        queue[tail++] = idx;
+        return;
+      }
+
+      const pi = parentIdx * 4;
+      const stepDist = Math.hypot(
+        r - data[pi],
+        g - data[pi + 1],
+        b - data[pi + 2]
+      );
+      const sIdx = seedOf[parentIdx];
+      const si = sIdx * 4;
+      const seedR = data[si];
+      const seedG = data[si + 1];
+      const seedB = data[si + 2];
+      const seedDist = Math.hypot(r - seedR, g - seedG, b - seedB);
+      const seedLum = 0.299 * seedR + 0.587 * seedG + 0.114 * seedB;
+
+      const radialNorm = Math.hypot(nx - cxCenter, ny - cyCenter) / maxRadius;
+
+      // Soft studio contact shadow on a light backdrop
+      if (
+        seedLum > 195 &&
+        lum > 164 &&
+        chroma < 28 &&
+        stepDist <= 16 &&
+        radialNorm > 0.36
+      ) {
+        visited[idx] = 1;
+        seedOf[idx] = sIdx;
+        queue[tail++] = idx;
+        return;
+      }
+
+      // Smooth gradient studio backdrop (grey, black, cool-blue, warm-tan)
+      const maxStep = radialNorm > 0.52 ? 18 : radialNorm > 0.36 ? 12 : 7;
+      const maxSeed = radialNorm > 0.52 ? 54 : radialNorm > 0.36 ? 38 : 22;
+      if (stepDist <= maxStep && seedDist <= maxSeed) {
+        visited[idx] = 1;
+        seedOf[idx] = sIdx;
+        queue[tail++] = idx;
+      }
+    };
+
+    while (head < tail) {
+      const curr = queue[head++];
+      const cx = curr % width;
+      const cy = (curr - cx) / width;
+
+      if (cx > 0) trySpread(cx - 1, cy, curr);
+      if (cx < width - 1) trySpread(cx + 1, cy, curr);
+      if (cy > 0) trySpread(cx, cy - 1, curr);
+      if (cy < height - 1) trySpread(cx, cy + 1, curr);
+    }
+
+    // Check central subject preservation and outer border completeness
+    let centerRemaining = 0;
+    let centerTotal = 0;
+    const x0 = Math.floor(width * 0.25);
+    const x1 = Math.ceil(width * 0.75);
+    const y0 = Math.floor(height * 0.25);
+    const y1 = Math.ceil(height * 0.75);
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        centerTotal++;
+        if (!visited[y * width + x]) {
+          centerRemaining++;
+        }
+      }
+    }
+
+    let borderVisited = 0;
+    for (let x = 0; x < width; x++) {
+      if (visited[x]) borderVisited++;
+      if (visited[(height - 1) * width + x]) borderVisited++;
+    }
+    for (let y = 1; y < height - 1; y++) {
+      if (visited[y * width]) borderVisited++;
+      if (visited[y * width + width - 1]) borderVisited++;
+    }
+    const borderVisitedRatio = borderVisited / Math.max(1, totalBorderCount);
+
+    // 3. Apply studio flood-fill knockout if central subject is intact
+    if (centerRemaining >= centerTotal * 0.22 && tail > totalPixels * 0.06) {
+      for (let idx = 0; idx < totalPixels; idx++) {
+        if (visited[idx]) {
+          data[idx * 4 + 3] = 0;
+          continue;
+        }
+
+        const x = idx % width;
+        const y = (idx - x) / width;
+        let neighborSeedIdx = -1;
+        if (x > 0 && visited[idx - 1] === 1) neighborSeedIdx = seedOf[idx - 1];
+        else if (x < width - 1 && visited[idx + 1] === 1)
+          neighborSeedIdx = seedOf[idx + 1];
+        else if (y > 0 && visited[idx - width] === 1)
+          neighborSeedIdx = seedOf[idx - width];
+        else if (y < height - 1 && visited[idx + width] === 1)
+          neighborSeedIdx = seedOf[idx + width];
+
+        if (neighborSeedIdx >= 0) {
+          const i = idx * 4;
+          const si = neighborSeedIdx * 4;
+          const distSeed = Math.hypot(
+            data[i] - data[si],
+            data[i + 1] - data[si + 1],
+            data[i + 2] - data[si + 2]
+          );
+          if (distSeed < 64) {
+            const featheredAlpha = Math.max(
+              0,
+              Math.min(255, Math.round(((distSeed - 12) / 52) * 255))
+            );
+            data[i + 3] = Math.min(data[i + 3], featheredAlpha);
+          } else {
+            data[i + 3] = Math.min(data[i + 3], 210);
+          }
+        }
+      }
+    }
+
+    // 4. Guarantee 100% removal of rectangular corners/edges:
+    // - If < 76% of the outer perimeter was studio background (e.g. plated dishes, bowls, or
+    //   tabletop food photography), sculpt into a crisp circular dish cutout so no rectangular
+    //   background corners or partial tabletop edges remain.
+    // - Even on clean studio cutouts (>= 76%), softly mask the extreme 4 corners so no stray
+    //   border shadow stub can survive.
+    if (borderVisitedRatio < 0.76) {
+      const dishRadius = Math.min(width, height) * 0.44;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = (y * width + x) * 4;
+          if (data[i + 3] === 0) continue;
+          const normDist = Math.hypot(x - cxCenter, y - cyCenter) / dishRadius;
+          if (normDist > 1.0) {
+            data[i + 3] = 0;
+          } else if (normDist > 0.88) {
+            const fade = Math.max(0, Math.min(1, (1.0 - normDist) / 0.12));
+            data[i + 3] = Math.round(data[i + 3] * fade);
+          }
+        }
+      }
+    } else {
+      const rx = width * 0.49;
+      const ry = height * 0.49;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = (y * width + x) * 4;
+          if (data[i + 3] === 0) continue;
+          const normDist = Math.hypot((x - cxCenter) / rx, (y - cyCenter) / ry);
+          if (normDist > 1.02) {
+            data[i + 3] = 0;
+          } else if (normDist > 0.94) {
+            const fade = Math.max(0, Math.min(1, (1.02 - normDist) / 0.08));
+            data[i + 3] = Math.round(data[i + 3] * fade);
+          }
+        }
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    const cutoutUrl = canvas.toDataURL("image/png");
+    cutoutCache.set(cacheKey, cutoutUrl);
+    return cutoutUrl;
+  } catch {
+    return fallbackUrl;
+  }
+}
+
+/**
+ * Attempts to synchronously return a cached cutout or extract one immediately
+ * from an already-loaded `<img>` element in the DOM so the very first frame of
+ * the flight animation is background-free with 0ms async delay.
+ */
+function getImmediateCutout(imageUrl: string): string | null {
+  if (!imageUrl || imageUrl.endsWith(".mp4") || !isCorsSafeImageUrl(imageUrl)) {
+    return imageUrl;
+  }
+  const key = normalizeCutoutKey(imageUrl);
+  const cached = cutoutCache.get(key);
+  if (cached) {
+    return cached;
+  }
+  if (typeof document !== "undefined") {
+    const imgs = document.images;
+    for (let i = 0; i < imgs.length; i++) {
+      const domImg = imgs[i];
+      if (domImg.complete && domImg.naturalWidth > 0) {
+        const domKey = normalizeCutoutKey(domImg.currentSrc || domImg.src);
+        if (domKey === key) {
+          return extractCutoutFromLoadedImage(domImg, key, imageUrl);
+        }
+      }
+    }
+  }
+  return null;
+}
+
 function stripProductBackground(imageUrl: string): Promise<string> {
-  if (!imageUrl || imageUrl.endsWith(".mp4")) {
+  if (!imageUrl || imageUrl.endsWith(".mp4") || !isCorsSafeImageUrl(imageUrl)) {
     return Promise.resolve(imageUrl);
   }
-  const cached = cutoutCache.get(imageUrl);
-  if (cached) {
-    return Promise.resolve(cached);
+  const key = normalizeCutoutKey(imageUrl);
+  const immediate = getImmediateCutout(imageUrl);
+  if (immediate) {
+    return Promise.resolve(immediate);
   }
-  const existingPromise = inFlightCutouts.get(imageUrl);
+  const existingPromise = inFlightCutouts.get(key);
   if (existingPromise) {
     return existingPromise;
   }
@@ -91,241 +482,16 @@ function stripProductBackground(imageUrl: string): Promise<string> {
     img.decoding = "async";
 
     img.onload = () => {
-      try {
-        const maxDim = 160;
-        const scale = Math.min(
-          1,
-          maxDim / Math.max(img.naturalWidth || 1, img.naturalHeight || 1)
-        );
-        const width = Math.max(1, Math.round((img.naturalWidth || 160) * scale));
-        const height = Math.max(1, Math.round((img.naturalHeight || 160) * scale));
-
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        if (!ctx) {
-          resolve(imageUrl);
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0, width, height);
-        const imageData = ctx.getImageData(0, 0, width, height);
-        const data = imageData.data;
-        const totalPixels = width * height;
-
-        // 1. Inspect outer perimeter to check if already transparent or has a studio background
-        let transparentBorderCount = 0;
-        let totalBorderCount = 0;
-        let sumR = 0;
-        let sumG = 0;
-        let sumB = 0;
-        let studioBorderCount = 0;
-
-        const sampleBorderPixel = (x: number, y: number) => {
-          const i = (y * width + x) * 4;
-          const r = data[i];
-          const g = data[i + 1];
-          const b = data[i + 2];
-          const a = data[i + 3];
-          totalBorderCount++;
-          if (a < 25) {
-            transparentBorderCount++;
-          } else {
-            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-            const maxC = Math.max(r, g, b);
-            const minC = Math.min(r, g, b);
-            if (lum > 205 && maxC - minC < 34) {
-              sumR += r;
-              sumG += g;
-              sumB += b;
-              studioBorderCount++;
-            }
-          }
-        };
-
-        for (let x = 0; x < width; x++) {
-          sampleBorderPixel(x, 0);
-          sampleBorderPixel(x, height - 1);
-        }
-        for (let y = 1; y < height - 1; y++) {
-          sampleBorderPixel(0, y);
-          sampleBorderPixel(width - 1, y);
-        }
-
-        // If already a transparent PNG cutout, keep it untouched
-        if (transparentBorderCount > totalBorderCount * 0.6) {
-          cutoutCache.set(imageUrl, imageUrl);
-          resolve(imageUrl);
-          return;
-        }
-
-        const bgR = studioBorderCount > 0 ? sumR / studioBorderCount : 252;
-        const bgG = studioBorderCount > 0 ? sumG / studioBorderCount : 251;
-        const bgB = studioBorderCount > 0 ? sumB / studioBorderCount : 248;
-
-        const isBackgroundLike = (pixelIdx: number): boolean => {
-          const i = pixelIdx * 4;
-          const a = data[i + 3];
-          if (a < 20) return true;
-          const r = data[i];
-          const g = data[i + 1];
-          const b = data[i + 2];
-
-          const maxC = Math.max(r, g, b);
-          const minC = Math.min(r, g, b);
-          const chroma = maxC - minC;
-
-          const dr = r - bgR;
-          const dg = g - bgG;
-          const db = b - bgB;
-          const distBg = Math.sqrt(dr * dr + dg * dg + db * db);
-          const dw = Math.sqrt((255 - r) ** 2 + (255 - g) ** 2 + (255 - b) ** 2);
-
-          if ((distBg < 32 || dw < 30) && chroma < 24) return true;
-          if (r > 240 && g > 238 && b > 233 && chroma < 20) return true;
-          return false;
-        };
-
-        // 2. Flood-fill from all 4 outer edges inward
-        const visited = new Uint8Array(totalPixels);
-        const queue = new Int32Array(totalPixels);
-        let head = 0;
-        let tail = 0;
-
-        const enqueueIfBg = (x: number, y: number) => {
-          const idx = y * width + x;
-          if (visited[idx]) return;
-          if (isBackgroundLike(idx)) {
-            visited[idx] = 1;
-            queue[tail++] = idx;
-          }
-        };
-
-        for (let x = 0; x < width; x++) {
-          enqueueIfBg(x, 0);
-          enqueueIfBg(x, height - 1);
-        }
-        for (let y = 1; y < height - 1; y++) {
-          enqueueIfBg(0, y);
-          enqueueIfBg(width - 1, y);
-        }
-
-        while (head < tail) {
-          const curr = queue[head++];
-          const cx = curr % width;
-          const cy = (curr - cx) / width;
-
-          if (cx > 0) enqueueIfBg(cx - 1, cy);
-          if (cx < width - 1) enqueueIfBg(cx + 1, cy);
-          if (cy > 0) enqueueIfBg(cx, cy - 1);
-          if (cy < height - 1) enqueueIfBg(cx, cy + 1);
-        }
-
-        // Verify that the central subject of the product was NOT erased
-        let centerRemaining = 0;
-        let centerTotal = 0;
-        const x0 = Math.floor(width * 0.25);
-        const x1 = Math.ceil(width * 0.75);
-        const y0 = Math.floor(height * 0.25);
-        const y1 = Math.ceil(height * 0.75);
-        for (let y = y0; y < y1; y++) {
-          for (let x = x0; x < x1; x++) {
-            centerTotal++;
-            if (!visited[y * width + x]) {
-              centerRemaining++;
-            }
-          }
-        }
-
-        if (centerRemaining >= centerTotal * 0.22 && tail > totalPixels * 0.08) {
-          // 3. Knock out visited studio background pixels & softly feather 1px boundary
-          for (let idx = 0; idx < totalPixels; idx++) {
-            if (visited[idx]) {
-              data[idx * 4 + 3] = 0;
-              continue;
-            }
-
-            const x = idx % width;
-            const y = (idx - x) / width;
-            const touchesBg =
-              (x > 0 && visited[idx - 1] === 1) ||
-              (x < width - 1 && visited[idx + 1] === 1) ||
-              (y > 0 && visited[idx - width] === 1) ||
-              (y < height - 1 && visited[idx + width] === 1);
-
-            if (touchesBg) {
-              const i = idx * 4;
-              const r = data[i];
-              const g = data[i + 1];
-              const b = data[i + 2];
-              const maxC = Math.max(r, g, b);
-              const minC = Math.min(r, g, b);
-              const distBg = Math.sqrt(
-                (r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2
-              );
-              if (maxC - minC < 30 && distBg < 54) {
-                const featheredAlpha = Math.max(
-                  0,
-                  Math.min(255, Math.round(((distBg - 14) / 40) * 255))
-                );
-                data[i + 3] = Math.min(data[i + 3], featheredAlpha);
-              }
-            }
-          }
-        } else {
-          // Fallback for full-bleed photos without a white background:
-          // Sculpt into a soft organic floating silhouette by feathering the rectangular corners
-          const cx = width / 2;
-          const cy = height / 2;
-          const rx = width * 0.46;
-          const ry = height * 0.46;
-          for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-              const normDist = Math.hypot((x - cx) / rx, (y - cy) / ry);
-              if (normDist > 1.0) {
-                const i = (y * width + x) * 4;
-                data[i + 3] = 0;
-              } else if (normDist > 0.86) {
-                const i = (y * width + x) * 4;
-                const fade = Math.max(0, Math.min(1, (1.0 - normDist) / 0.14));
-                data[i + 3] = Math.round(data[i + 3] * fade);
-              }
-            }
-          }
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-
-        if (typeof canvas.toBlob === "function") {
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const objUrl = URL.createObjectURL(blob);
-              cutoutCache.set(imageUrl, objUrl);
-              resolve(objUrl);
-            } else {
-              const dataUrl = canvas.toDataURL("image/png");
-              cutoutCache.set(imageUrl, dataUrl);
-              resolve(dataUrl);
-            }
-          }, "image/png");
-        } else {
-          const cutoutUrl = canvas.toDataURL("image/png");
-          cutoutCache.set(imageUrl, cutoutUrl);
-          resolve(cutoutUrl);
-        }
-      } catch {
-        resolve(imageUrl);
-      }
+      resolve(extractCutoutFromLoadedImage(img, key, imageUrl));
     };
 
     img.onerror = () => resolve(imageUrl);
     img.src = imageUrl;
   }).finally(() => {
-    inFlightCutouts.delete(imageUrl);
+    inFlightCutouts.delete(key);
   });
 
-  inFlightCutouts.set(imageUrl, job);
+  inFlightCutouts.set(key, job);
   return job;
 }
 
@@ -380,10 +546,11 @@ function FlyingProductCutout({
   onComplete: (id: string) => void;
 }) {
   const [cutoutSrc, setCutoutSrc] = useState<string | null>(() =>
-    cutoutCache.get(item.image) || null
+    getImmediateCutout(item.image)
   );
 
   useEffect(() => {
+    if (cutoutSrc) return;
     let active = true;
     stripProductBackground(item.image).then((result) => {
       if (active) setCutoutSrc(result);
@@ -391,7 +558,7 @@ function FlyingProductCutout({
     return () => {
       active = false;
     };
-  }, [item.image]);
+  }, [item.image, cutoutSrc]);
 
   const { xKeyframes, yKeyframes } = computeFlightTrajectory(item, cartPos);
   const displaySrc = cutoutSrc || item.image;

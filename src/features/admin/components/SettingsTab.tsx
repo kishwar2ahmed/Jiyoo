@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Save, Globe } from "lucide-react";
 import { useSettings } from "../../../contexts/SettingsContext";
 import { useCart } from "../../../contexts/CartContext";
@@ -55,6 +55,34 @@ export function SettingsTab() {
   const [contactPhone, setContactPhone] = useState(settings.aboutUs?.contactPhone || "+91 97393 91891");
 
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setStoreName(settings.storeName);
+    setContactEmail(settings.contactEmail);
+    setWhatsappNumber(settings.whatsappNumber || "919739391891");
+    setUpiId(settings.upiId || "9739391891@ybl");
+    setUpiId2(settings.upiId2 || "9739391891@paytm");
+    setDeliveryFee(typeof settings.deliveryFee === "number" ? settings.deliveryFee : 40);
+    setFreeDeliveryThreshold(settings.freeDeliveryThreshold || 0);
+    setEstimatedDeliveryTime(settings.estimatedDeliveryTime || "30 - 60 mins");
+    setMinOrderAmount(settings.minOrderAmount || 0);
+    setStoreNotice(settings.storeNotice || "");
+    setQrCodeUrl(settings.qrCodeUrl || "");
+    setLogoUrl(settings.logoUrl || "");
+    setDeveloperImageUrl(settings.developerImageUrl || "/developer.png");
+    if (settings.aboutUs) {
+      setAboutIntro(settings.aboutUs.introText || "");
+      setAboutObjective(settings.aboutUs.objectiveText || "");
+      setAboutVision(settings.aboutUs.visionText || "");
+      setAboutStandards(settings.aboutUs.standardsText || "");
+      setFounderName(settings.aboutUs.founderName || "Syed Shams");
+      setFounderRole(settings.aboutUs.founderRole || "Founder, CEO & CFO");
+      setMdName(settings.aboutUs.mdName || "Dr. Mehraj Sultana");
+      setMdRole(settings.aboutUs.mdRole || "Managing Director (MD)");
+      setMarketedBy(settings.aboutUs.marketedBy || "SHAM'S™");
+      setContactPhone(settings.aboutUs.contactPhone || "+91 97393 91891");
+    }
+  }, [settings]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

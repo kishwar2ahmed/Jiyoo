@@ -13,17 +13,17 @@ export const ALL_PRODUCTS: Product[] = [
     price: 299,
     numericPrice: 299,
     mrp: 349,
-    unit: '1kg',
+    unit: '4 Pack (600-700g)',
+    origin: 'New Zealand',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
     image: '/products/f_apple_royal_gala.jpg',
-    tags: ['Imported', 'Sweet', 'Crisp'],
+    tags: ['Imported', 'Sweet', 'Crisp', 'New Zealand'],
     freshnessBadge: 'Premium',
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '500g', price: 159 },
-      { label: '1kg', price: 299 }
+      { label: '4 Pack (600-700g)', price: 299 }
     ]
   },
   {
@@ -31,20 +31,20 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Washington Apple',
     slug: 'washington-apple',
     description: 'Classic deep-red Washington apples with a firm, crisp texture and exceptionally juicy sweet flavor.',
-    price: 299,
-    numericPrice: 299,
-    mrp: 349,
-    unit: '1kg',
+    price: 289,
+    numericPrice: 289,
+    mrp: 339,
+    unit: '3 Pack',
+    origin: 'Washington',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
     image: '/products/washington-apple.jfif',
-    tags: ['Imported', 'Juicy'],
+    tags: ['Imported', 'Juicy', 'Washington'],
     freshnessBadge: 'Fresh Import',
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '500g', price: 159 },
-      { label: '1kg', price: 299 }
+      { label: '3 Pack', price: 289 }
     ]
   },
   {
@@ -73,10 +73,10 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Apple Fuji',
     slug: 'apple-fuji',
     description: 'Large, dense, crisp, and exceptionally sweet Fuji apples with yellow-red speckled skin.',
-    price: 299,
-    numericPrice: 299,
-    mrp: 349,
-    unit: '1kg',
+    price: 209,
+    numericPrice: 209,
+    mrp: 249,
+    unit: '2 Pcs',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
     image: '/products/apple-fuji.jfif',
@@ -85,8 +85,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '500g', price: 159 },
-      { label: '1kg', price: 299 }
+      { label: '2 Pcs', price: 209 }
     ]
   },
   {
@@ -150,6 +149,112 @@ export const ALL_PRODUCTS: Product[] = [
     weights: [
       { label: '500g', price: 149 },
       { label: '1kg', price: 279 }
+    ]
+  },
+  {
+    id: 'f_apple_kashmir',
+    name: 'Apple Kashmir',
+    slug: 'apple-kashmir',
+    description: 'Sweet, aromatic Kashmiri orchard apples with naturally blushed red-striped skin and crisp juicy white flesh.',
+    price: 75,
+    numericPrice: 75,
+    mrp: 95,
+    unit: '4 Pack (450-500g)',
+    origin: 'Indian',
+    count: '5 Layer',
+    categoryId: 'fruits',
+    subcategoryId: 'indian-fruits',
+    image: '/products/f_apple_kashmir.jpg',
+    tags: ['Indian', 'Kashmir', 'Orchard Fresh', 'Sweet'],
+    freshnessBadge: 'Orchard Pick',
+    deliveryEstimate: '60 mins',
+    stockStatus: 'in_stock',
+    weights: [
+      { label: '4 Pack (450-500g)', price: 75 }
+    ]
+  },
+  {
+    id: 'f_apple_ber',
+    name: 'Apple Ber',
+    slug: 'apple-ber',
+    description: 'Crisp, light-green Indian Apple Ber (Thai Jujube) with a refreshing apple-like crunch and mild natural sweetness.',
+    price: 50,
+    numericPrice: 50,
+    mrp: 65,
+    unit: '1 Pack (200g)',
+    origin: 'Indian',
+    categoryId: 'fruits',
+    subcategoryId: 'indian-fruits',
+    image: '/products/f_apple_ber.jpg',
+    tags: ['Indian', 'Crisp', 'Jujube'],
+    freshnessBadge: 'Farm Fresh',
+    deliveryEstimate: '60 mins',
+    stockStatus: 'in_stock',
+    weights: [
+      { label: '1 Pack (200g)', price: 50 }
+    ]
+  },
+  {
+    id: 'f_custard_apple',
+    name: 'Custard Apple',
+    slug: 'custard-apple',
+    description: 'Rich, creamy Indian Custard Apple (Sitaphal) with aromatic, naturally sweet white custard segments.',
+    price: 75,
+    numericPrice: 75,
+    mrp: 95,
+    unit: '2 Pcs (250g+)',
+    origin: 'Indian',
+    categoryId: 'fruits',
+    subcategoryId: 'indian-fruits',
+    image: '/products/f_custard_apple.jpg',
+    tags: ['Indian', 'Sitaphal', 'Creamy', 'Sweet'],
+    freshnessBadge: 'Seasonal Pick',
+    deliveryEstimate: '60 mins',
+    stockStatus: 'in_stock',
+    weights: [
+      { label: '2 Pcs (250g+)', price: 75 }
+    ]
+  },
+  {
+    id: 'f_chikoo',
+    name: 'Chikoo',
+    slug: 'chikoo',
+    description: 'Naturally ripened Indian Chikoo (Sapota) featuring soft, malty, caramel-sweet brown pulp.',
+    price: 80,
+    numericPrice: 80,
+    mrp: 99,
+    unit: '6 Pcs',
+    origin: 'Indian',
+    categoryId: 'fruits',
+    subcategoryId: 'indian-fruits',
+    image: '/products/f_chikoo.jpg',
+    tags: ['Indian', 'Sapota', 'Caramel Sweet'],
+    freshnessBadge: 'Farm Ripe',
+    deliveryEstimate: '60 mins',
+    stockStatus: 'in_stock',
+    weights: [
+      { label: '6 Pcs', price: 80 }
+    ]
+  },
+  {
+    id: 'f_persimmon',
+    name: 'Persimmon',
+    slug: 'persimmon',
+    description: 'Glossy deep-orange Fuyu Persimmon with smooth, honey-sweet, non-astringent flesh and delicate floral notes.',
+    price: 160,
+    numericPrice: 160,
+    mrp: 195,
+    unit: '2 Pcs',
+    origin: 'Indian',
+    categoryId: 'fruits',
+    subcategoryId: 'imported-fruits',
+    image: '/products/f_persimmon.jpg',
+    tags: ['Exotic', 'Persimmon', 'Honey Sweet'],
+    freshnessBadge: 'Exotic Pick',
+    deliveryEstimate: '60 mins',
+    stockStatus: 'in_stock',
+    weights: [
+      { label: '2 Pcs', price: 160 }
     ]
   },
   {
@@ -222,20 +327,20 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Avocado Hass',
     slug: 'avocado-hass',
     description: 'Rich, buttery Hass avocado imported for smooth texture and perfect creamy ripeness.',
-    price: 149,
-    numericPrice: 149,
-    mrp: 179,
-    unit: '1 pc',
+    price: 125,
+    numericPrice: 125,
+    mrp: 155,
+    unit: '2 Pcs',
+    origin: 'Tanzania',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
     image: '/products/f_avocado.jpg',
-    tags: ['Imported', 'Creamy', 'Nutritious'],
+    tags: ['Imported', 'Creamy', 'Nutritious', 'Tanzania'],
     freshnessBadge: 'Premium',
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '1 pc', price: 149 },
-      { label: '2 pcs', price: 289 }
+      { label: '2 Pcs', price: 125 }
     ]
   },
   {
@@ -243,10 +348,11 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Banana Yelakki',
     slug: 'banana-yelakki',
     description: 'Fragrant, small Yelakki (Elaichi) bananas with dense sweet flesh and rich natural aroma.',
-    price: 59,
-    numericPrice: 59,
-    mrp: 69,
-    unit: '500g',
+    price: 70,
+    numericPrice: 70,
+    mrp: 85,
+    unit: '14 Pcs (500-600g)',
+    origin: 'Indian',
     categoryId: 'fruits',
     subcategoryId: 'indian-fruits',
     image: '/products/f_banana_yelakki.jpg',
@@ -255,8 +361,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '500g', price: 59 },
-      { label: '1kg', price: 109 }
+      { label: '14 Pcs (500-600g)', price: 70 }
     ]
   },
   {
@@ -264,10 +369,11 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Banana Robusta',
     slug: 'banana-robusta',
     description: 'Large, firm Robusta bananas with thick peel and smooth sweet flavor, ideal for daily wholesome snacking.',
-    price: 59,
-    numericPrice: 59,
-    mrp: 69,
-    unit: '1kg',
+    price: 39,
+    numericPrice: 39,
+    mrp: 49,
+    unit: '6 Pcs',
+    origin: 'Indian',
     categoryId: 'fruits',
     subcategoryId: 'indian-fruits',
     image: '/products/banana-robusta.jfif',
@@ -276,8 +382,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '1kg', price: 59 },
-      { label: '2kg', price: 109 }
+      { label: '6 Pcs', price: 39 }
     ]
   },
 
@@ -287,20 +392,20 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Taiwan Guava Pink Flesh',
     slug: 'taiwan-guava-pink-flesh',
     description: 'Crisp Taiwan guava featuring striking pink inner flesh and fragrant sweet tropical flavor.',
-    price: 119,
-    numericPrice: 119,
-    mrp: 139,
-    unit: '500g',
+    price: 85,
+    numericPrice: 85,
+    mrp: 105,
+    unit: '2 Pcs',
+    origin: 'Indian',
     categoryId: 'fruits',
-    subcategoryId: 'imported-fruits',
+    subcategoryId: 'indian-fruits',
     image: '/products/f_guava_taiwan_pink.jpg',
-    tags: ['Imported', 'Pink Flesh', 'Aromatic'],
+    tags: ['Indian', 'Pink Flesh', 'Aromatic'],
     freshnessBadge: 'Exotic',
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '500g', price: 119 },
-      { label: '1kg', price: 229 }
+      { label: '2 Pcs', price: 85 }
     ]
   },
   {
@@ -308,20 +413,20 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Taiwan Guava White Flesh',
     slug: 'taiwan-guava-white-flesh',
     description: 'Large, crunchy Taiwan guava with crisp white flesh, thick skin, and delicate subtle sweetness.',
-    price: 109,
-    numericPrice: 109,
-    mrp: 129,
-    unit: '500g',
+    price: 90,
+    numericPrice: 90,
+    mrp: 110,
+    unit: '2 Pcs',
+    origin: 'Indian',
     categoryId: 'fruits',
-    subcategoryId: 'imported-fruits',
+    subcategoryId: 'indian-fruits',
     image: '/products/f_guava_taiwan_white.jpg',
-    tags: ['Imported', 'Crisp'],
+    tags: ['Indian', 'Crisp'],
     freshnessBadge: 'Top Quality',
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '500g', price: 109 },
-      { label: '1kg', price: 209 }
+      { label: '2 Pcs', price: 90 }
     ]
   },
   {
@@ -350,10 +455,11 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Papaya Red Lady / 786',
     slug: 'papaya-red-lady-786',
     description: 'Sweet, deep-red fleshed Red Lady 786 papaya variety harvested at peak natural ripeness.',
-    price: 99,
-    numericPrice: 99,
-    mrp: 119,
-    unit: '1kg',
+    price: 69,
+    numericPrice: 69,
+    mrp: 85,
+    unit: '1 Pc (800-1200g)',
+    origin: 'Indian',
     categoryId: 'fruits',
     subcategoryId: 'indian-fruits',
     image: '/products/f_papaya_red_lady.jpg',
@@ -362,8 +468,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '1kg', price: 99 },
-      { label: '2kg', price: 189 }
+      { label: '1 Pc (800-1200g)', price: 69 }
     ]
   },
   {
@@ -371,10 +476,11 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Papaya No. 15',
     slug: 'papaya-no-15',
     description: 'Firm, golden-orange Papaya No. 15 variety known for smooth flesh and pleasant mild sweetness.',
-    price: 109,
-    numericPrice: 109,
-    mrp: 129,
-    unit: '1kg',
+    price: 69,
+    numericPrice: 69,
+    mrp: 85,
+    unit: '1 Pc (800-1200g)',
+    origin: 'Indian',
     categoryId: 'fruits',
     subcategoryId: 'indian-fruits',
     image: '/products/f_papaya_no15.jpg',
@@ -383,8 +489,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '1kg', price: 109 },
-      { label: '2kg', price: 209 }
+      { label: '1 Pc (800-1200g)', price: 69 }
     ]
   },
 
@@ -457,10 +562,10 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Grapes Red Globe',
     slug: 'grapes-red-globe',
     description: 'Large, plump red globe grapes with crisp skin, juicy flesh, and rich rosy sweetness.',
-    price: 199,
-    numericPrice: 199,
-    mrp: 239,
-    unit: '500g',
+    price: 78,
+    numericPrice: 78,
+    mrp: 99,
+    unit: '1 Pack (250g)',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
     image: '/products/f_grapes_red_globe.jpg',
@@ -469,8 +574,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '500g', price: 199 },
-      { label: '1kg', price: 389 }
+      { label: '1 Pack (250g)', price: 78 }
     ]
   },
   {
@@ -766,41 +870,41 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Mandarin Orange',
     slug: 'mandarin-orange',
     description: 'Easy-to-peel Mandarin oranges with sweet segment pulp and aromatic citrus fragrance.',
-    price: 179,
-    numericPrice: 179,
+    price: 165,
+    numericPrice: 165,
     mrp: 199,
-    unit: '1kg',
+    unit: '5 Pack (400-500g)',
+    origin: 'South Africa',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
     image: '/product-images/mandarin-orange.jfif',
-    tags: ['Imported', 'Mandarin', 'Sweet'],
+    tags: ['Imported', 'Mandarin', 'Sweet', 'South Africa'],
     freshnessBadge: 'Top Grade',
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '1kg', price: 179 },
-      { label: '2kg', price: 349 }
+      { label: '5 Pack (400-500g)', price: 165 }
     ]
   },
   {
     id: 'f_malta_orange',
     name: 'Malta Orange',
     slug: 'malta-orange',
-    description: 'Imported Malta oranges featuring deep orange color, rich sweetness, and vibrant juice content.',
-    price: 149,
-    numericPrice: 149,
-    mrp: 169,
-    unit: '1kg',
+    description: 'Imported South African citrus Malta oranges featuring deep orange color, rich sweetness, and vibrant juice content.',
+    price: 69,
+    numericPrice: 69,
+    mrp: 89,
+    unit: '2 Pack',
+    origin: 'South Africa',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
     image: '/product-images/malta-orange.jfif',
-    tags: ['Imported', 'Malta'],
+    tags: ['Imported', 'Malta', 'Citrus', 'South Africa'],
     freshnessBadge: 'Fresh Import',
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '1kg', price: 149 },
-      { label: '2kg', price: 289 }
+      { label: '2 Pack', price: 69 }
     ]
   },
   {
@@ -808,10 +912,11 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Nagpur Orange',
     slug: 'nagpur-orange',
     description: 'Famous Indian Nagpur oranges with loose peel, sweet-tangy juice, and quintessential citrus aroma.',
-    price: 159,
-    numericPrice: 159,
-    mrp: 179,
-    unit: '1kg',
+    price: 48,
+    numericPrice: 48,
+    mrp: 59,
+    unit: '4-5 Pcs',
+    origin: 'Indian',
     categoryId: 'fruits',
     subcategoryId: 'indian-fruits',
     image: '/products/nagpur-orange.jfif',
@@ -820,8 +925,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '1kg', price: 159 },
-      { label: '2kg', price: 309 }
+      { label: '4-5 Pcs', price: 48 }
     ]
   },
   {
@@ -829,10 +933,11 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Sweet Lime / Mosambi',
     slug: 'sweet-lime-mosambi',
     description: 'Fresh Indian sweet lime (Mosambi) packed with cooling, mild sweet juice.',
-    price: 69,
-    numericPrice: 69,
-    mrp: 79,
-    unit: '500g',
+    price: 110,
+    numericPrice: 110,
+    mrp: 135,
+    unit: '5 Pcs',
+    origin: 'Indian',
     categoryId: 'fruits',
     subcategoryId: 'indian-fruits',
     image: '/products/f_sweet_lime.jpg',
@@ -841,8 +946,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '500g', price: 69 },
-      { label: '1kg', price: 129 }
+      { label: '5 Pcs', price: 110 }
     ]
   },
   {
@@ -912,21 +1016,21 @@ export const ALL_PRODUCTS: Product[] = [
     id: 'f_tangerine',
     name: 'Tangerine',
     slug: 'tangerine',
-    description: 'Vibrant orange tangerines featuring sweet, juicy flesh and easy peel skin.',
-    price: 169,
-    numericPrice: 169,
-    mrp: 189,
-    unit: '500g',
+    description: 'Vibrant South African citrus tangerines featuring sweet, juicy flesh and easy peel skin.',
+    price: 69,
+    numericPrice: 69,
+    mrp: 89,
+    unit: '2 Pack',
+    origin: 'South Africa',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
     image: '/products/f_citrus_orange.jpg',
-    tags: ['Imported', 'Tangerine', 'Citrus'],
+    tags: ['Imported', 'Tangerine', 'Citrus', 'South Africa'],
     freshnessBadge: 'Fresh Import',
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '500g', price: 169 },
-      { label: '1kg', price: 329 }
+      { label: '2 Pack', price: 69 }
     ]
   },
   {
@@ -978,10 +1082,11 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Watermelon Kiran',
     slug: 'watermelon-kiran',
     description: 'Dark green striped Kiran watermelon variety featuring sweet red crisp flesh and high juice content.',
-    price: 129,
-    numericPrice: 129,
-    mrp: 149,
-    unit: '1 pc',
+    price: 109,
+    numericPrice: 109,
+    mrp: 135,
+    unit: '1 Pc (2.5-3.5 kg)',
+    origin: 'Indian',
     categoryId: 'fruits',
     subcategoryId: 'indian-fruits',
     image: '/products/watermelon-kiran.jfif',
@@ -990,7 +1095,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '1 pc (approx 2.5kg)', price: 129 }
+      { label: '1 Pc (2.5-3.5 kg)', price: 109 }
     ]
   },
   {
@@ -1004,7 +1109,7 @@ export const ALL_PRODUCTS: Product[] = [
     unit: '1 pc',
     categoryId: 'fruits',
     subcategoryId: 'indian-fruits',
-    image: 'https://gosho.store/wp-content/uploads/2025/07/water-melon-NS-295-1.webp',
+    image: '/products/watermelon-namdhari.jfif',
     tags: ['Indian', 'Namdhari', 'Ultra Sweet'],
     freshnessBadge: 'Top Tier',
     deliveryEstimate: '60 mins',
@@ -1018,10 +1123,11 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Muskmelon',
     slug: 'muskmelon',
     description: 'Fragrant Indian muskmelon (Kharbooja) with sweet orange flesh and rich tropical aroma.',
-    price: 69,
-    numericPrice: 69,
-    mrp: 79,
-    unit: '1 pc',
+    price: 82,
+    numericPrice: 82,
+    mrp: 99,
+    unit: '1 Pc (700-1000g)',
+    origin: 'Indian',
     categoryId: 'fruits',
     subcategoryId: 'indian-fruits',
     image: '/products/f_muskmelon.jpg',
@@ -1030,7 +1136,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '1 pc (approx 1kg)', price: 69 }
+      { label: '1 Pc (700-1000g)', price: 82 }
     ]
   },
   {
@@ -1044,7 +1150,7 @@ export const ALL_PRODUCTS: Product[] = [
     unit: '1 pc',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
-    image: 'https://tshop.r10s.jp/sembikiya/cabinet/00435283/meron/muskmelon_img.jpg?fitin=720%3A720',
+    image: '/products/f_japan_melon.jpg',
     tags: ['Imported', 'Japan Melon', 'Luxury'],
     freshnessBadge: 'Gourmet',
     deliveryEstimate: '60 mins',
@@ -1079,10 +1185,10 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Dragon Fruit White Flesh',
     slug: 'dragon-fruit-white-flesh',
     description: 'Vibrant pink-skinned dragon fruit with crisp white flesh speckled with tiny edible black seeds.',
-    price: 129,
-    numericPrice: 129,
-    mrp: 149,
-    unit: '1 pc',
+    price: 69,
+    numericPrice: 69,
+    mrp: 89,
+    unit: '1 Pack',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
     image: '/products/f_dragon_fruit_white.jpg',
@@ -1091,8 +1197,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '1 pc', price: 129 },
-      { label: '2 pcs', price: 249 }
+      { label: '1 Pack', price: 69 }
     ]
   },
   {
@@ -1100,10 +1205,10 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Dragon Fruit Red Flesh',
     slug: 'dragon-fruit-red-flesh',
     description: 'Exotic red dragon fruit with magenta flesh, mild sweet flavor, and high natural betalain antioxidants.',
-    price: 149,
-    numericPrice: 149,
-    mrp: 179,
-    unit: '1 pc',
+    price: 65,
+    numericPrice: 65,
+    mrp: 85,
+    unit: '1 Pack',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
     image: '/products/f_dragon_fruit_red.jpg',
@@ -1112,8 +1217,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '1 pc', price: 149 },
-      { label: '2 pcs', price: 289 }
+      { label: '1 Pack', price: 65 }
     ]
   },
   {
@@ -1121,10 +1225,11 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Pineapple',
     slug: 'pineapple',
     description: 'Fresh tropical pineapple offering vibrant yellow flesh, sweet-tangy taste, and natural bromelain enzymes.',
-    price: 99,
-    numericPrice: 99,
+    price: 98,
+    numericPrice: 98,
     mrp: 119,
-    unit: '1 pc',
+    unit: '1 Pc (700-1000g)',
+    origin: 'Indian',
     categoryId: 'fruits',
     subcategoryId: 'indian-fruits',
     image: '/products/pineapple.jfif',
@@ -1133,7 +1238,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '1 pc', price: 99 }
+      { label: '1 Pc (700-1000g)', price: 98 }
     ]
   },
   {
@@ -1161,10 +1266,10 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Imported Plums',
     slug: 'imported-plums',
     description: 'Juicy, sweet imported plums featuring smooth crimson skin and stone-fruit aroma.',
-    price: 149,
-    numericPrice: 149,
-    mrp: 179,
-    unit: '250g',
+    price: 145,
+    numericPrice: 145,
+    mrp: 175,
+    unit: '1 Pack (500g)',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
     image: '/products/f_plums_imported.jpg',
@@ -1173,8 +1278,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '250g', price: 149 },
-      { label: '500g', price: 289 }
+      { label: '1 Pack (500g)', price: 145 }
     ]
   },
   {
@@ -1246,20 +1350,21 @@ export const ALL_PRODUCTS: Product[] = [
     id: 'f_coconut',
     name: 'Coconut',
     slug: 'coconut',
-    description: 'Fresh coconut with thick kernel meat and pure refreshing coconut water.',
-    price: 65,
-    numericPrice: 65,
-    mrp: 75,
-    unit: '1 pc',
+    description: 'Fresh tender coconut with thick kernel meat and pure refreshing coconut water.',
+    price: 52,
+    numericPrice: 52,
+    mrp: 65,
+    unit: '1 Pc',
+    origin: 'Indian',
     categoryId: 'fruits',
     subcategoryId: 'indian-fruits',
     image: '/products/f_coconut.jpg',
-    tags: ['Indian', 'Fresh Water'],
+    tags: ['Indian', 'Fresh Water', 'Tender Coconut'],
     freshnessBadge: 'Daily Pick',
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '1 pc', price: 65 }
+      { label: '1 Pc', price: 52 }
     ]
   },
   {
@@ -1329,42 +1434,42 @@ export const ALL_PRODUCTS: Product[] = [
     id: 'f_pear_red',
     name: 'Pear Red',
     slug: 'pear-red',
-    description: 'Sweet, juicy red-blushed pears with a delicate aroma and smooth, tender flesh.',
-    price: 249,
-    numericPrice: 249,
-    mrp: 289,
-    unit: '1kg',
+    description: 'Sweet, juicy Australian Beauty pears with a delicate aroma and smooth, tender flesh.',
+    price: 109,
+    numericPrice: 109,
+    mrp: 129,
+    unit: '2 Pcs',
+    origin: 'Australia',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
     image: '/products/pear-red.png',
-    tags: ['Imported', 'Red Pear', 'Juicy'],
+    tags: ['Imported', 'Red Pear', 'Beauty Pear', 'Australia'],
     freshnessBadge: 'Fresh Import',
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '500g', price: 129 },
-      { label: '1kg', price: 249 }
+      { label: '2 Pcs', price: 109 }
     ]
   },
   {
     id: 'f_pear_green',
     name: 'Pear Green',
     slug: 'pear-green',
-    description: 'Fresh, crisp green pears with a naturally sweet flavor and juicy texture.',
-    price: 199,
-    numericPrice: 199,
-    mrp: 239,
-    unit: '1kg',
+    description: 'Fresh, crisp South African Beauty pears with a naturally sweet flavor and juicy texture.',
+    price: 99,
+    numericPrice: 99,
+    mrp: 119,
+    unit: '2 Pcs',
+    origin: 'South Africa',
     categoryId: 'fruits',
-    subcategoryId: 'indian-fruits',
+    subcategoryId: 'imported-fruits',
     image: '/products/pear-green.jpg',
-    tags: ['Indian', 'Green Pear', 'Crisp'],
-    freshnessBadge: 'Daily Pick',
+    tags: ['Imported', 'Green Pear', 'Beauty Pear', 'South Africa'],
+    freshnessBadge: 'Fresh Import',
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '500g', price: 109 },
-      { label: '1kg', price: 199 }
+      { label: '2 Pcs', price: 99 }
     ]
   },
   {
@@ -1372,10 +1477,11 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Pomegranate',
     slug: 'pomegranate',
     description: 'Plump Indian pomegranates filled with deep red, juicy, and sweet arils.',
-    price: 249,
-    numericPrice: 249,
-    mrp: 289,
-    unit: '1kg',
+    price: 165,
+    numericPrice: 165,
+    mrp: 199,
+    unit: '3 Pack',
+    origin: 'Indian',
     categoryId: 'fruits',
     subcategoryId: 'indian-fruits',
     image: '/products/f_pomegranate.jpg',
@@ -1384,8 +1490,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '500g', price: 129 },
-      { label: '1kg', price: 249 }
+      { label: '3 Pack', price: 165 }
     ]
   },
   {
@@ -1413,21 +1518,21 @@ export const ALL_PRODUCTS: Product[] = [
     id: 'f_longan',
     name: 'Longan',
     slug: 'longan',
-    description: 'Exotic imported Longan fruit featuring translucent sweet juicy arils.',
-    price: 249,
-    numericPrice: 249,
-    mrp: 289,
-    unit: '250g',
+    description: 'Exotic imported Double Gold Longan Lychee fruit featuring translucent sweet juicy arils.',
+    price: 130,
+    numericPrice: 130,
+    mrp: 159,
+    unit: '1 Pack (250g)',
+    origin: 'Double Gold',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
     image: '/products/longan.jfif',
-    tags: ['Imported', 'Exotic', 'Longan'],
+    tags: ['Imported', 'Exotic', 'Longan', 'Double Gold'],
     freshnessBadge: 'Exotic Grade',
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '250g', price: 249 },
-      { label: '500g', price: 479 }
+      { label: '1 Pack (250g)', price: 130 }
     ]
   },
   {
@@ -1659,10 +1764,11 @@ export const ALL_PRODUCTS: Product[] = [
     name: 'Red Banana',
     slug: 'red-banana',
     description: 'Sweet, creamy red bananas with a subtle raspberry-like flavor and reddish-purple skin.',
-    price: 79,
-    numericPrice: 79,
-    mrp: 89,
-    unit: '500g',
+    price: 120,
+    numericPrice: 120,
+    mrp: 145,
+    unit: '5 Pcs',
+    origin: 'Indian',
     categoryId: 'fruits',
     subcategoryId: 'indian-fruits',
     image: '/products/f_red_banana.jpg',
@@ -1671,8 +1777,7 @@ export const ALL_PRODUCTS: Product[] = [
     deliveryEstimate: '60 mins',
     stockStatus: 'in_stock',
     weights: [
-      { label: '500g', price: 79 },
-      { label: '1kg', price: 149 }
+      { label: '5 Pcs', price: 120 }
     ]
   },
   {

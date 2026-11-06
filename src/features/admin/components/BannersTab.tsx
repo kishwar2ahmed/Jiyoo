@@ -605,9 +605,10 @@ export function BannersTab() {
             )}
           </div>
         ) : (
-          filteredBanners.map((banner, index) => {
-            const isFirst = index === 0;
-            const isLast = index === banners.length - 1;
+          filteredBanners.map((banner) => {
+            const actualIndex = banners.findIndex(b => b.id === banner.id);
+            const isFirst = actualIndex <= 0;
+            const isLast = actualIndex === -1 || actualIndex === banners.length - 1;
             const isBannerFeatured = Boolean(
               banner.isFeatured || 
               banner.id?.includes('diwali') || 
@@ -637,7 +638,7 @@ export function BannersTab() {
                     <button
                       type="button"
                       disabled={isFirst}
-                      onClick={() => handleMoveUp(index)}
+                      onClick={() => handleMoveUp(actualIndex)}
                       className={`p-1 rounded-md text-brand-gray-500 transition-colors ${
                         isFirst
                           ? 'opacity-30 cursor-not-allowed'
@@ -648,12 +649,12 @@ export function BannersTab() {
                       <ArrowUp className="w-3.5 h-3.5" />
                     </button>
                     <span className="text-[11px] font-mono font-bold text-brand-gray-600 bg-brand-gray-100 px-1.5 py-0.5 rounded">
-                      #{index + 1}
+                      #{actualIndex + 1}
                     </span>
                     <button
                       type="button"
                       disabled={isLast}
-                      onClick={() => handleMoveDown(index)}
+                      onClick={() => handleMoveDown(actualIndex)}
                       className={`p-1 rounded-md text-brand-gray-500 transition-colors ${
                         isLast
                           ? 'opacity-30 cursor-not-allowed'

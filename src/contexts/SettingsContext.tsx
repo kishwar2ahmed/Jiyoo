@@ -16,11 +16,14 @@ export interface AboutUsSettings {
   mdRole?: string;
   marketedBy?: string;
   contactPhone?: string;
+  fssaiNumber?: string;
+  udyamNumber?: string;
 }
 
 interface Settings {
   storeName: string;
   contactEmail: string;
+  contactPhone?: string;
   logoUrl: string | null;
   developerImageUrl: string | null;
   whatsappNumber: string;
@@ -190,48 +193,56 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       (snap) => {
         if (snap.exists()) {
           const raw = snap.data();
-          let resolvedBanners: BannerSlide[] = settings.heroBanners || DEFAULT_HERO_BANNERS;
+          setSettings((prev) => {
+            let resolvedBanners: BannerSlide[] = prev.heroBanners || DEFAULT_HERO_BANNERS;
 
-          if (Array.isArray(raw.heroBanners) && raw.heroBanners.length > 0) {
-            resolvedBanners = raw.heroBanners.map((b: any, index: number) => {
-              const isDiwali = b.id?.includes('diwali') || b.image?.includes('diwali') || b.image?.includes('file_000000002410821198a81a83a16d503f');
-              const isWhatsApp = b.id?.includes('whatsapp') || b.image?.includes('whatsapp') || b.image?.includes('file_00000000e7e48211898141e9b8e21f64');
-              return {
-                id: b.id || `banner-${index}`,
-                image: b.image || '/banners/02_Indian_Fruits_Original.png',
-                alt: b.alt || b.title || 'JIYOO Banner',
-                badge: b.badge || 'Featured',
-                title: b.title || 'Fresh Produce',
-                subtitle: b.subtitle || '',
-                isActive: b.isActive !== false,
-                isFeatured: typeof b.isFeatured === 'boolean' ? b.isFeatured : isDiwali,
-                highlightTone: b.highlightTone || (isDiwali ? 'amber' : isWhatsApp ? 'emerald' : 'none'),
-                durationMs: typeof b.durationMs === 'number' ? b.durationMs : (isWhatsApp ? 8000 : undefined),
-                hideCaption: typeof b.hideCaption === 'boolean' ? b.hideCaption : isWhatsApp,
-                order: typeof b.order === 'number' ? b.order : index,
-                linkUrl: b.linkUrl || '',
-              };
-            }).sort((a: BannerSlide, b: BannerSlide) => a.order - b.order);
+            if (Array.isArray(raw.heroBanners) && raw.heroBanners.length > 0) {
+              resolvedBanners = raw.heroBanners.map((b: any, index: number) => {
+                const isDiwali = b.id?.includes('diwali') || b.image?.includes('diwali') || b.image?.includes('file_000000002410821198a81a83a16d503f');
+                const isWhatsApp = b.id?.includes('whatsapp') || b.image?.includes('whatsapp') || b.image?.includes('file_00000000e7e48211898141e9b8e21f64');
+                return {
+                  id: b.id || `banner-${index}`,
+                  image: b.image || '/banners/02_Indian_Fruits_Original.png',
+                  alt: b.alt || b.title || 'JIYOO Banner',
+                  badge: b.badge || 'Featured',
+                  title: b.title || 'Fresh Produce',
+                  subtitle: b.subtitle || '',
+                  isActive: b.isActive !== false,
+                  isFeatured: typeof b.isFeatured === 'boolean' ? b.isFeatured : isDiwali,
+                  highlightTone: b.highlightTone || (isDiwali ? 'amber' : isWhatsApp ? 'emerald' : 'none'),
+                  durationMs: typeof b.durationMs === 'number' ? b.durationMs : (isWhatsApp ? 8000 : undefined),
+                  hideCaption: typeof b.hideCaption === 'boolean' ? b.hideCaption : isWhatsApp,
+                  order: typeof b.order === 'number' ? b.order : index,
+                  linkUrl: b.linkUrl || '',
+                };
+              }).sort((a: BannerSlide, b: BannerSlide) => a.order - b.order);
 
-            if (typeof window !== 'undefined') {
-              try {
-                localStorage.setItem('jiyoo_hero_banners', JSON.stringify(resolvedBanners));
-              } catch {
-                // ignore
+              if (typeof window !== 'undefined') {
+                try {
+                  localStorage.setItem('jiyoo_hero_banners', JSON.stringify(resolvedBanners));
+                } catch {
+                  // ignore
+                }
               }
             }
-          }
 
-          const remoteSettings: Settings = {
-            ...defaultSettings,
-            ...raw,
-            aboutUs: { ...defaultAboutUs, ...(raw.aboutUs || {}) },
-            deliveryFee: typeof raw.deliveryFee === 'number' ? raw.deliveryFee : (raw.deliveryFee ? Number(raw.deliveryFee) : 40),
-            logoUrl: sanitizeImageUrl(raw.logoUrl) || defaultSettings.logoUrl,
-            developerImageUrl: sanitizeImageUrl(raw.developerImageUrl) || defaultSettings.developerImageUrl,
-            heroBanners: resolvedBanners,
-          };
-          setSettings(remoteSettings);
+            const remoteSettings: Settings = {
+              ...defaultSettings,
+              ...prev,
+              ...raw,
+              aboutUs: { ...defaultAboutUs, ...(prev.aboutUs || {}), ...(raw.aboutUs || {}) },
+              deliveryFee: typeof raw.deliveryFee === 'number' ? raw.deliveryFee : (raw.deliveryFee ? Number(raw.deliveryFee) : 40),
+              logoUrl: sanitizeImageUrl(raw.logoUrl) || defaultSettings.logoUrl,
+              developerImageUrl: sanitizeImageUrl(raw.developerImageUrl) || defaultSettings.developerImageUrl,
+              heroBanners: resolvedBanners,
+            };
+            try {
+              localStorage.setItem('jiyoo_store_settings_v2', JSON.stringify(remoteSettings));
+            } catch {
+              // ignore storage quota errors
+            }
+            return remoteSettings;
+          });
         }
       },
       (err) => {

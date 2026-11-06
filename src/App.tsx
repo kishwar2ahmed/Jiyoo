@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from "react";
+import { useState, useEffect, useRef, Suspense, lazy } from "react";
 import { Navbar } from './layouts/Navbar';
 import { Hero } from './features/storefront/components/Hero';
 import { Storefront } from './features/storefront/components/Storefront';
@@ -51,6 +51,7 @@ function AppContent() {
   const confirm = useConfirm();
   useFCM();
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [openInWhatsAppMode, setOpenInWhatsAppMode] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
@@ -63,7 +64,9 @@ function AppContent() {
   );
   const [showSplash, setShowSplash] = useState<boolean>(() => {
     try {
-      return sessionStorage.getItem('jiyoo_splash_shown') !== '1';
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('autostart') === '1') return false;
+      return true;
     } catch {
       return true;
     }
@@ -71,11 +74,16 @@ function AppContent() {
   const [isWholesaleCurtainActive, setIsWholesaleCurtainActive] = useState(false);
   const [wholesaleCurtainKey, setWholesaleCurtainKey] = useState(0);
 
-  // Preload CartModal & WholesalePage chunks during browser idle time after initial paint
+  // Preload lazy modal & page chunks during browser idle time after initial paint
   useEffect(() => {
     const timer = window.setTimeout(() => {
       import("./features/cart/components/CartModal").catch(() => {});
       import("./features/wholesale/components/WholesalePage").catch(() => {});
+      import("./features/auth/components/AuthModal").catch(() => {});
+      import("./features/auth/components/AccountCenter").catch(() => {});
+      import("./features/core/components/AboutModal").catch(() => {});
+      import("./features/core/components/ContactModal").catch(() => {});
+      import("./features/core/components/LegalPolicyModal").catch(() => {});
     }, 1200);
     return () => window.clearTimeout(timer);
   }, []);
@@ -108,7 +116,10 @@ function AppContent() {
     const handleOpenContact = () => setIsContactOpen(true);
     const handleOpenWholesale = () => openWholesalePage();
     const handleOpenRetail = () => openRetailPage();
-    const handleOpenWhatsAppCheckout = () => setIsCartOpen(true);
+    const handleOpenWhatsAppCheckout = () => {
+      setOpenInWhatsAppMode(true);
+      setIsCartOpen(true);
+    };
     const handleOpenAdmin = () => {
       setIsAdminOpen(true);
       window.history.pushState({ jiyooAdmin: true }, "", "#admin");
@@ -151,6 +162,42 @@ function AppContent() {
     return () => window.removeEventListener('hashchange', checkHash);
   }, []);
 
+  const navStateRef = useRef({
+    isAuthOpen,
+    isCartOpen,
+    isAccountOpen,
+    isAdminOpen,
+    isAboutOpen,
+    isContactOpen,
+    isLegalOpen,
+    activePage,
+    searchQuery,
+  });
+
+  useEffect(() => {
+    navStateRef.current = {
+      isAuthOpen,
+      isCartOpen,
+      isAccountOpen,
+      isAdminOpen,
+      isAboutOpen,
+      isContactOpen,
+      isLegalOpen,
+      activePage,
+      searchQuery,
+    };
+  }, [
+    isAuthOpen,
+    isCartOpen,
+    isAccountOpen,
+    isAdminOpen,
+    isAboutOpen,
+    isContactOpen,
+    isLegalOpen,
+    activePage,
+    searchQuery,
+  ]);
+
   // Hierarchical 4-Tier Back Button Navigation Stack:
   // Tier 1: Closes any active modal or overlay (Auth, Cart, Account, Admin, About, Contact, Product Detail)
   // Tier 2: If on Wholesale page, navigates back to Retail catalog
@@ -160,46 +207,50 @@ function AppContent() {
   useEffect(() => {
     const isIframe = typeof window !== 'undefined' && window.self !== window.top;
     if (!isIframe) {
-      window.history.pushState({ jiyooGuard: true }, "", window.location.href);
+      window.history.replaceState({ jiyooGuard: true }, "", window.location.href);
     }
 
     const handlePopState = async (e: PopStateEvent) => {
       const poppedState = e.state as { jiyooCategory?: string; jiyooOverlay?: boolean; jiyooGuard?: boolean; jiyooPage?: string } | null;
+      const current = navStateRef.current;
+
+      // Direct hash navigation to #wholesale or #admin is a forward navigation, not an exit
+      if (window.location.hash === '#wholesale') {
+        setActivePage('wholesale');
+        return;
+      }
+      if (window.location.hash === '#admin') {
+        setIsAdminOpen(true);
+        return;
+      }
 
       // Tier 1: Modals & Drawer Overlays
-      if (isAuthOpen) {
+      if (current.isAuthOpen) {
         setIsAuthOpen(false);
-        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
-      if (isCartOpen) {
+      if (current.isCartOpen) {
         setIsCartOpen(false);
-        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
-      if (isAccountOpen) {
+      if (current.isAccountOpen) {
         setIsAccountOpen(false);
-        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
-      if (isAdminOpen) {
+      if (current.isAdminOpen) {
         setIsAdminOpen(false);
-        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
-      if (isAboutOpen) {
+      if (current.isAboutOpen) {
         setIsAboutOpen(false);
-        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
-      if (isContactOpen) {
+      if (current.isContactOpen) {
         setIsContactOpen(false);
-        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
-      if (isLegalOpen) {
+      if (current.isLegalOpen) {
         setIsLegalOpen(false);
-        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
 
@@ -208,28 +259,24 @@ function AppContent() {
         isProgrammaticOverlayDismissal() ||
         consumeProgrammaticDismissal()
       ) {
-        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
 
       // Tier 2: Page Navigation (Wholesale -> Retail)
-      if (activePage === 'wholesale' || poppedState?.jiyooPage === 'retail') {
+      if (current.activePage === 'wholesale' || poppedState?.jiyooPage === 'retail') {
         openRetailPage();
-        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
 
       // Tier 3: Search Query Filter (Clear search query first before exiting)
-      if (searchQuery.trim() !== '') {
+      if (current.searchQuery.trim() !== '') {
         setSearchQuery('');
-        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
 
       // Tier 4: Category Navigation Stack
       if (window.sessionStorage.getItem('jiyoo_can_step_back_cat') === 'true') {
         window.dispatchEvent(new CustomEvent('step-back-category'));
-        if (!isIframe) window.history.pushState({ jiyooGuard: true }, "", window.location.href);
         return;
       }
 
@@ -237,7 +284,12 @@ function AppContent() {
         return;
       }
 
-      // Tier 5: Only prompt when truly at the base root state
+      // Only prompt if poppedState isn't an internal jiyooGuard/category/page state
+      if (poppedState?.jiyooGuard || poppedState?.jiyooCategory || poppedState?.jiyooPage) {
+        return;
+      }
+
+      // Tier 5: Only prompt when truly leaving the base root state
       const shouldLeave = await confirm({
         title: "Leave the app?",
         message: "Are you sure you want to exit?",
@@ -251,7 +303,7 @@ function AppContent() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [confirm, isAuthOpen, isCartOpen, isAccountOpen, isAdminOpen, isAboutOpen, isContactOpen, isLegalOpen, activePage, searchQuery, setSearchQuery]);
+  }, [confirm, setSearchQuery]);
 
 
   const isAnyOverlayOpen =
@@ -311,7 +363,12 @@ function AppContent() {
         {isCartOpen && (
           <CartModal
             isOpen={isCartOpen}
-            onClose={() => setIsCartOpen(false)}
+            onClose={() => {
+              setIsCartOpen(false);
+              setOpenInWhatsAppMode(false);
+            }}
+            initialWhatsAppCheckout={openInWhatsAppMode}
+            onConsumeWhatsAppCheckout={() => setOpenInWhatsAppMode(false)}
             onRequestAuth={() => {
               setIsCartOpen(false);
               setIsAuthOpen(true);

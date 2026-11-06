@@ -23,6 +23,7 @@ import { FssaiLogo } from "../features/core/components/FssaiLogo";
 import { ArchitecturalButterfly } from "../features/core/components/ArchitecturalButterfly";
 import { ArrowUpRight, Clock, ShieldCheck, Heart } from "lucide-react";
 import { useSettings } from "../contexts/SettingsContext";
+import { sanitizeWhatsAppNumber } from "../utils/whatsapp";
 import {
   canPromptInstall,
   requestInstall,
@@ -35,6 +36,13 @@ export function Footer() {
   const { settings } = useSettings();
   const [alreadyInstalled] = useState(() => isRunningStandalone());
   const storeName = settings.storeName || "JIYOO";
+  const whatsappNum = sanitizeWhatsAppNumber(settings.whatsappNumber);
+  const contactPhone = settings.contactPhone || settings.aboutUs?.contactPhone || "+919739391891";
+  const primaryEmail =
+    settings.contactEmail?.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0] ||
+    "shamsjiyoo@gmail.com";
+  const fssaiNumber = settings.aboutUs?.fssaiNumber || "21226112000732";
+  const udyamNumber = settings.aboutUs?.udyamNumber || "UDYAM-KR-19-0005999";
   const [showInstallInstructions, setShowInstallInstructions] = useState(false);
   const footerRef = useRef<HTMLElement>(null);
   const prefersReducedMotion = useReducedMotion();
@@ -167,7 +175,7 @@ export function Footer() {
             {/* Actions */}
             <div className="mt-6 sm:mt-9 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
               <a
-                href="https://wa.me/919739391891?text=Hi%20Jiyoo,%20I%20would%20like%20to%20place%20an%20order"
+                href={`https://wa.me/${whatsappNum}?text=${encodeURIComponent(`Hi ${storeName}, I would like to place an order`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-white text-stone-950 font-sans-clean font-medium text-sm sm:text-base hover:bg-stone-100 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 shadow-[0_12px_30px_rgba(255,255,255,0.18)] cursor-pointer"
@@ -203,7 +211,13 @@ export function Footer() {
                 {/* Brand Wordmark & Logo */}
                 <div className="flex items-center gap-3.5 mb-4">
                   <img
-                    src="/jiyoo.logo.jpeg"
+                    src={settings.logoUrl || "/jiyoo.logo.jpeg"}
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (!target.src.endsWith("/jiyoo.logo.jpeg")) {
+                        target.src = "/jiyoo.logo.jpeg";
+                      }
+                    }}
                     alt={`${storeName} Logo`}
                     className="h-11 w-11 rounded-xl object-contain border border-stone-200 shadow-sm shrink-0"
                   />
@@ -227,7 +241,7 @@ export function Footer() {
                 {/* Minimalist Authentic Direct Communication Channels */}
                 <div className="mt-5 sm:mt-6 grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2.5 sm:gap-3">
                   <a
-                    href="https://wa.me/919739391891"
+                    href={`https://wa.me/${whatsappNum}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center sm:justify-start gap-2 px-3.5 py-2.5 sm:py-2 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-sans-clean font-medium text-stone-800 transition-colors cursor-pointer group"
@@ -238,7 +252,7 @@ export function Footer() {
                   </a>
 
                   <a
-                    href="tel:+919739391891"
+                    href={`tel:${contactPhone.replace(/\s+/g, "")}`}
                     className="inline-flex items-center justify-center sm:justify-start gap-2 px-3.5 py-2.5 sm:py-2 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-sans-clean font-medium text-stone-800 transition-colors cursor-pointer group"
                     title="Direct Phone Line"
                   >
@@ -258,9 +272,9 @@ export function Footer() {
                   </a>
 
                   <a
-                    href="mailto:shamsjiyoo@gmail.com?cc=jiyooshams@gmail.com"
+                    href={`mailto:${primaryEmail}?cc=jiyooshams@gmail.com`}
                     className="inline-flex items-center justify-center sm:justify-start gap-2 px-3.5 py-2.5 sm:py-2 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200/80 text-xs font-sans-clean font-medium text-stone-800 transition-colors cursor-pointer group"
-                    title="Email Support (Primary: shamsjiyoo@gmail.com)"
+                    title={`Email Support (Primary: ${primaryEmail})`}
                   >
                     <EmailEnvelopeIcon className="w-4 h-4 shrink-0" />
                     <span>Email</span>
@@ -284,7 +298,7 @@ export function Footer() {
                         </span>
                       </div>
                       <span className="block font-sans-clean text-xs font-semibold text-stone-900 tabular-nums tracking-wide">
-                        21226112000732
+                        {fssaiNumber}
                       </span>
                     </div>
                     <div className="pt-2.5 border-t border-stone-200/80 sm:pt-0 sm:border-t-0 sm:border-l sm:pl-4">
@@ -292,7 +306,7 @@ export function Footer() {
                         MSME Udyam
                       </span>
                       <span className="block font-sans-clean text-xs font-semibold text-stone-900 tabular-nums tracking-wide break-all sm:break-normal">
-                        UDYAM-KR-19-0005999
+                        {udyamNumber}
                       </span>
                     </div>
                   </div>

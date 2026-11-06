@@ -56,69 +56,88 @@
     <!-- Preconnect to image CDNs -->
     <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
     <link rel="preconnect" href="https://upload.wikimedia.org" crossorigin />
-    <!-- Preload critical brand & hero banner assets -->
+    <!-- Preload critical brand, hero banner, and above-the-fold product assets -->
     <link rel="preload" as="image" href="/jiyoo.logo.jpeg" fetchpriority="high" />
     <link rel="preload" as="image" href="/banners/diwali_special_sale.webp" type="image/webp" fetchpriority="high" />
-    <link rel="preload" as="image" href="/banners/whatsapp_order_banner.webp" type="image/webp" />
+    <link rel="preload" as="image" href="/assets/aistudio/velvet_butterfly_pill_final.webp" type="image/webp" fetchpriority="high" />
+    <link rel="preload" as="image" href="/assets/aistudio/velvet_whatsapp_pill_final.webp" type="image/webp" />
+    <link rel="preload" as="image" href="/products/f_apple_royal_gala.jpg" fetchpriority="high" />
+    <link rel="preload" as="image" href="/products/washington-apple.jfif" fetchpriority="high" />
+    <link rel="preload" as="image" href="/products/f_apple_pink_lady.jpg" fetchpriority="high" />
+    <link rel="preload" as="image" href="/products/apple-fuji.jfif" fetchpriority="high" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
 
     <style>
-      /* Initial loader & body base styles */
+      /* Base body styles */
       body { 
         margin: 0; 
-        background-color: #FAFAF8; 
+        background-color: #f8f6f0; 
         color: #1C1917;
         font-family: 'Plus Jakarta Sans', sans-serif;
       }
-      .initial-loader {
+      .jiyoo-boot-loader {
         position: fixed;
         inset: 0;
+        z-index: 100;
+        background: radial-gradient(ellipse at top, #FAF8F5, #F3EFE6, #E8E2D5);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background-color: #FAF9F6;
-        z-index: 9999;
+        padding: 1.5rem;
+        text-align: center;
+        user-select: none;
+      }
+      .jiyoo-boot-logo-box {
+        padding: 0.375rem;
+        border-radius: 1rem;
+        background: rgba(255, 255, 255, 0.75);
+        border: 1px solid #E7E3DA;
+        box-shadow: 0 20px 50px -12px rgba(28, 25, 23, 0.14);
+        margin-bottom: 2rem;
+      }
+      .jiyoo-boot-logo-box img {
+        height: 7rem;
+        width: auto;
+        border-radius: 0.75rem;
+        display: block;
+      }
+      .jiyoo-boot-kicker {
+        font-size: 10px;
+        letter-spacing: 0.35em;
+        text-transform: uppercase;
+        color: #78716C;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+      }
+      .jiyoo-boot-title {
         font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 2rem;
+        letter-spacing: 0.1em;
+        color: #1C1917;
+        font-weight: 600;
+        margin: 0;
       }
-      .loader-logo {
-        width: 140px;
-        height: auto;
-        border-radius: 12px;
-      }
-      .loader-bar-wrap {
-        width: 190px;
-        height: 2px;
-        background: rgba(120, 113, 108, 0.2);
-        border-radius: 9999px;
-        margin-top: 24px;
-        overflow: hidden;
-        position: relative;
-      }
-      .loader-bar {
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, #00D2FF, #0EA5E9, #0284C7);
-        box-shadow: 0 0 8px rgba(14, 165, 233, 0.85), 0 0 3px rgba(56, 189, 248, 1);
-        border-radius: 9999px;
-        animation: loader-slide 1.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-      }
-      @keyframes loader-slide {
-        0% { transform: translateX(-100%); }
-        50% { transform: translateX(0%); }
-        100% { transform: translateX(100%); }
+      .jiyoo-boot-sub {
+        font-size: 12px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #78716C;
+        margin-top: 0.25rem;
       }
     </style>
   </head>
   <body>
     <div id="root">
-      <div class="initial-loader">
-        <img src="/jiyoo.logo.jpeg" alt="Logo" class="loader-logo" />
-        <div class="loader-bar-wrap">
-          <div class="loader-bar"></div>
+      <div class="jiyoo-boot-loader" aria-hidden="true">
+        <div class="jiyoo-boot-logo-box">
+          <img src="/jiyoo.logo.jpeg" alt="JIYOO Logo" />
         </div>
+        <div class="jiyoo-boot-kicker">Curated &amp; Handpicked</div>
+        <h1 class="jiyoo-boot-title">JIYOO</h1>
+        <p class="jiyoo-boot-sub">Fine Living &amp; Artisanal Pantry</p>
       </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>

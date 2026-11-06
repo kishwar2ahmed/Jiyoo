@@ -90,7 +90,13 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({
             <div className="bg-white border-b border-[#E7E3DA] px-5 sm:px-8 py-5 flex items-center justify-between gap-4 shrink-0">
               <div className="flex items-center gap-3.5">
                 <img
-                  src="/jiyoo.logo.jpeg"
+                  src={settings.logoUrl || "/jiyoo.logo.jpeg"}
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (!target.src.endsWith("/jiyoo.logo.jpeg")) {
+                      target.src = "/jiyoo.logo.jpeg";
+                    }
+                  }}
                   alt="JIYOO Logo"
                   className="h-10 w-10 object-contain rounded-xl border border-[#E7E3DA] bg-white p-0.5 shrink-0"
                 />
@@ -188,8 +194,8 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({
                     </div>
                     <p className="text-sm text-[#57534E] leading-relaxed">
                       <strong>{storeName}</strong> (marketed by <strong>{marketedBy}</strong>, FSSAI Reg. No.{" "}
-                      <span className="font-mono font-semibold text-[#1C1917]">21226112000732</span>, MSME Udyam{" "}
-                      <span className="font-mono font-semibold text-[#1C1917]">UDYAM-KR-19-0005999</span>) respects your privacy and is committed to protecting the personal data you share with us when ordering fresh fruits, vegetables, meat, seafood, and wholesale produce.
+                      <span className="font-mono font-semibold text-[#1C1917]">{settings.aboutUs?.fssaiNumber || "21226112000732"}</span>, MSME Udyam{" "}
+                      <span className="font-mono font-semibold text-[#1C1917]">{settings.aboutUs?.udyamNumber || "UDYAM-KR-19-0005999"}</span>) respects your privacy and is committed to protecting the personal data you share with us when ordering fresh fruits, vegetables, meat, seafood, and wholesale produce.
                     </p>
                   </div>
 
@@ -444,11 +450,11 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({
                     <div className="flex items-center sm:justify-end gap-1.5">
                       <FssaiLogo className="h-4 w-auto" />
                       <span className="text-[10px] font-mono uppercase text-stone-500">
-                        21226112000732
+                        {settings.aboutUs?.fssaiNumber || "21226112000732"}
                       </span>
                     </div>
                     <div className="text-[10px] font-mono text-stone-500 mt-0.5">
-                      MSME: UDYAM-KR-19-0005999
+                      MSME: {settings.aboutUs?.udyamNumber || "UDYAM-KR-19-0005999"}
                     </div>
                   </div>
                   <button

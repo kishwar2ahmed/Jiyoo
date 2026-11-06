@@ -343,6 +343,7 @@ export function OrdersTab() {
                         {o.stockConflict && <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded px-1.5 py-0.5"><AlertTriangle className="w-3 h-3" /> Stock conflict</div>}
                       </td>
                       <td className="px-4 py-3"><div className="font-medium">{o.shippingDetails?.name || 'Guest Customer'}</div><div className="text-xs text-brand-gray-500">{o.shippingDetails?.phone}</div></td>
+                      <td className="px-4 py-3 text-xs font-medium text-brand-gray-700">{o.paymentMethod || 'Cash on Delivery'}</td>
                       <td className="px-4 py-3 font-price-luxury font-bold text-stone-900 tabular-nums">₹{Number(o.grandTotal || o.amount || 0).toLocaleString('en-IN')}</td>
                       <td className="px-4 py-3"><select value={currentPaymentStatus} onChange={e => updatePaymentStatus(o.id, e.target.value)} className={`text-xs font-semibold rounded-lg px-2 py-1 border outline-none cursor-pointer ${getPaymentStatusColor(currentPaymentStatus)}`}><option value="unpaid">🔴 Unpaid</option><option value="payment_pending">⏳ Payment Pending</option><option value="paid">🟢 Paid</option><option value="refunded">🟣 Refunded</option><option value="failed">❌ Failed</option></select></td>
                       <td className="px-4 py-3"><select value={currentOrderStatus} onChange={e => updateOrderStatus(o.id, e.target.value)} className={`text-xs font-semibold rounded-lg px-2 py-1 border outline-none cursor-pointer ${getOrderStatusColor(currentOrderStatus)}`}>
@@ -472,10 +473,11 @@ export function OrdersTab() {
                   {item.image && <img src={item.image} alt={item.name} className="w-10 h-10 object-contain bg-white rounded-lg border shrink-0" />}
                   <div>
                     <p className="font-semibold">{item.name}</p>
-                    {(item.selectedWeight || item.selectedCut) && (
+                    {(item.selectedWeight || item.selectedCut || (item as any).selectedCleaning) && (
                       <p className="text-xs text-brand-gray-500">
                         {item.selectedWeight && `Weight: ${item.selectedWeight} `}
-                        {item.selectedCut && `Cut: ${item.selectedCut}`}
+                        {item.selectedCut && `Cut: ${item.selectedCut} `}
+                        {(item as any).selectedCleaning && `Prep: ${(item as any).selectedCleaning}`}
                       </p>
                     )}
                   </div>

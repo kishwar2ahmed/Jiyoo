@@ -237,7 +237,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
 
   const toggleWishlist = React.useCallback((id: string) => {
-    setWishlist(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+    setWishlist(prev => {
+      const next = prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id];
+      if (isFirebaseConfigured && auth.currentUser) {
+        const uid = auth.currentUser.uid;
+        setDoc(doc(db, 'users', uid), { wishlist: next }, { merge: true }).catch(() => {});
+      }
+      return next;
+    });
   }, []);
 
   const removeFlyingItem = React.useCallback((id: string) => {
@@ -310,8 +317,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           
           if (userDocSnap.exists()) {
             const data = userDocSnap.data();
-            if (data.wishlist) {
-              setWishlist(data.wishlist);
+            if (Array.isArray(data.wishlist)) {
+              setWishlist(prev => Array.from(new Set([...prev, ...data.wishlist.map(String)])));
             }
             const resolvedAdmin = isAdminClaim || data.role === 'admin';
             setUser(prev => prev ? {
@@ -397,10 +404,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // checkout was already authoritative server-side, but the cart *display*
   // previously never refreshed until submit. Called when the cart opens.
   const resolveCartItemBaseId = (item: any): string => {
-    if (item?.baseId) return String(item.baseId);
+    if (item?.baseId !== undefined && item?.baseId !== null && String(item.baseId).trim() !== '') {
+      return String(item.baseId);
+    }
     const idStr = String(item?.id ?? '');
     const wsMatch = idStr.match(/^(ws-\d+)/i);
     if (wsMatch) return wsMatch[1];
+    // Strip trailing variant suffixes `-${selectedWeight}-${selectedCut}-${selectedCleaning}` when present
+    const weight = item?.selectedWeight ? String(item.selectedWeight) : '';
+    const cut = item?.selectedCut ? String(item.selectedCut) : '';
+    const cleaning = item?.selectedCleaning ? String(item.selectedCleaning) : '';
+    const suffix = `-${weight}-${cut}-${cleaning}`;
+    if (idStr.endsWith(suffix) && idStr.length > suffix.length) {
+      return idStr.slice(0, idStr.length - suffix.length);
+    }
     return idStr.includes('-') ? idStr.split('-')[0] : idStr;
   };
 

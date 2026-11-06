@@ -37,7 +37,13 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
           <div className="flex items-center justify-between p-6 border-b border-brand-gray-200">
             <div className="flex items-center gap-3">
               <img
-                src="/jiyoo.logo.jpeg"
+                src={settings.logoUrl || "/jiyoo.logo.jpeg"}
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (!target.src.endsWith("/jiyoo.logo.jpeg")) {
+                    target.src = "/jiyoo.logo.jpeg";
+                  }
+                }}
                 alt="JIYOO Logo"
                 className="h-9 w-auto object-contain rounded-xl"
               />
@@ -117,10 +123,10 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
                     Contact &amp; Official Socials
                   </h3>
                   <a
-                    href="tel:+919739391891"
+                    href={`tel:${(settings.contactPhone || settings.aboutUs?.contactPhone || "+919739391891").replace(/\s+/g, "")}`}
                     className="inline-block text-brand-gray-600 hover:text-brand-black font-medium text-base font-mono mb-3 tabular-nums transition-colors"
                   >
-                    +91 97393 91891
+                    {settings.contactPhone || settings.aboutUs?.contactPhone || "+91 97393 91891"}
                   </a>
                   <div className="flex items-center gap-2.5">
                     {SOCIAL_LINKS.map((link) => (
@@ -157,7 +163,7 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
                     </p>
                   </div>
                   <p className="font-mono font-semibold text-brand-black text-sm tabular-nums">
-                    21226112000732
+                    {settings.aboutUs?.fssaiNumber || "21226112000732"}
                   </p>
                 </div>
                 <div className="bg-brand-gray-50 rounded-xl p-4 border border-brand-gray-200">
@@ -165,7 +171,7 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
                     Udyam (MSME) Registration No.
                   </p>
                   <p className="font-mono font-semibold text-brand-black text-sm">
-                    UDYAM-KR-19-0005999
+                    {settings.aboutUs?.udyamNumber || "UDYAM-KR-19-0005999"}
                   </p>
                 </div>
               </div>

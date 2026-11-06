@@ -26,7 +26,7 @@ interface VelvetWhatsAppButtonProps {
   size?: "card" | "modal" | "compact";
 }
 
-const WHATSAPP_PILL_IMAGE_SRC = "/assets/aistudio/velvet_whatsapp_pill_final.png";
+const WHATSAPP_PILL_IMAGE_SRC = "/assets/aistudio/velvet_whatsapp_pill_final.webp";
 
 export const VelvetWhatsAppButton: React.FC<VelvetWhatsAppButtonProps> = ({
   onClick,

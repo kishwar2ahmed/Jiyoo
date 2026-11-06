@@ -1,4 +1,5 @@
 import { getAdminAuthHeaders } from '../utils/adminAuth';
+import { auth } from './firebase';
 import type { OrderAuditLogEntry, OrderAuditIntegrityReport } from '../types';
 
 export type AuditLogCategory = 'USERS' | 'SETTINGS' | 'BILLING' | 'ORDERS' | 'SYSTEM' | 'DELIVERY';
@@ -44,7 +45,13 @@ export async function fetchOrderAuditLogs(orderId: string, isAdmin = true): Prom
   logs: OrderAuditLogEntry[];
   integrity: OrderAuditIntegrityReport | null;
 }> {
-  const headers = await getAdminAuthHeaders();
+  let headers: Record<string, string> = {};
+  if (isAdmin) {
+    headers = await getAdminAuthHeaders();
+  } else if (auth.currentUser) {
+    const token = await auth.currentUser.getIdToken();
+    if (token) headers = { Authorization: `Bearer ${token}` };
+  }
   const endpoint = isAdmin
     ? `/api/admin/orders/${encodeURIComponent(orderId)}/audit-logs`
     : `/api/orders/${encodeURIComponent(orderId)}/audit-logs`;

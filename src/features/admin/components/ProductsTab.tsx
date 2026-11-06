@@ -28,6 +28,9 @@ const ProductRow = React.memo(({ p, setEditingProduct, setIsModalOpen, handleDel
       </div>
       <span className="font-medium text-brand-black">{p.name}</span>
     </td>
+    <td className="px-4 py-3 text-xs font-medium text-brand-gray-600 capitalize">
+      {String(p.category || p.categoryId || 'general').replace(/-/g, ' ')}
+    </td>
     <td className="px-4 py-3 font-price-luxury font-bold text-stone-900 tabular-nums">
       ₹{p.price} <span className="text-xs font-normal text-stone-500">/ {p.unit}</span>
     </td>

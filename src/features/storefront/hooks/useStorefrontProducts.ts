@@ -14,7 +14,7 @@ export type CatalogSyncStatus =
   | 'CONFIGURATION_ERROR'
   | 'OFFLINE';
 
-const PUBLIC_CATALOG_CACHE_KEY = 'jiyoo_public_catalog_cache_v2';
+const PUBLIC_CATALOG_CACHE_KEY = 'jiyoo_public_catalog_cache_v5';
 const MAX_RETRY_ATTEMPTS = 4;
 
 interface PublicCatalogCache {
@@ -51,6 +51,7 @@ function sanitizePublicProduct(product: Product): Product {
     subSubcategoryId: product.subSubcategoryId,
     price: product.price,
     numericPrice: product.numericPrice,
+    mrp: product.mrp,
     originalPrice: product.originalPrice,
     discount: product.discount,
     wholesaleEligible: product.wholesaleEligible,
@@ -213,13 +214,32 @@ export function mergeCatalogRecords(
 
     const existingBase = mergedMap.get(id);
     const isWholesaleBaseline = Boolean(existingBase && id.startsWith('w_'));
+    const isAdminEdited = record.adminEdited === true;
     const combined = existingBase
       ? {
           ...existingBase,
           ...record,
           id,
-          name: isWholesaleBaseline ? existingBase.name : record.name || existingBase.name,
-          origin: isWholesaleBaseline ? existingBase.origin : (record.origin ?? existingBase.origin),
+          name: isWholesaleBaseline || !isAdminEdited
+            ? existingBase.name
+            : record.name || existingBase.name,
+          price: isAdminEdited ? (record.price ?? existingBase.price) : existingBase.price,
+          numericPrice: isAdminEdited
+            ? (record.numericPrice ?? existingBase.numericPrice)
+            : existingBase.numericPrice,
+          mrp: isAdminEdited ? (record.mrp ?? existingBase.mrp) : existingBase.mrp,
+          originalPrice: isAdminEdited
+            ? (record.originalPrice ?? existingBase.originalPrice)
+            : existingBase.originalPrice,
+          discount: isAdminEdited
+            ? (record.discount ?? existingBase.discount)
+            : existingBase.discount,
+          weights: isAdminEdited && Array.isArray(record.weights) && record.weights.length > 0
+            ? record.weights
+            : existingBase.weights,
+          origin: isWholesaleBaseline || !isAdminEdited
+            ? existingBase.origin
+            : (record.origin ?? existingBase.origin),
           freshnessBadge: isWholesaleBaseline
             ? existingBase.freshnessBadge
             : (record.freshnessBadge ?? existingBase.freshnessBadge),
@@ -234,9 +254,11 @@ export function mergeCatalogRecords(
             ? existingBase.wholesaleUnit
             : record.wholesaleUnit || existingBase.wholesaleUnit,
           categoryId: record.categoryId || existingBase.categoryId,
-          subcategoryId: record.subcategoryId ?? existingBase.subcategoryId,
+          subcategoryId: isAdminEdited
+            ? (record.subcategoryId ?? existingBase.subcategoryId)
+            : (existingBase.subcategoryId ?? record.subcategoryId),
           subSubcategoryId: record.subSubcategoryId ?? existingBase.subSubcategoryId,
-          unit: isWholesaleBaseline
+          unit: isWholesaleBaseline || !isAdminEdited
             ? existingBase.unit
             : record.unit || existingBase.unit || '1 kg',
           image: getOptimizedImageUrl(

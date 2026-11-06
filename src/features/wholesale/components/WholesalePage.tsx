@@ -20,7 +20,7 @@ import { useStorefrontProducts } from "../../storefront/hooks/useStorefrontProdu
 import { VelvetyBalloonButton } from "../../product/components/VelvetyBalloonButton";
 import { VelvetWhatsAppButton } from "../../product/components/VelvetWhatsAppButton";
 import { ProductDetailModal } from "../../product/components/ProductDetailModal";
-import { getOptimizedImageUrl } from "../../../utils/imageUtils";
+import { getOptimizedImageUrl, createSvgPlaceholder } from "../../../utils/imageUtils";
 import { Product } from "../../../types";
 import { PriceDisplay } from "../../core/components/PriceDisplay";
 
@@ -171,8 +171,15 @@ function WholesaleLotCardImageArea({
         ref={imageRefCallback}
         src={optimizedImg}
         alt={`${cleanName} - View ${activeIdx + 1}`}
+        onError={(e) => {
+          const target = e.currentTarget;
+          if (!target.dataset.fallback) {
+            target.dataset.fallback = "true";
+            target.src = createSvgPlaceholder(cleanName, 520, 390);
+          }
+        }}
         className="w-full h-full object-contain group-hover:scale-[1.045] transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
-        loading={index < 6 ? "eager" : "lazy"}
+        loading={index < 12 ? "eager" : "lazy"}
         decoding="async"
       />
 
@@ -255,6 +262,8 @@ export function WholesalePage({
     cartTotal,
     removeFromCart,
     updateQuantity,
+    wishlist,
+    toggleWishlist,
   } = useCart();
   const { showToast } = useToast();
   const { dbProducts } = useStorefrontProducts();
@@ -263,28 +272,8 @@ export function WholesalePage({
   const [selectedFilter, setSelectedFilter] = useState<LotCategoryFilter>("All Lots");
   const [justAddedMap, setJustAddedMap] = useState<Record<string, boolean>>({});
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [wishlist, setWishlist] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem("jiyoo_wishlist");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
 
   const imageRefs = useRef<Record<string, HTMLImageElement | null>>({});
-
-  const toggleWishlist = (id: string) => {
-    setWishlist((prev) => {
-      const next = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
-      try {
-        localStorage.setItem("jiyoo_wishlist", JSON.stringify(next));
-      } catch {
-        // ignore storage quota errors
-      }
-      return next;
-    });
-  };
 
   const b2bWhatsAppNumber = sanitizeWhatsAppNumber(settings?.whatsappNumber);
 
@@ -358,6 +347,15 @@ export function WholesalePage({
       startY,
     });
 
+    const existingInCart = cartItems.find(
+      (item) =>
+        String(item.id) === cartItemId ||
+        String(item.baseId ?? item.id) === String(product.id)
+    );
+    const qtyToAdd = existingInCart && existingInCart.quantity >= (product.wholesaleMinQty || 1)
+      ? 1
+      : (product.wholesaleMinQty || 1);
+
     addToCart(
       {
         id: cartItemId,
@@ -371,7 +369,7 @@ export function WholesalePage({
         wholesaleEligible: true,
         wholesaleMinQty: product.wholesaleMinQty || 1,
       } as any,
-      product.wholesaleMinQty || 1
+      qtyToAdd
     );
 
     setJustAddedMap((prev) => ({ ...prev, [String(product.id)]: true }));

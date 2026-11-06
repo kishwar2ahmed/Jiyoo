@@ -84,10 +84,14 @@ export function CartModal({
   isOpen,
   onClose,
   onRequestAuth,
+  initialWhatsAppCheckout = false,
+  onConsumeWhatsAppCheckout,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onRequestAuth?: () => void;
+  initialWhatsAppCheckout?: boolean;
+  onConsumeWhatsAppCheckout?: () => void;
 }) {
   const {
     items,
@@ -145,7 +149,7 @@ export function CartModal({
   const grandTotal = items.length > 0 ? finalCartTotal + effectiveDeliveryFee : 0;
 
   const [step, setStep] = useState<"cart" | "checkout" | "success" | "whatsapp_success" | "whatsapp_confirm">(
-    "cart",
+    () => (initialWhatsAppCheckout ? "checkout" : "cart"),
   );
   const [isProcessing, setIsProcessing] = useState(false);
   const checkoutIdempotencyKeyRef = useRef<string | null>(null);
@@ -235,7 +239,15 @@ export function CartModal({
     }
   }, [user]);
 
-  // Listen for direct "Order via WhatsApp" trigger from ProductDetailModal
+  // Listen for direct "Order via WhatsApp" trigger from ProductDetailModal or initial prop
+  useEffect(() => {
+    if (initialWhatsAppCheckout && isOpen) {
+      setIsWhatsAppCheckoutMode(true);
+      setStep("checkout");
+      onConsumeWhatsAppCheckout?.();
+    }
+  }, [initialWhatsAppCheckout, isOpen, onConsumeWhatsAppCheckout]);
+
   useEffect(() => {
     const handleOpenWhatsAppCheckout = () => {
       setIsWhatsAppCheckoutMode(true);
@@ -246,6 +258,58 @@ export function CartModal({
       document.removeEventListener("open-whatsapp-checkout", handleOpenWhatsAppCheckout);
     };
   }, []);
+
+  // Re-validate or clear applied coupon whenever cart items/total change
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    if (items.length === 0 || cartTotal <= 0) {
+      setAppliedCoupon(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const auth = getAuth();
+        const token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+        const res = await fetch("/api/coupons/validate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            code: appliedCoupon.code,
+            orderType,
+            items: items.map((i) => ({
+              id: i.id,
+              baseId: i.baseId,
+              quantity: i.quantity,
+              selectedWeight: (i as any).selectedWeight || null,
+              selectedCut: (i as any).selectedCut || null,
+              selectedCleaning: (i as any).selectedCleaning || null,
+            })),
+          }),
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok || !data.success) {
+          setAppliedCoupon(null);
+          setPromoError(data.error || "Coupon removed as cart no longer qualifies.");
+        } else if (data.discountAmount !== appliedCoupon.discountAmount) {
+          setAppliedCoupon({
+            code: data.couponCode,
+            discountAmount: data.discountAmount,
+            description: data.description,
+          });
+        }
+      } catch {
+        // Keep existing coupon state on transient network glitch
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cartTotal, items.length, orderType]);
 
   // Keep composite address synced with structured fields
   useEffect(() => {
@@ -866,12 +930,14 @@ export function CartModal({
                       price: getValidPrice(i),
                       selectedWeight: (i as any).selectedWeight || null,
                       selectedCut: (i as any).selectedCut || null,
+                      selectedCleaning: (i as any).selectedCleaning || null,
                       image: i.image,
                     })),
                     shippingDetails: shippingPayload,
                     customerEmail: user?.email || null,
                     userId: user?.id,
                     couponCode: appliedCoupon?.code || null,
+                    orderType,
                   }),
                 });
                 
@@ -879,6 +945,27 @@ export function CartModal({
                 
                 if (verifyRes.ok && verifyData.success) {
                   const serverOrderId = verifyData.orderId;
+                  try {
+                    const storageKey = user?.id
+                      ? `jiyoo_orders_history_v2:${user.id}`
+                      : "jiyoo_orders_history_anonymous_v2";
+                    const existing = JSON.parse(localStorage.getItem(storageKey) || "[]");
+                    existing.unshift({
+                      id: serverOrderId,
+                      orderId: serverOrderId,
+                      ...orderData,
+                      amount: grandTotal,
+                      grandTotal,
+                      paymentMethod: "Online Payment (Razorpay)",
+                      orderStatus: "confirmed",
+                      status: "confirmed",
+                      paymentStatus: "paid",
+                      createdAt: new Date().toISOString(),
+                    });
+                    localStorage.setItem(storageKey, JSON.stringify(existing.slice(0, 50)));
+                  } catch (e) {
+                    console.warn(e);
+                  }
                   sendEmailNotification(serverOrderId, { ...orderData, amount: grandTotal });
                   try {
                     const summaryUrl = createWhatsAppOrderUrl({

@@ -31,7 +31,19 @@ if (typeof window !== "undefined") {
 
   console.error = (...args: any[]) => {
     const msg = String(args[0] || "");
-    const combined = args.map(a => (a instanceof Error ? a.message : (typeof a === 'object' ? JSON.stringify(a) : String(a)))).join(' ');
+    const combined = args
+      .map((a) => {
+        if (a instanceof Error) return a.message;
+        if (typeof a === "object" && a !== null) {
+          try {
+            return JSON.stringify(a);
+          } catch {
+            return String(a);
+          }
+        }
+        return String(a);
+      })
+      .join(" ");
 
     if (
       msg.includes("failed to connect to websocket") ||
@@ -42,10 +54,16 @@ if (typeof window !== "undefined") {
     }
 
     // Format the error if it hasn't been formatted yet
-    if (!combined.includes('What happened:') && (combined.includes('Failed') || combined.includes('Error') || combined.includes('error') || combined.includes('fail') || args.length > 1)) {
-       originalError.call(console, formatErrorMessage(combined));
+    if (
+      !combined.includes("What happened:") &&
+      (combined.includes("Failed") ||
+        combined.includes("Error") ||
+        combined.includes("error") ||
+        combined.includes("fail"))
+    ) {
+      originalError.call(console, formatErrorMessage(combined));
     } else {
-       originalError.apply(console, args);
+      originalError.apply(console, args);
     }
   };
 

@@ -46,6 +46,15 @@ export function getOptimizedImageUrl(url: string | undefined | null, width = 500
   if (cleanLocal === '/category-icons/fast-foods.png') {
     return '/category-icons/fast-foods.webp';
   }
+  if (cleanLocal === '/products/pear-red.png') {
+    return '/products/pear-red.webp';
+  }
+  if (cleanLocal === '/products/limpopo-orange-citrus-box.png') {
+    return '/products/limpopo-orange-citrus-box.webp';
+  }
+  if (cleanLocal === '/assets/aistudio/image_d02558fa.png') {
+    return '/assets/aistudio/image_d02558fa.webp';
+  }
 
   // 1. Convert placehold.co to zero-latency inline SVG data URIs to eliminate external HTTP 404/AdBlock warnings
   if (url.includes('placehold.co')) {
@@ -101,12 +110,14 @@ const LEGACY_PRODUCT_IMAGE_MIGRATIONS: Record<string, string> = {
   '/products/f_red_ice_guava.jpg': '/products/rediceguava.jpeg',
   '/products/f_ice_guava.jpg': '/products/rediceguava.jpeg',
   '/products/limpopo-orange-citrus.jpg': '/assets/aistudio/image_d02558fa.png',
+  'https://gosho.store/wp-content/uploads/2025/07/water-melon-NS-295-1.webp': '/products/watermelon-namdhari.jfif',
+  'https://tshop.r10s.jp/sembikiya/cabinet/00435283/meron/muskmelon_img.jpg': '/products/f_japan_melon.jpg',
 };
 
 export function resolveProductImage(url: string | undefined | null): string | undefined | null {
   if (!url) return url;
   const cleanUrl = url.split('?')[0];
-  const migrated = LEGACY_PRODUCT_IMAGE_MIGRATIONS[cleanUrl];
+  const migrated = LEGACY_PRODUCT_IMAGE_MIGRATIONS[cleanUrl] || LEGACY_PRODUCT_IMAGE_MIGRATIONS[url];
   if (migrated) return migrated;
   return url;
 }

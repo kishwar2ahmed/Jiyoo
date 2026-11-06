@@ -88,7 +88,15 @@ export function ReviewsTab() {
                       ))}
                     </div>
                     <span className="text-xs text-brand-gray-400">
-                      {r.createdAt?.seconds ? format(new Date(r.createdAt.seconds * 1000), 'MMM d, yyyy') : 'Recent'}
+                      {(() => {
+                        const raw = r.createdAt;
+                        if (raw?.seconds) return format(new Date(raw.seconds * 1000), 'MMM d, yyyy');
+                        if (typeof raw === 'string' || typeof raw === 'number') {
+                          const d = new Date(raw);
+                          if (!isNaN(d.getTime())) return format(d, 'MMM d, yyyy');
+                        }
+                        return 'Recent';
+                      })()}
                     </span>
                   </div>
                   <p className="text-sm text-brand-gray-700">{r.comment || r.review}</p>

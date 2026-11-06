@@ -7,7 +7,7 @@ import { useStorefrontCategories } from "../features/storefront/hooks/useStorefr
 import { useStorefrontProducts } from "../features/storefront/hooks/useStorefrontProducts";
 import { SOCIAL_LINKS } from "../features/core/components/SocialIcons";
 import { searchCatalogProducts } from "../utils/fuzzyMatch";
-import { getOptimizedImageUrl } from "../utils/imageUtils";
+import { getOptimizedImageUrl, createSvgPlaceholder } from "../utils/imageUtils";
 import { Product } from "../types";
 import { useModalBackButton } from "../features/core/hooks/useModalBackButton";
 import { PriceDisplay } from "../features/core/components/PriceDisplay";
@@ -265,6 +265,10 @@ export function Navbar({
     product: Product
   ) => {
     e.stopPropagation();
+    const isOutOfStock =
+      product.stockStatus === "out_of_stock" ||
+      (typeof product.stock === "number" && product.stock <= 0);
+    if (isOutOfStock) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const defaultWeight = product.weights?.[0];
     const unitPrice = defaultWeight ? defaultWeight.price : product.price;
@@ -382,6 +386,9 @@ export function Navbar({
                     product.weights?.[0]?.price ?? product.price;
                   const displayUnit =
                     product.weights?.[0]?.label ?? product.unit;
+                  const isOutOfStock =
+                    product.stockStatus === "out_of_stock" ||
+                    (typeof product.stock === "number" && product.stock <= 0);
                   return (
                     <div
                       key={product.id}
@@ -390,6 +397,13 @@ export function Navbar({
                     >
                       <img
                         src={getOptimizedImageUrl(product.image, 120, 80)}
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (!target.dataset.fallback) {
+                            target.dataset.fallback = "true";
+                            target.src = createSvgPlaceholder(product.name, 120, 120);
+                          }
+                        }}
                         alt={product.name}
                         className="w-12 h-12 rounded-xl object-cover bg-[#F4F1EA] border border-[#E7E3DA] shrink-0"
                       />
@@ -405,10 +419,21 @@ export function Navbar({
                       </div>
                       <button
                         type="button"
+                        disabled={isOutOfStock}
                         onClick={(e) => handleQuickAddFromSearch(e, product)}
-                        className="px-2.5 py-1.5 rounded-lg bg-[#1C1917] hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 shrink-0 transition-colors ${
+                          isOutOfStock
+                            ? "bg-stone-200 text-stone-500 cursor-not-allowed"
+                            : "bg-[#1C1917] hover:bg-emerald-700 text-white cursor-pointer"
+                        }`}
                       >
-                        <Plus className="w-3 h-3" /> Add
+                        {isOutOfStock ? (
+                          <span>Sold Out</span>
+                        ) : (
+                          <>
+                            <Plus className="w-3 h-3" /> Add
+                          </>
+                        )}
                       </button>
                     </div>
                   );
@@ -481,10 +506,10 @@ export function Navbar({
           {/* ========================================================= */}
           {/* DESKTOP HEADER (≥ lg): Balanced 3-Zone Architecture      */}
           {/* ========================================================= */}
-          <div className="hidden lg:flex items-center justify-between gap-4 lg:gap-6">
+          <div className="hidden lg:flex items-center justify-between gap-3 xl:gap-5 w-full min-w-0">
             {/* Zone 1: Brand Wordmark & Logo */}
             <div
-              className="group cursor-pointer flex items-center gap-2 sm:gap-3 min-w-0 shrink-0"
+              className="group cursor-pointer flex items-center gap-2.5 min-w-0 shrink-0"
               onClick={() => {
                 setMobileMenuOpen(false);
                 if (activePage === "wholesale") {
@@ -495,17 +520,23 @@ export function Navbar({
               }}
             >
               <img
-                src="/jiyoo.logo.jpeg"
+                src={settings.logoUrl || "/jiyoo.logo.jpeg"}
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (!target.src.endsWith("/jiyoo.logo.jpeg")) {
+                    target.src = "/jiyoo.logo.jpeg";
+                  }
+                }}
                 alt={settings.storeName || "JIYOO"}
-                className="h-9 md:h-10 w-auto object-contain rounded-xl shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+                className="h-9 xl:h-10 w-auto object-contain rounded-xl shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
               />
-              <span className="font-serif-luxury text-xl md:text-2xl font-semibold tracking-wider text-brand-black block leading-tight truncate transition-colors duration-200 group-hover:text-black">
-                {settings.storeName || "JIYOO"}
+              <span className="font-serif-luxury text-xl xl:text-2xl font-bold tracking-wider text-brand-black block leading-tight whitespace-nowrap transition-colors duration-200 group-hover:text-black">
+                JIYOO
               </span>
             </div>
 
             {/* Zone 2: Desktop Navigation Categories & Dual Retail/Wholesale Switch */}
-            <nav className="flex items-center gap-3.5 xl:gap-5">
+            <nav className="flex items-center gap-2.5 xl:gap-4 2xl:gap-5 min-w-0">
               <div
                 role="group"
                 aria-label="Desktop store mode selector"
@@ -514,7 +545,7 @@ export function Navbar({
                 <button
                   type="button"
                   onClick={() => onRetailClick?.()}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                  className={`px-3 xl:px-3.5 py-1.5 rounded-full text-[11px] xl:text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                     activePage === "retail"
                       ? "bg-[#1C1917] text-[#FAF9F5] shadow-xs"
                       : "text-[#78716C] hover:text-[#1C1917]"
@@ -526,7 +557,7 @@ export function Navbar({
                 <button
                   type="button"
                   onClick={() => onWholesaleClick?.()}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                  className={`px-3 xl:px-3.5 py-1.5 rounded-full text-[11px] xl:text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                     activePage === "wholesale"
                       ? "bg-[#1C1917] text-[#FAF9F5] shadow-xs"
                       : "text-[#78716C] hover:text-[#1C1917]"
@@ -543,7 +574,7 @@ export function Navbar({
                     key={cat.id}
                     type="button"
                     onClick={() => handleMobileNavCategory(cat.id)}
-                    className="group relative py-1 text-sm font-medium text-[#57534E] hover:text-[#1C1917] transition-colors cursor-pointer capitalize whitespace-nowrap shrink-0"
+                    className="group relative py-1 text-[13px] xl:text-sm font-medium text-[#57534E] hover:text-[#1C1917] transition-colors cursor-pointer capitalize whitespace-nowrap shrink-0"
                   >
                     <span>{cat.label}</span>
                     <span
@@ -554,7 +585,7 @@ export function Navbar({
                 ))}
               <button
                 onClick={onAboutClick}
-                className="group relative py-1 text-sm font-medium text-[#57534E] hover:text-[#1C1917] transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="group relative py-1 text-[13px] xl:text-sm font-medium text-[#57534E] hover:text-[#1C1917] transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 <span>About Us</span>
                 <span
@@ -565,11 +596,11 @@ export function Navbar({
             </nav>
 
             {/* Zone 3: Desktop Real-Time Search Bar + Actions */}
-            <div className="flex items-center gap-2.5 md:gap-3 shrink-0">
+            <div className="flex items-center gap-2 xl:gap-3 shrink-0">
               {activePage === "retail" && (
                 <div
                   ref={searchContainerRef}
-                  className="relative w-[240px] xl:w-[290px]"
+                  className="relative w-[195px] xl:w-[245px] 2xl:w-[275px]"
                 >
                   <form
                     onSubmit={executeSearchAction}
@@ -580,7 +611,7 @@ export function Navbar({
                       type="submit"
                       aria-label="Search products"
                       title="Search products"
-                      className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1.5 text-[#57534E] hover:text-[#1C1917] rounded-md hover:bg-[#F4F1EA] transition-colors cursor-pointer z-10"
+                      className="absolute left-2 top-1/2 -translate-y-1/2 p-1 text-[#57534E] hover:text-[#1C1917] rounded-md hover:bg-[#F4F1EA] transition-colors cursor-pointer z-10"
                     >
                       <Search className="w-3.5 h-3.5" strokeWidth={2} />
                     </button>
@@ -597,23 +628,23 @@ export function Navbar({
                       onKeyDown={handleSearchKeyDown}
                       placeholder={isDesktopFocused ? "Type to search catalog..." : ""}
                       aria-label="Search products by name in real-time"
-                      className="w-full pl-8 pr-16 py-1.5 text-xs sm:text-[13px] bg-white hover:bg-white focus:bg-white text-[#1C1917] placeholder:text-[#A8A29E] rounded-lg border border-[#DCD6CA] focus:border-[#1C1917] focus:ring-2 focus:ring-[#1C1917]/10 focus:outline-none transition-all shadow-2xs"
+                      className="w-full pl-9 pr-15 py-1.5 text-xs sm:text-[13px] bg-white hover:bg-white focus:bg-white text-[#1C1917] placeholder:text-[#A8A29E] rounded-lg border border-[#DCD6CA] focus:border-[#1C1917] focus:ring-2 focus:ring-[#1C1917]/10 focus:outline-none transition-all shadow-2xs [&::-webkit-search-cancel-button]:appearance-none"
                     />
 
                     {/* Editorial Rotating Suggestion Dial (Active only when empty and not focused) */}
                     {!searchQuery && !isDesktopFocused && (
                       <div
-                        className="pointer-events-none absolute left-8 right-16 top-0 bottom-0 flex items-center overflow-hidden"
+                        className="pointer-events-none absolute left-9 right-15 top-0 bottom-0 flex items-center overflow-hidden"
                         aria-hidden="true"
                       >
-                        <AnimatePresence mode="popLayout" initial={false}>
+                        <AnimatePresence mode="wait" initial={false}>
                           <motion.span
                             key={suggestionIdx}
-                            initial={{ y: 9, opacity: 0 }}
+                            initial={{ y: 8, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
-                            exit={{ y: -9, opacity: 0 }}
-                            transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-                            className="text-xs sm:text-[13px] text-[#78716C] truncate font-normal tracking-wide select-none"
+                            exit={{ y: -8, opacity: 0 }}
+                            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                            className="block w-full text-xs sm:text-[13px] text-[#78716C] truncate font-normal tracking-wide select-none"
                           >
                             {EDITORIAL_SEARCH_SUGGESTIONS[suggestionIdx]}
                           </motion.span>
@@ -816,7 +847,13 @@ export function Navbar({
                   }}
                 >
                   <img
-                    src="/jiyoo.logo.jpeg"
+                    src={settings.logoUrl || "/jiyoo.logo.jpeg"}
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (!target.src.endsWith("/jiyoo.logo.jpeg")) {
+                        target.src = "/jiyoo.logo.jpeg";
+                      }
+                    }}
                     alt={settings.storeName || "JIYOO"}
                     className="h-6 sm:h-7 w-6 sm:w-7 object-contain rounded-lg shrink-0"
                   />
@@ -985,7 +1022,7 @@ export function Navbar({
                     onKeyDown={handleSearchKeyDown}
                     placeholder={isMobileFocused ? "Type to search catalog..." : ""}
                     aria-label="Search products by name in real-time"
-                    className="w-full pl-9 pr-16 py-2 text-xs sm:text-[13px] bg-white text-stone-900 placeholder:text-stone-400 rounded-xl border border-stone-300/80 focus:border-stone-900 focus:ring-2 focus:ring-stone-900/10 focus:outline-none transition-all shadow-2xs"
+                    className="w-full pl-9 pr-16 py-2 text-xs sm:text-[13px] bg-white text-stone-900 placeholder:text-stone-400 rounded-xl border border-stone-300/80 focus:border-stone-900 focus:ring-2 focus:ring-stone-900/10 focus:outline-none transition-all shadow-2xs [&::-webkit-search-cancel-button]:appearance-none"
                   />
 
                   {/* Editorial Rotating Suggestion Dial (Active only when empty and not focused) */}
@@ -994,14 +1031,14 @@ export function Navbar({
                       className="pointer-events-none absolute left-9 right-16 top-0 bottom-0 flex items-center overflow-hidden"
                       aria-hidden="true"
                     >
-                      <AnimatePresence mode="popLayout" initial={false}>
+                      <AnimatePresence mode="wait" initial={false}>
                         <motion.span
                           key={suggestionIdx}
-                          initial={{ y: 9, opacity: 0 }}
+                          initial={{ y: 8, opacity: 0 }}
                           animate={{ y: 0, opacity: 1 }}
-                          exit={{ y: -9, opacity: 0 }}
-                          transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-                          className="text-xs sm:text-[13px] text-stone-500 truncate font-normal tracking-wide select-none"
+                          exit={{ y: -8, opacity: 0 }}
+                          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                          className="block w-full text-xs sm:text-[13px] text-stone-500 truncate font-normal tracking-wide select-none"
                         >
                           {EDITORIAL_SEARCH_SUGGESTIONS[suggestionIdx]}
                         </motion.span>
@@ -1295,6 +1332,9 @@ export function Navbar({
                             product.weights?.[0]?.price ?? product.price;
                           const displayUnit =
                             product.weights?.[0]?.label ?? product.unit;
+                          const isOutOfStock =
+                            product.stockStatus === "out_of_stock" ||
+                            (typeof product.stock === "number" && product.stock <= 0);
                           return (
                             <motion.div
                               key={product.id}
@@ -1311,6 +1351,13 @@ export function Navbar({
                             >
                               <img
                                 src={getOptimizedImageUrl(product.image, 160, 80)}
+                                onError={(e) => {
+                                  const target = e.currentTarget;
+                                  if (!target.dataset.fallback) {
+                                    target.dataset.fallback = "true";
+                                    target.src = createSvgPlaceholder(product.name, 160, 160);
+                                  }
+                                }}
                                 alt={product.name}
                                 className="w-16 h-16 rounded-xl object-cover bg-[#FAF9F5] border border-[#E7E3DA] shrink-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                               />
@@ -1327,10 +1374,21 @@ export function Navbar({
                                 <div className="mt-2 flex items-center gap-2">
                                   <button
                                     type="button"
+                                    disabled={isOutOfStock}
                                     onClick={(e) => handleQuickAddFromSearch(e, product)}
-                                    className="px-2.5 py-1 rounded-lg bg-[#1C1917] hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors ${
+                                      isOutOfStock
+                                        ? "bg-stone-200 text-stone-500 cursor-not-allowed"
+                                        : "bg-[#1C1917] hover:bg-emerald-700 text-white cursor-pointer"
+                                    }`}
                                   >
-                                    <Plus className="w-3 h-3" /> Add to Bag
+                                    {isOutOfStock ? (
+                                      <span>Sold Out</span>
+                                    ) : (
+                                      <>
+                                        <Plus className="w-3 h-3" /> Add to Bag
+                                      </>
+                                    )}
                                   </button>
                                 </div>
                               </div>
@@ -1375,6 +1433,13 @@ export function Navbar({
                       {it.image ? (
                         <img
                           src={getOptimizedImageUrl(it.image, 80, 75)}
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            if (!target.dataset.fallback) {
+                              target.dataset.fallback = "true";
+                              target.src = createSvgPlaceholder(it.name, 80, 80);
+                            }
+                          }}
                           alt={it.name}
                           className="w-full h-full object-contain"
                         />
