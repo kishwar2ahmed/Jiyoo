@@ -499,7 +499,7 @@ export function Navbar({
           <motion.div
             aria-hidden="true"
             style={{ scaleX }}
-            className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#00D2FF] via-[#0EA5E9] to-[#0284C7] shadow-[0_0_10px_rgba(14,165,233,0.85)] origin-left pointer-events-none"
+            className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#C5A880] via-[#D4AF37] to-[#8A5A36] shadow-[0_0_10px_rgba(197,168,128,0.65)] origin-left pointer-events-none"
           />
         )}
         <div className="max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-12">

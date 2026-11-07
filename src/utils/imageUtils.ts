@@ -43,8 +43,8 @@ export function getOptimizedImageUrl(url: string | undefined | null, width = 500
   if (BUNDLED_BANNER_WEBP_MAP[cleanLocal]) {
     return BUNDLED_BANNER_WEBP_MAP[cleanLocal];
   }
-  if (cleanLocal === '/category-icons/fast-foods.png') {
-    return '/category-icons/fast-foods.webp';
+  if (cleanLocal === '/category-icons/fast-foods.png' || cleanLocal === '/category-icons/fast-foods.webp') {
+    return '/category-icons/fast-foods-luxury.jpg';
   }
   if (cleanLocal === '/products/pear-red.png') {
     return '/products/pear-red.webp';
@@ -110,6 +110,12 @@ const LEGACY_PRODUCT_IMAGE_MIGRATIONS: Record<string, string> = {
   '/products/f_red_ice_guava.jpg': '/products/rediceguava.jpeg',
   '/products/f_ice_guava.jpg': '/products/rediceguava.jpeg',
   '/products/limpopo-orange-citrus.jpg': '/assets/aistudio/image_d02558fa.png',
+  '/products/dragon-fruit-white-flesh.jpg': '/products/wholesale-dragon-fruit-tiny-moon-boxes.jpg',
+  '/products/apple-crisp-pink.jpg': '/products/wholesale-crisp-pink-apples-nz.jpg',
+  '/products/beauty-pear-green.jpg': '/products/wholesale-dutoit-pears-box.jpg',
+  '/products/blueberry-wholesale.jpg': '/products/wholesale-camposol-blueberries-box.jpg',
+  '/products/grapes-black-wholesale.jpg': '/products/wholesale-black-grapes-crate.jpg',
+  '/products/grapes-seedless-wholesale.jpg': '/products/wholesale-red-seedless-grapes-box.jpg',
   'https://gosho.store/wp-content/uploads/2025/07/water-melon-NS-295-1.webp': '/products/watermelon-namdhari.jfif',
   'https://tshop.r10s.jp/sembikiya/cabinet/00435283/meron/muskmelon_img.jpg': '/products/f_japan_melon.jpg',
 };

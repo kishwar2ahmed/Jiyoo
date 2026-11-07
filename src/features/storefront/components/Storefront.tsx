@@ -24,7 +24,9 @@ export function Storefront() {
   } = useStorefrontProducts();
 
   const [activeCategoryId, setActiveCategoryId] = useState(defaultCategories[0].id);
-  const [activeSubcategoryId, setActiveSubcategoryId] = useState<string | null>(defaultCategories[0].items?.[0]?.id ?? null);
+  const [activeSubcategoryId, setActiveSubcategoryId] = useState<string | null>(
+    defaultCategories[0].items && defaultCategories[0].items.length > 0 ? 'all' : null
+  );
   const [activeSubSubcategoryId, setActiveSubSubcategoryId] = useState<string | null>(null);
   
   // Product Detail Modal state
@@ -39,7 +41,7 @@ export function Storefront() {
   }, []);
 
   const { searchQuery, setSearchQuery } = useCart();
-  const [visibleCount, setVisibleCount] = useState(24);
+  const [visibleCount, setVisibleCount] = useState(36);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useCallback((node: HTMLDivElement) => {
     if (isProductsLoading) return;
@@ -53,7 +55,7 @@ export function Storefront() {
   }, [isProductsLoading]);
 
   // Reset count on category change
-  useEffect(() => { setVisibleCount(24); }, [activeCategoryId, activeSubcategoryId, activeSubSubcategoryId, searchQuery]);
+  useEffect(() => { setVisibleCount(36); }, [activeCategoryId, activeSubcategoryId, activeSubSubcategoryId, searchQuery]);
 
   // If the active category is frozen (or no longer exists) once live category
   // data loads, fall back to the first category shoppers can actually see --
@@ -63,9 +65,9 @@ export function Storefront() {
     if (categoriesList.length === 0) return;
     if (!categoriesList.some(c => c.id === activeCategoryId)) {
       setActiveCategoryId(categoriesList[0].id);
-      const firstSub = categoriesList[0].items?.[0];
-      setActiveSubcategoryId(firstSub?.id ?? null);
-      setActiveSubSubcategoryId(firstSub?.items?.[0]?.id ?? null);
+      const hasSubs = Boolean(categoriesList[0].items && categoriesList[0].items.length > 0);
+      setActiveSubcategoryId(hasSubs ? 'all' : null);
+      setActiveSubSubcategoryId(null);
     }
   }, [categoriesList, activeCategoryId]);
 
@@ -78,13 +80,8 @@ export function Storefront() {
     setActiveCategoryId(categoryId);
 
     if (category.items && category.items.length > 0) {
-      const firstSub = category.items[0];
-      setActiveSubcategoryId(firstSub.id);
-      if (firstSub.items && firstSub.items.length > 0) {
-        setActiveSubSubcategoryId(firstSub.items[0].id);
-      } else {
-        setActiveSubSubcategoryId(null);
-      }
+      setActiveSubcategoryId('all');
+      setActiveSubSubcategoryId(null);
     } else {
       setActiveSubcategoryId(null);
       setActiveSubSubcategoryId(null);
@@ -95,7 +92,10 @@ export function Storefront() {
   const categoryHistoryRef = useRef<string[]>([]);
 
   const handleCategoryChange = useCallback((categoryId: string) => {
-    if (categoryId === activeCategoryIdRef.current) return;
+    if (categoryId === activeCategoryIdRef.current) {
+      applyCategoryState(categoryId);
+      return;
+    }
     if (!applyCategoryState(categoryId)) return; // frozen or no longer exists -- ignore the request
 
     // Record category history for the Back navigation stack
@@ -144,6 +144,10 @@ export function Storefront() {
 
   const handleSubcategoryChange = useCallback((subcategoryId: string) => {
     setActiveSubcategoryId(subcategoryId);
+    if (subcategoryId === 'all') {
+      setActiveSubSubcategoryId(null);
+      return;
+    }
     const category = categoriesList.find(c => c.id === activeCategoryId);
     const subcategory = category?.items?.find(s => s.id === subcategoryId);
     
@@ -163,7 +167,10 @@ export function Storefront() {
 
 
   const activeCategory = categoriesList.find(c => c.id === activeCategoryId);
-  const activeSubcategory = activeCategory?.items?.find(s => s.id === activeSubcategoryId);
+  const activeSubcategory =
+    activeSubcategoryId && activeSubcategoryId !== 'all'
+      ? activeCategory?.items?.find(s => s.id === activeSubcategoryId)
+      : undefined;
 
   const frozenCategoryIds = useMemo(
     () => new Set(categoriesList.filter(c => (c as any).isFrozen).map(c => c.id)),
@@ -189,7 +196,7 @@ export function Storefront() {
 
     return currentProducts.filter((p) => {
       if (p.categoryId !== activeCategoryId) return false;
-      if (activeSubcategoryId) {
+      if (activeSubcategoryId && activeSubcategoryId !== 'all') {
         if (p.subcategoryId) {
           if (p.subcategoryId !== activeSubcategoryId) return false;
         } else if (!isDefaultFirstSubcat) {
@@ -197,6 +204,7 @@ export function Storefront() {
         }
       }
       if (
+        activeSubcategoryId !== 'all' &&
         activeSubSubcategoryId &&
         p.subSubcategoryId &&
         p.subSubcategoryId !== activeSubSubcategoryId
@@ -296,21 +304,21 @@ export function Storefront() {
     
     const customPremiumImages: Record<string, string[]> = {
       'fruits': [
-        'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=360&q=78&auto=format&fit=crop'
+        '/category-icons/fruits-luxury.jpg'
       ],
       'vegetables': [
-        'https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?w=360&q=78&auto=format&fit=crop'
+        '/category-icons/vegetables-luxury.jpg'
       ],
       'meat': [
-        'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=360&q=78&auto=format&fit=crop'
+        '/category-icons/meat-luxury.jpg'
       ],
       // User-provided Smoothies artwork; use the supplied file unchanged.
       'smoothies': [
         '/category-icons/smoothies.jpg'
       ],
-      // Optimized WebP version of Fast Foods artwork.
+      // Luxury studio editorial photograph for Fast Foods with JIYOO branded takeaway box.
       'fast-foods': [
-        '/category-icons/fast-foods.webp'
+        '/category-icons/fast-foods-luxury.jpg'
       ]
     };
 
@@ -357,17 +365,18 @@ export function Storefront() {
                   {thumbData?.urls && thumbData.urls.length > 0 ? (
                     <img 
                       src={thumbData.urls[0]} 
-                      alt={category.label} 
+                      alt={category.label}
+                      referrerPolicy="no-referrer"
                       onError={(e) => {
                         const target = e.currentTarget;
                         if (!target.dataset.fallback) {
                           target.dataset.fallback = 'true';
                           const localCategoryFallbacks: Record<string, string> = {
-                            fruits: '/banners/02_Indian_Fruits_Original.webp',
-                            vegetables: '/banners/04_Indian_Thai_Vegetables_Original.webp',
-                            meat: '/banners/05_Fresh_Meat_Cuts.webp',
+                            fruits: '/src/assets/images/category_fruits_luxury_1793996370084.jpg',
+                            vegetables: '/src/assets/images/category_vegetables_luxury_1793996372315.jpg',
+                            meat: '/src/assets/images/category_meat_luxury_1793996372663.jpg',
                             smoothies: '/category-icons/smoothies.jpg',
-                            'fast-foods': '/category-icons/fast-foods.webp',
+                            'fast-foods': '/src/assets/images/category_fast_foods_jiyoo_1793998982503.jpg',
                           };
                           target.src = localCategoryFallbacks[category.id] || createSvgPlaceholder(category.label, 360, 450);
                         }
@@ -394,7 +403,7 @@ export function Storefront() {
                 {isActive && (
                   <motion.span
                     layoutId="activeCategoryUnderline"
-                    className="absolute bottom-0 w-6 sm:w-12 h-[2.5px] bg-gradient-to-r from-[#1E1B4B] via-[#C5A880] to-[#0D9488] rounded-full shadow-[0_2px_8px_rgba(197,168,128,0.5)]"
+                    className="absolute bottom-0 w-6 sm:w-12 h-[2.5px] bg-gradient-to-r from-[#8A5A36] via-[#C5A880] to-[#8A5A36] rounded-full shadow-[0_2px_8px_rgba(197,168,128,0.5)]"
                     transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                   />
                 )}
@@ -403,28 +412,51 @@ export function Storefront() {
           })}
         </div>
 
-        {/* Subcategories - Refined Single-Row Underline Tabs with Scroll-Drawn Border */}
+        {/* Subcategories - Refined Single-Row Underline Tabs with 'All' First & WCAG AA Contrast */}
         {!trimmedQuery && activeCategory?.items && (
           <motion.div
             key={`subcats-${activeCategoryId}`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-nowrap gap-x-5 sm:gap-8 overflow-x-auto pb-2 scrollbar-hide border-b border-brand-gray-200"
+            className="flex flex-nowrap gap-x-5 sm:gap-8 overflow-x-auto pb-2 scrollbar-hide border-b border-[#E7E3DA]"
           >
+            <button
+              type="button"
+              onClick={() => handleSubcategoryChange('all')}
+              className={`relative pb-2.5 sm:pb-4 text-xs sm:text-sm whitespace-nowrap transition-colors duration-300 cursor-pointer ${
+                activeSubcategoryId === 'all' || !activeSubcategoryId
+                  ? 'text-[#1C1917] font-semibold'
+                  : 'text-[#57534E] font-medium hover:text-[#1C1917]'
+              }`}
+            >
+              All {activeCategory.label}
+              {(activeSubcategoryId === 'all' || !activeSubcategoryId) && (
+                <motion.div
+                  layoutId="activeSubcategory"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1C1917]"
+                  transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                />
+              )}
+            </button>
             {activeCategory.items.map(sub => {
               const isActive = activeSubcategoryId === sub.id;
               return (
                 <button
                   key={sub.id}
+                  type="button"
                   onClick={() => handleSubcategoryChange(sub.id)}
-                  className={`relative pb-2.5 sm:pb-4 text-xs sm:text-sm font-medium whitespace-nowrap transition-colors duration-300 cursor-pointer
-                    ${isActive ? 'text-brand-gray-900' : 'text-brand-gray-400 hover:text-brand-gray-600'}`}
+                  className={`relative pb-2.5 sm:pb-4 text-xs sm:text-sm whitespace-nowrap transition-colors duration-300 cursor-pointer ${
+                    isActive
+                      ? 'text-[#1C1917] font-semibold'
+                      : 'text-[#57534E] font-medium hover:text-[#1C1917]'
+                  }`}
                 >
                   {sub.label}
                   {isActive && (
-                    <motion.div layoutId="activeSubcategory"
-                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-gray-900"
+                    <motion.div
+                      layoutId="activeSubcategory"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1C1917]"
                       transition={{ type: "spring", stiffness: 400, damping: 32 }}
                     />
                   )}

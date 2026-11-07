@@ -1,112 +1,87 @@
-# JIYOO Fruit Catalog Price & Pack Specification Update (05-11-2026 Sheet)
+# Luxury Fast Foods Category Artwork & Brand Integration Plan
 
-This update applies the official **05-11-2026 JIYOO Price Update** sheet across all matching Indian Fruits and Imported Fruits in the retail catalog, locking in the exact sheet prices, pack units (UOM), weight specifications, and subcategory placements while preserving every existing product and image.
+Replace the cartoon-style Fast Foods category icon with an authentic `3:4` studio-grade culinary photograph on warm travertine stone and ivory linen that showcases the complete Fast Foods spread and features the official **JIYOO** winged-J logo naturally branded onto a luxury takeaway box/bowl in the scene.
+
+---
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> Please review the exact item-by-item price and pack mappings below before execution. No products or images will be removed from the store.
+> Both design decisions below were confirmed by you and govern how the new Fast Foods category card will be generated and integrated:
 
-- **Confirmed Decision 1 — Exact Sheet Pack & UOM**: Each updated fruit product will use the exact UOM and weight specification from the pricing sheet (e.g., `14 Pcs (500-600g)` for Banana Yelakki at `₹70`, `4 Pack (600-700g)` for Apple Royal Gala at `₹299`, `2 Pcs` for Avocado Hass at `₹125`).
-- **Confirmed Decision 2 — Existing Catalog Scope Only**: Only existing catalog items will be updated; uncatalogued sheet entries (`Apple Kashmir`, `Apple Ber`, `Custard Apple`, `Chikoo`, `Persimmon`) will be skipped without altering any other store items.
-- **Confirmed Decision 3 — Sheet Subcategory Alignment**: `Taiwan Guava Pink Flesh` (`₹85`, `2 Pcs`) and `Taiwan Guava White Flesh` (`₹90`, `2 Pcs`) will be placed under **Indian Fruits** to match the sheet's left table.
+- **Confirmed Decision 1 — Complete Gourmet Fast Foods Spread ("Everything")**: The photograph will showcase a curated, mouth-watering spread of **steaming Momos**, **wok-tossed Hakka Noodles**, **glossy Chilli Paneer**, and **gourmet burger & crispy golden fries/bites** arranged artfully on warm cream travertine stone and dark walnut against the signature warm ivory linen backdrop.
+- **Confirmed Decision 2 — Natural On-Packaging JIYOO Logo Integration**: Using your official **JIYOO winged-J logo** as a visual reference, the emblem will be printed naturally onto a luxury matte-cream craft takeaway box / ceramic noodle bowl at the center of the composition—matching the authentic real-world branding style of the **Smoothies** category card.
 
 ---
 
 ## 1. Overview & Core Concept
 
-- **What It Does**: Updates base prices, numeric prices, strikethrough MRPs, unit labels, weight selector pills, origins, and subcategory placements for all existing retail fruits listed on the `05-11-2026` pricing sheet, and synchronizes those updates across the server database and browser cache so shoppers see the new prices immediately.
-- **Target Audience / Persona**: Retail customers browsing and ordering fresh Indian and Imported fruits on JIYOO Premium Products across mobile and desktop.
-- **Key Value**: Guarantees 100% pricing accuracy between JIYOO's daily procurement sheet and the live storefront, cart, and WhatsApp/online checkout calculations.
+- **What It Does**: Replaces the current oversaturated, floating-cartoon Fast Foods category icon (which had a baked-in white rounded border and stock clip-art look) with a full-bleed `3:4` portrait studio photograph that matches the warm travertine and linen aesthetic of the **Fruits**, **Vegetables**, and **Meat** category cards.
+- **Target Audience / Persona**: Discerning Bengaluru customers browsing JIYOO on mobile and desktop who expect every category card in the 5-column storefront grid to look cohesive, appetizing, and authentically photographed.
+- **Key Value**: Eliminates the last remaining "AI-generated cartoon" visual tell in the category bar while reinforcing JIYOO's brand identity through natural physical packaging branding.
 
 ---
 
-## 2. Exact Item-by-Item Price & Pack Mapping
-
-### A. Indian Fruits (`Indian Fruits` Subcategory)
-
-| Sheet Item Name | Store Catalog Product | New Unit / Pack Option | New Price | Previous Price | Origin / Spec Notes |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **BANANA YALAKKI** | Banana Yelakki | `14 Pcs (500-600g)` | **₹70** | ₹59 (500g) | Indian · 14 Pcs (500–600g) |
-| **BANANA RED** | Red Banana | `5 Pcs` | **₹120** | ₹79 (500g) | Indian · 5 Pcs pack |
-| **BANANA ROBUSTA** | Banana Robusta | `6 Pcs` | **₹39** | ₹59 (1kg) | Indian · 6 Pcs pack |
-| **TENDER COCONUT** | Coconut | `1 Pc` | **₹52** | ₹65 (1 pc) | Indian · 1 Pc |
-| **MUSK MILON** | Muskmelon | `1 Pc (700-1000g)` | **₹82** | ₹69 (1 pc) | Indian · 700–1000g |
-| **PAPAYA** | Papaya Red Lady / 786 & Papaya No. 15 | `1 Pc (800-1200g)` | **₹69** | ₹99 / ₹109 (1kg) | Indian · 800–1200g |
-| **POMOGRANATE** | Pomegranate | `3 Pack` | **₹165** | ₹129 (500g) | Indian · 3 Pack |
-| **PAINAPPLE** | Pineapple | `1 Pc (700-1000g)` | **₹98** | ₹99 (1 pc) | Indian · 700–1000g |
-| **ORANGE SWEET LIME** | Sweet Lime / Mosambi | `5 Pcs` | **₹110** | ₹69 (500g) | Indian · 5 Pcs pack |
-| **ORANGE NAAGPUR** | Nagpur Orange | `4-5 Pcs` | **₹48** | ₹159 (1kg) | Indian · 4–5 Pcs pack |
-| **TAIWAN GAUVA RED** | Taiwan Guava Pink Flesh | `2 Pcs` | **₹85** | ₹119 (500g) | Indian · Moved to Indian Fruits |
-| **TAIWAN GAUVA WHITE** | Taiwan Guava White Flesh | `2 Pcs` | **₹90** | ₹109 (500g) | Indian · Moved to Indian Fruits |
-| **WATERMILOM KIRAN** | Watermelon Kiran | `1 Pc (2.5-3.5 kg)` | **₹109** | ₹129 (1 pc) | Indian · 2.5–3.5 kg |
-
-### B. Imported Fruits (`Imported Fruits` Subcategory)
-
-| Sheet Item Name | Store Catalog Product | New Unit / Pack Option | New Price | Previous Price | Origin / Spec Notes |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **APPLE GALA** | Apple Royal Gala Premium | `4 Pack (600-700g)` | **₹299** | ₹159 (500g) / ₹299 (1kg) | New Zealand · Count 120 |
-| **APPLE WASHIN** | Washington Apple | `3 Pack` | **₹289** | ₹159 (500g) / ₹299 (1kg) | Washington · Count 110 |
-| **APPLE FUJI** | Apple Fuji | `2 Pcs` | **₹209** | ₹159 (500g) / ₹299 (1kg) | Imported · 2 Pcs pack |
-| **AVACADO HASS** | Avocado Hass | `2 Pcs` | **₹125** | ₹149 (1 pc) / ₹289 (2 pcs) | Tanzania · Count 18/20 |
-| **CITRUS (SOUTH AFRICA)** | Malta Orange & Tangerine | `2 Pack` | **₹69** | ₹149 / ₹169 | South Africa · Count 72 · 2 Pack |
-| **MANDRINE** | Mandarin Orange | `5 Pack (400-500g)` | **₹165** | ₹179 (1kg) | South Africa · 5 Pack (400–500g) |
-| **GRAPES RED GLOBE** | Grapes Red Globe | `1 Pack (250g)` | **₹78** | ₹199 (500g) | Imported · 1 Pack (250g) |
-| **DRAGON WHITE FLESH** | Dragon Fruit White Flesh | `1 Pack` | **₹69** | ₹129 (1 pc) | Imported · 1 Pack |
-| **DRAGON RED FLESH** | Dragon Fruit Red Flesh | `1 Pack` | **₹65** | ₹149 (1 pc) | Imported · 1 Pack |
-| **BEAUTY PEAR (SOUTH AFRICA)** | Pear Green | `2 Pcs` | **₹99** | ₹109 (500g) | South Africa · Count 74 · Imported Fruits |
-| **BEAUTY PEAR (AUSTRALIA)** | Pear Red | `2 Pcs` | **₹109** | ₹129 (500g) | Australia · Count 74 · Imported Fruits |
-| **LONGAN LYCHE** | Longan | `1 Pack (250g)` | **₹130** | ₹249 (250g) | Double Gold · 1 Pack (250g) |
-| **PLUMS** | Imported Plums | `1 Pack (500g)` | **₹145** | ₹149 (250g) | Imported · 1 Pack (500g) |
-
----
-
-## 3. User Experience & Visual Design
+## 2. User Experience & Visual Design
 
 - **Key User Flows**:
-  1. Shopper opens the **Fruits** category (`Imported Fruits` or `Indian Fruits` tab).
-  2. Each updated product card displays the exact pack pill (e.g., `4 Pack (600-700g)`, `14 Pcs (500-600g)`, `2 Pcs`) and the exact updated price in bold `₹` typography.
-  3. Clicking **Add to Cart** or opening the **Product Detail Modal** carries the exact pack label and updated price into the cart drawer, order summary, and WhatsApp order message.
+  1. When a shopper lands on the storefront (desktop `1440px` or mobile `390px`), all five category cards (**Fruits**, **Vegetables**, **Meat**, **Smoothies**, and **Fast Foods**) render immediately with zero layout shift and uniform full-bleed framing (`aspect-[4/5]` on desktop, `aspect-square` on mobile).
+  2. Hovering or tapping **Fast Foods** triggers the warm champagne-gold border highlight (`#C5A880`), subtle `1.05x` editorial zoom, and active bronze-gold underline indicator while filtering the catalog to Fast Foods (`All Fast Foods`, `Momos`, `Fried Rice`, `Noodles`, `Snacks`, `Indo-Chinese Specials`).
 - **Visual Identity & Theme**:
-  - Preserves the existing editorial luxury aesthetic (`--color-brand-black: #1C1917`, `--color-brand-gray-50: #FAF9F5`) and all product photography untouched.
+  - *Aesthetic Direction*: High-end culinary magazine studio photography (`8k` commercial food styling, soft directional window light, warm champagne highlights, shallow depth of field).
+  - *Color Palette & Mood*: Warm cream travertine (`#FAF9F5` / `#F4F1EA`), natural linen drapery, rich golden-brown and wok-glazed culinary tones, and the crisp red-and-black **JIYOO** winged-J logo printed on a matte craft/ceramic vessel.
+  - *Framing & Aspect Ratio*: Full-bleed `3:4` vertical composition with zero artificial white borders so the image fills the rounded category card edge-to-edge on both mobile and desktop.
+- **Interactive Feedback & Motion**: Preserves the existing smooth `cubic-bezier(0.16, 1, 0.3, 1)` hover elevation, luxury sheen sweep, and instant image fallback resilience.
 
 ---
 
-## 4. Key Product Decisions & Trade-Offs
+## 3. Key Product Decisions & Trade-Offs
 
-- **Decision 1 — Authoritative Baseline Priority Over Stale Local Seed Cache**:
-  - *Chosen Approach*: Synchronize the bundled catalog prices into the server fallback store and bump the browser catalog cache version key so returning visitors immediately see the `05-11-2026` prices without needing to clear browser storage manually.
-  - *Why*: Previously, cached `localStorage` snapshots or local fallback JSON records could continue serving older seeded prices even after catalog updates.
-  - *Alternatives Considered*: Waiting for cache TTL expiration, which risks showing outdated prices to returning users.
+- **Decision 1 — Reference-Guided Image Generation with Official Logo**
+  - *Chosen Approach*: Pass the official JIYOO logo asset directly into the image generator along with a `3:4` studio culinary prompt specifying natural packaging branding on a central takeaway box/bowl surrounded by Momos, Hakka Noodles, Chilli Paneer, and gourmet burger/crispy bites.
+  - *Why*: Guarantees that the JIYOO emblem looks physically printed on real packaging inside the studio lighting environment rather than pasted flatly on top of the photo.
+  - *Alternatives Considered*: Overlaying a flat HTML `<img>` badge on top of the category card was rejected because it obscures the food photography on small `60px` mobile category thumbnails.
+- **Decision 2 — Synchronized Asset & Fallback Optimization**
+  - *Chosen Approach*: Update both the primary category thumbnail lookup and the image optimization/fallback mapping so the new Fast Foods artwork loads consistently across all browser states without ever reverting to the old cartoon icon.
+  - *Why*: Ensures neither primary rendering nor error-recovery paths can display the old clip-art image.
 
 ---
 
-## 5. Technical Architecture & Data Strategy
+## 4. Technical Architecture & Data Strategy *(Technical Reference)*
+
+### Architecture & Component Diagram
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                05-11-2026 Fruit Price & Pack Baseline                │
-│     (Exact UOM, Spec, Price, MRP, Origin & Subcategory Mapping)      │
-└──────────────────┬───────────────────────────────────┬───────────────┘
-                   │                                   │
-                   ▼                                   ▼
-┌─────────────────────────────────────┐ ┌──────────────────────────────┐
-│     Server Catalog Persistence      │ │   Client Storefront Store    │
-│  • Syncs baseline price & unit      │ │  • Bumps cache version key   │
-│  • Serves /api/catalog/products     │ │  • Merges baseline & live DB │
-└──────────────────┬──────────────────┘ └──────────────┬───────────────┘
-                   │                                   │
-                   └─────────────────┬─────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                 Official JIYOO Winged-J Brand Emblem                     │
+│            (Reference Input for Studio Packaging Branding)               │
+└────────────────────────────────────┬─────────────────────────────────────┘
+                                     │
                                      ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│            Storefront Cards · Detail Modal · Cart Drawer             │
-│  • Renders exact pack pill (e.g., "14 Pcs (500-600g)", "3 Pack")     │
-│  • Calculates cart line items & WhatsApp checkout totals accurately  │
-└──────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│             3:4 Luxury Fast Foods Studio Culinary Artwork                │
+│  • Steaming Momos, Wok Hakka Noodles, Chilli Paneer & Gourmet Burger     │
+│  • Warm Cream Travertine Surface + Soft Ivory Linen Studio Backdrop      │
+│  • JIYOO Winged-J Logo Printed on Central Craft Takeaway Box / Bowl      │
+└────────────────────────────────────┬─────────────────────────────────────┘
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│               Storefront 5-Column Category Card Grid                     │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────────┐  │
+│  │  Fruits  │  │Veggies   │  │   Meat   │  │Smoothies │  │ Fast Foods │  │
+│  │(Travert.)│  │(Travert.)│  │(Travert.)│  │ (Branded)│  │ (Branded   │  │
+│  │          │  │          │  │          │  │          │  │  Travert.) │  │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘  └─────┬──────┘  │
+└────────────────────────────────────────────────────────────────┼─────────┘
+                                                                 │
+                                                                 ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│            Active Category State & Subcategory Tab Filtering             │
+│   [All Fast Foods] · [Momos] · [Fried Rice] · [Noodles] · [Snacks] ...   │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Data Model & State**:
-  - Each updated `Product` entry maintains synchronized `price`, `numericPrice`, `mrp`, `unit`, `origin`, `subcategoryId`, and `weights: [{ label, price }]` fields.
-- **Interactive Component & State Mapping**:
-  - `ProductCard` and `ProductDetailModal` read `product.weights[0]` as the default selected variant and display `weights[0].price` (matching `product.price`).
-  - Cart items whose product IDs match an updated fruit automatically resolve the updated pack price when added to cart.
+### Interactive Component & State Mapping
+- **Category Card Selection**: Clicking the **Fast Foods** card updates the active category state to `fast-foods`, defaults the subcategory tab to `All Fast Foods` so all Momos, Noodles, Fried Rice, Snacks, and Indo-Chinese items are immediately visible, and records the category step in browser history.
+- **Resilient Image Pipeline**: Both the primary category thumbnail registry and the image utility resolver point to the new luxury Fast Foods asset, verified in headless Chromium across `1440×900` desktop and `390×844` mobile viewports.

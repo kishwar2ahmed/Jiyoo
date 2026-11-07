@@ -5,8 +5,15 @@ import { useSettings } from "../../../contexts/SettingsContext";
 
 export function SplashScreen({ onComplete }: { onComplete: () => void }) {
   const [isVisible, setIsVisible] = useState(true);
-  const [loadingText, setLoadingText] = useState(
-    "Preparing Curated Collection...",
+  const [isQuickRefresh] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem("jiyoo_splash_shown") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [loadingText, setLoadingText] = useState(() =>
+    isQuickRefresh ? "Welcome to JIYOO..." : "Preparing Curated Collection...",
   );
   const { user } = useCart();
   const { settings } = useSettings();
@@ -17,6 +24,18 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
   }, [onComplete]);
 
   useEffect(() => {
+    if (isQuickRefresh) {
+      let finishTimer: ReturnType<typeof setTimeout> | undefined;
+      const completeTimer = setTimeout(() => {
+        setIsVisible(false);
+        finishTimer = setTimeout(() => onCompleteRef.current(), 240);
+      }, 600);
+      return () => {
+        clearTimeout(completeTimer);
+        if (finishTimer) clearTimeout(finishTimer);
+      };
+    }
+
     const textTimer1 = setTimeout(
       () => setLoadingText("Selecting Finest Harvests..."),
       700,
@@ -38,7 +57,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
       clearTimeout(completeTimer);
       if (finishTimer) clearTimeout(finishTimer);
     };
-  }, []);
+  }, [isQuickRefresh]);
 
   return (
     <AnimatePresence>
@@ -126,17 +145,17 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
               </p>
             </div>
 
-            {/* Animated Progress Bar (Ultra-slim Luxury Hairline) */}
+            {/* Animated Progress Bar (Ultra-slim Luxury Champagne-Gold Hairline) */}
             <div className="w-full max-w-[210px] mb-3.5 px-2">
               <div className="h-[2px] w-full bg-stone-300/40 rounded-full overflow-hidden relative">
                 <motion.div
-                  className="h-full bg-gradient-to-r from-[#00D2FF] via-[#0EA5E9] to-[#0284C7] rounded-full relative shadow-[0_0_8px_rgba(14,165,233,0.85),0_0_3px_rgba(56,189,248,1)]"
+                  className="h-full bg-gradient-to-r from-[#C5A880] via-[#D4AF37] to-[#8A5A36] rounded-full relative shadow-[0_0_8px_rgba(212,175,55,0.65),0_0_3px_rgba(197,168,128,0.9)]"
                   initial={{ width: "8%" }}
                   animate={{ width: "100%" }}
-                  transition={{ duration: 2.0, ease: [0.22, 1, 0.36, 1] }}
+                  transition={{ duration: isQuickRefresh ? 0.55 : 2.0, ease: [0.22, 1, 0.36, 1] }}
                 >
                   {/* Subtle leading light glint */}
-                  <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_#00D2FF] opacity-90 pointer-events-none" />
+                  <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#FAF9F5] shadow-[0_0_6px_#D4AF37] opacity-90 pointer-events-none" />
                 </motion.div>
               </div>
             </div>

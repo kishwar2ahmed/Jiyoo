@@ -244,7 +244,7 @@ export const ProductCard = React.memo(function ProductCard({
 
             <div
               onClick={(e) => e.stopPropagation()}
-              className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/35 backdrop-blur-xs"
+              className="absolute bottom-1.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 px-2 py-1 rounded-full bg-black/40 backdrop-blur-xs"
             >
               {allImages.map((_, i) => (
                 <button
@@ -255,22 +255,26 @@ export const ProductCard = React.memo(function ProductCard({
                     setActiveImgIdx(i);
                   }}
                   aria-label={`View photo ${i + 1}`}
-                  className={`transition-all duration-200 rounded-full cursor-pointer ${
-                    i === activeImgIdx
-                      ? "w-3 h-1 bg-[#E5C99B]"
-                      : "w-1 h-1 bg-white/70 hover:bg-white"
-                  }`}
-                />
+                  className="p-1 flex items-center justify-center cursor-pointer"
+                >
+                  <span
+                    className={`block transition-all duration-200 rounded-full ${
+                      i === activeImgIdx
+                        ? "w-3.5 h-1.5 bg-[#E5C99B]"
+                        : "w-1.5 h-1.5 bg-white/75 hover:bg-white"
+                    }`}
+                  />
+                </button>
               ))}
             </div>
           </>
         )}
 
-        {/* Wishlist Button */}
+        {/* Wishlist Button (Enlarged Apple HIG Touch Area) */}
         <motion.button
           type="button"
           whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.82 }}
+          whileTap={{ scale: 0.85 }}
           onClick={(e) => {
             e.stopPropagation();
             toggleWishlist(String(product.id));
@@ -280,7 +284,7 @@ export const ProductCard = React.memo(function ProductCard({
               showToast(`Saved to wishlist`, "success");
             }
           }}
-          className={`absolute top-2 right-2 sm:top-3 sm:right-3 z-20 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-colors border cursor-pointer ${
+          className={`absolute top-2 right-2 sm:top-3 sm:right-3 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-colors border cursor-pointer ${
             isWishlisted
               ? "bg-red-50 border-red-200 text-red-600 shadow-sm"
               : "bg-[#FAF9F5]/95 hover:bg-white text-[#1C1917] border-[#E7E3DA]"
@@ -308,7 +312,7 @@ export const ProductCard = React.memo(function ProductCard({
             className="inline-flex items-center justify-center"
           >
             <Heart
-              className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform"
+              className="w-4 h-4 transition-transform"
               fill={isWishlisted ? "#DC2626" : "none"}
               stroke={isWishlisted ? "#DC2626" : "currentColor"}
             />
@@ -323,17 +327,35 @@ export const ProductCard = React.memo(function ProductCard({
             <h4 className="text-sm sm:text-lg font-serif-luxury font-semibold text-[#1C1917] leading-tight mb-0.5 break-words line-clamp-2 group-hover:text-[#0C0A09] transition-colors">
               {product.name}
             </h4>
-            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:text-[11px] text-[#78716C] font-medium">
-              <span className="uppercase tracking-widest text-[9px] sm:text-[10px]">
-                {product.categoryId}
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] sm:text-[11px] text-[#57534E] font-medium">
+              <span className="uppercase tracking-wider text-[9.5px] sm:text-[10px] text-[#78716C]">
+                {product.subcategoryId === "imported-fruits"
+                  ? "Imported Fruit"
+                  : product.subcategoryId === "indian-fruits"
+                  ? "Indian Fruit"
+                  : product.subcategoryId === "imported-vegetables"
+                  ? "Imported Veg"
+                  : product.subcategoryId === "indian-vegetables"
+                  ? "Fresh Veg"
+                  : product.subcategoryId === "chicken"
+                  ? "Fresh Chicken"
+                  : product.subcategoryId === "mutton"
+                  ? "Fresh Mutton"
+                  : product.subcategoryId === "fish-seafood"
+                  ? "Fish & Seafood"
+                  : product.categoryId === "smoothies"
+                  ? "Fresh Smoothie"
+                  : product.categoryId === "fast-foods"
+                  ? "Fast Food"
+                  : product.categoryId}
               </span>
               <span aria-hidden="true">·</span>
               {isOutOfStock ? (
-                <span className="inline-flex items-center gap-0.5 text-red-600 font-semibold uppercase text-[9px] sm:text-[10px]">
+                <span className="inline-flex items-center gap-0.5 text-red-600 font-semibold uppercase text-[9.5px] sm:text-[10px]">
                   Out of Stock
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-[#1C1917] font-semibold uppercase text-[9px] sm:text-[10px]">
+                <span className="inline-flex items-center gap-1 text-[#1C1917] font-semibold uppercase text-[9.5px] sm:text-[10px]">
                   <span className="inline-flex items-center justify-center shrink-0">
                     <InstaBlueTickIcon className="w-3.5 h-3.5 shrink-0" />
                   </span>
@@ -347,7 +369,7 @@ export const ProductCard = React.memo(function ProductCard({
               onProductClick={onProductClick as any}
             />
             {product.freshnessBadge && (
-              <div className="mt-1 inline-flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-800 leading-tight">
+              <div className="mt-1 inline-flex items-center gap-1.5 text-[9.5px] font-semibold uppercase tracking-wider text-emerald-800 leading-tight">
                 <PremiumShieldMark className="w-3.5 h-3.5 shrink-0" variant="emerald" />
                 <span className="break-words">{product.freshnessBadge}</span>
               </div>
@@ -361,23 +383,23 @@ export const ProductCard = React.memo(function ProductCard({
           </p>
         )}
 
-        {/* Option selectors (Wrapped cleanly so options are never cropped off-screen) */}
+        {/* Option selectors (Ergonomic thumb-friendly chips) */}
         <div className="mt-auto space-y-2 sm:space-y-3 pt-1.5">
           <div className="space-y-1.5 sm:space-y-2">
             {/* Weights */}
             {product.weights && product.weights.length > 0 && (
-              <div className="flex flex-wrap gap-1 sm:gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 {product.weights.map((w) => (
                   <motion.button
                     key={w.label}
                     type="button"
-                    whileTap={{ scale: 0.93 }}
+                    whileTap={{ scale: 0.94 }}
                     whileHover={{ scale: 1.02 }}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedWeight(w);
                     }}
-                    className={`px-2 sm:px-2.5 py-1 rounded-sm text-[9.5px] sm:text-[10px] font-semibold whitespace-nowrap transition-colors border cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md text-[10.5px] sm:text-[11px] font-semibold whitespace-nowrap transition-colors border cursor-pointer ${
                       selectedWeight?.label === w.label
                         ? "bg-[#1C1917] text-[#FAF9F5] border-[#1C1917]"
                         : "bg-[#F4F1EA] text-[#44403C] border-[#E7E3DA] hover:border-[#1C1917]"
@@ -391,18 +413,18 @@ export const ProductCard = React.memo(function ProductCard({
 
             {/* Fish Cuts */}
             {product.fishCuts && product.fishCuts.length > 0 && (
-              <div className="flex flex-wrap gap-1 sm:gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 {product.fishCuts.map((c) => (
                   <motion.button
                     key={c}
                     type="button"
-                    whileTap={{ scale: 0.93 }}
+                    whileTap={{ scale: 0.94 }}
                     whileHover={{ scale: 1.02 }}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedCut(c);
                     }}
-                    className={`px-2 sm:px-2.5 py-1 rounded-sm text-[9.5px] sm:text-[10px] font-semibold whitespace-nowrap transition-colors border cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md text-[10.5px] sm:text-[11px] font-semibold whitespace-nowrap transition-colors border cursor-pointer ${
                       selectedCut === c
                         ? "bg-[#1C1917] text-[#FAF9F5] border-[#1C1917]"
                         : "bg-[#F4F1EA] text-[#44403C] border-[#E7E3DA] hover:border-[#1C1917]"
@@ -416,18 +438,18 @@ export const ProductCard = React.memo(function ProductCard({
 
             {/* Cleaning Options */}
             {product.cleaningOptions && product.cleaningOptions.length > 0 && (
-              <div className="flex flex-wrap gap-1 sm:gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 {product.cleaningOptions.map((c) => (
                   <motion.button
                     key={c}
                     type="button"
-                    whileTap={{ scale: 0.93 }}
+                    whileTap={{ scale: 0.94 }}
                     whileHover={{ scale: 1.02 }}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedCleaning(c);
                     }}
-                    className={`px-2 sm:px-2.5 py-1 rounded-sm text-[9.5px] sm:text-[10px] font-semibold whitespace-nowrap transition-colors border cursor-pointer ${
+                    className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md text-[10.5px] sm:text-[11px] font-semibold whitespace-nowrap transition-colors border cursor-pointer ${
                       selectedCleaning === c
                         ? "bg-[#1C1917] text-[#FAF9F5] border-[#1C1917]"
                         : "bg-[#F4F1EA] text-[#44403C] border-[#E7E3DA] hover:border-[#1C1917]"
@@ -440,31 +462,50 @@ export const ProductCard = React.memo(function ProductCard({
             )}
           </div>
 
-          {/* Action Row (Stacked on mobile so price & Add button never crowd or crop) */}
-          <div className="pt-2.5 sm:pt-4 border-t border-[#E7E3DA] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-2 mt-auto">
-            <div className="flex items-center justify-between sm:flex-col sm:items-start gap-1">
-              <span className="group/delivery text-[9px] sm:text-[10px] text-emerald-800 uppercase font-semibold tracking-wider inline-flex items-center gap-1.5 order-2 sm:order-1">
+          {/* Action Row (Stacks cleanly when in-cart stepper is active so [-] [Add to Cart] [+] never clip) */}
+          <div
+            className={`pt-2.5 sm:pt-3.5 border-t border-[#E7E3DA] flex gap-2.5 mt-auto ${
+              currentQtyInCart > 0
+                ? "flex-col items-stretch"
+                : "flex-col sm:flex-row sm:items-center justify-between"
+            }`}
+          >
+            <div
+              className={`flex items-center justify-between gap-1 ${
+                currentQtyInCart > 0 ? "w-full" : "sm:flex-col sm:items-start"
+              }`}
+            >
+              <span
+                className={`group/delivery text-[9px] sm:text-[10px] text-emerald-800 uppercase font-semibold tracking-wider inline-flex items-center gap-1.5 ${
+                  currentQtyInCart > 0 ? "order-2" : "order-2 sm:order-1"
+                }`}
+              >
                 <RealisticDeliveryScooter className="w-6 h-5 sm:w-7 sm:h-6 shrink-0" />
                 <span className="tabular-nums">{product.deliveryEstimate || "60m"}</span>
               </span>
-              <div className="order-1 sm:order-2">
+              <div className={currentQtyInCart > 0 ? "order-1" : "order-1 sm:order-2"}>
                 <PriceDisplay
                   amount={currentPrice}
                   discountPercent={product.discount}
+                  autoAnchor
+                  seedKey={product.id}
                   size="md"
                   weight="extrabold"
                   animated
                 />
               </div>
-
             </div>
 
-            {/* Pill Action Button & In-Cart Quantity Controls */}
+            {/* Pill Action Button & Clear Plus-Minus In-Cart Quantity Controls */}
             <div
               onClick={(e) => e.stopPropagation()}
-              className="relative flex items-center justify-end gap-1.5 w-full sm:w-auto"
+              className={`relative flex items-center gap-1.5 ${
+                currentQtyInCart > 0
+                  ? "w-full justify-between"
+                  : "w-full sm:w-auto justify-end"
+              }`}
             >
-              {/* Discrete Luxury Decrement Button when In Cart */}
+              {/* Discrete Luxury Decrement (-) Button when In Cart */}
               <AnimatePresence>
                 {currentQtyInCart > 0 && (
                   <motion.button
@@ -483,7 +524,8 @@ export const ProductCard = React.memo(function ProductCard({
                       }
                     }}
                     aria-label="Decrease quantity"
-                    className="w-[34px] h-[34px] sm:w-[32px] sm:h-[32px] rounded-full flex items-center justify-center bg-[#1C1917] hover:bg-[#292524] text-[#FAF2E1] hover:text-[#E5C99B] border border-[#C5A880]/70 shadow-[0_3px_10px_rgba(0,0,0,0.25)] cursor-pointer transition-colors shrink-0"
+                    title="Decrease quantity"
+                    className="w-[34px] h-[34px] rounded-full flex items-center justify-center bg-[#1C1917] hover:bg-[#292524] text-[#FAF2E1] hover:text-[#E5C99B] border border-[#C5A880]/70 shadow-[0_3px_10px_rgba(0,0,0,0.25)] cursor-pointer transition-colors shrink-0"
                   >
                     <Minus className="w-3.5 h-3.5" strokeWidth={2.6} />
                   </motion.button>
@@ -491,14 +533,14 @@ export const ProductCard = React.memo(function ProductCard({
               </AnimatePresence>
 
               {/* Velvet Butterfly Pill Button - Permanent, Crisp & Authentic */}
-              <div className="relative inline-flex items-center justify-end min-w-0 flex-1 sm:flex-initial">
+              <div className="relative inline-flex items-center justify-center min-w-0 flex-1 sm:flex-initial">
                 <VelvetyBalloonButton
                   onClick={handleAddToCart}
                   disabled={isOutOfStock}
                   justAdded={justAdded}
                   label={isOutOfStock ? "Sold Out" : "Add to Cart"}
                   size="card"
-                  className="w-full sm:w-auto flex items-center justify-center sm:justify-end"
+                  className="w-full sm:w-auto flex items-center justify-center"
                 />
 
                 {/* Floating Velvet & Gold Quantity Badge */}
@@ -517,6 +559,26 @@ export const ProductCard = React.memo(function ProductCard({
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* Discrete Luxury Increment (+) Button when In Cart */}
+              <AnimatePresence>
+                {currentQtyInCart > 0 && !isOutOfStock && (
+                  <motion.button
+                    type="button"
+                    initial={{ scale: 0, opacity: 0, x: -8 }}
+                    animate={{ scale: 1, opacity: 1, x: 0 }}
+                    exit={{ scale: 0, opacity: 0, x: -8 }}
+                    transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                    whileTap={{ scale: 0.85 }}
+                    onClick={handleAddToCart}
+                    aria-label="Increase quantity"
+                    title="Increase quantity"
+                    className="w-[34px] h-[34px] rounded-full flex items-center justify-center bg-[#1C1917] hover:bg-[#292524] text-[#FAF2E1] hover:text-[#E5C99B] border border-[#C5A880]/70 shadow-[0_3px_10px_rgba(0,0,0,0.25)] cursor-pointer transition-colors shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" strokeWidth={2.6} />
+                  </motion.button>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>

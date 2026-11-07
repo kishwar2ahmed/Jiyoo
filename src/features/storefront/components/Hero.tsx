@@ -1,6 +1,7 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   motion,
+  AnimatePresence,
   useScroll,
   useTransform,
   useSpring,
@@ -9,7 +10,6 @@ import {
 import { ArrowRight } from 'lucide-react';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { sanitizeWhatsAppNumber } from '../../../utils/whatsapp';
-import { TypewriterText } from '../../core/components/TypewriterText';
 import { VelvetWhatsAppButton } from '../../product/components/VelvetWhatsAppButton';
 import { HeroSlideshow } from './HeroSlideshow';
 
@@ -33,6 +33,15 @@ export function Hero({
   const { settings } = useSettings();
   const heroRef = useRef<HTMLElement>(null);
   const prefersReducedMotion = useReducedMotion();
+  const [phraseIdx, setPhraseIdx] = useState(0);
+
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    const interval = setInterval(() => {
+      setPhraseIdx((prev) => (prev + 1) % HERO_TYPEWRITER_PHRASES.length);
+    }, 3800);
+    return () => clearInterval(interval);
+  }, [prefersReducedMotion]);
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -130,33 +139,22 @@ export function Hero({
         </svg>
       </motion.div>
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-12 pt-2 pb-2.5 sm:pt-8 sm:pb-10 lg:pt-14 lg:pb-16">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-6 lg:gap-10 items-center">
+      <div className="relative z-10 max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-12 pt-2.5 pb-3 sm:pt-8 sm:pb-10 lg:pt-14 lg:pb-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 sm:gap-6 lg:gap-10 items-center">
           {/* Left Column on Desktop / Top Header Above Banner on Mobile */}
           <div className="order-1 lg:order-1 lg:col-span-6 xl:col-span-6 flex flex-col justify-between">
-            {/* Row 1 (div:nth-of-type(1)): Bold Editorial Eyebrow (JIYOO PREMIUM) + Mobile WhatsApp Pill */}
+            {/* Row 1: JIYOO PREMIUM Eyebrow (Zero symbols, high visibility) */}
             <motion.div
               style={{ y: eyebrowY }}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: EASE_OUT_EXPO }}
-              className="flex items-center justify-between gap-2 mb-1 sm:mb-2 lg:mb-4"
+              className="flex items-center justify-between gap-2 mb-1.5 sm:mb-2.5 lg:mb-4"
             >
-              <div className="min-w-0 flex items-center gap-2 sm:gap-2.5 text-xs sm:text-sm text-[#1C1917] font-sans-clean">
-                <span className="relative flex h-2 w-2 items-center justify-center shrink-0" aria-hidden="true">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C5A880] opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#8A5A36]" />
-                </span>
-                <span className="font-extrabold text-xs sm:text-sm tracking-[0.15em] lg:tracking-[0.18em] uppercase text-[#1C1917] block truncate">
+              <div className="min-w-0 inline-flex items-center">
+                <span className="font-sans text-[13px] sm:text-[15px] lg:text-[16px] font-extrabold tracking-[0.22em] sm:tracking-[0.26em] uppercase text-[#1C1917] leading-none select-none">
                   JIYOO PREMIUM
                 </span>
-                <motion.span
-                  aria-hidden="true"
-                  initial={{ scaleX: 0, opacity: 0 }}
-                  animate={{ scaleX: 1, opacity: 1 }}
-                  transition={{ duration: 0.85, delay: 0.25, ease: EASE_OUT_EXPO }}
-                  className="hidden lg:inline-block h-[1px] w-12 bg-gradient-to-r from-[#C5A880] to-transparent origin-left"
-                />
               </div>
 
               <div className="shrink-0 flex lg:hidden items-center justify-end">
@@ -168,15 +166,15 @@ export function Hero({
               </div>
             </motion.div>
 
-            {/* Row 2 (div:nth-of-type(2)): Unified Responsive Display Headline & Typewriter Tagline (Visible on Mobile & Desktop) */}
+            {/* Row 2 (div:nth-of-type(2)): Unified Responsive Display Headline & Smooth Editorial Tagline */}
             <motion.div
               role="heading"
               aria-level={1}
               style={{ y: headlineY }}
-              className="editorial-hero-headline font-medium text-[#1C1917] origin-left pb-0.5"
+              className="editorial-hero-headline font-medium text-[#1C1917] origin-left pb-0.5 text-balance"
             >
               {/* Line 1 (div:nth-of-type(1)): Static Display Words */}
-              <div className="flex flex-wrap gap-x-[0.22em] sm:gap-x-[0.25em] pb-0.5 text-[15px] sm:text-[19px] lg:text-[clamp(1.75rem,3.1vw,3.25rem)] font-serif-luxury font-semibold lg:font-medium text-[#1C1917] leading-[1.2] lg:leading-[1.15]">
+              <div className="flex flex-wrap gap-x-[0.22em] sm:gap-x-[0.25em] pb-0.5 text-[18px] sm:text-[22px] lg:text-[clamp(1.85rem,3.1vw,3.25rem)] font-serif-luxury font-semibold lg:font-medium text-[#1C1917] leading-[1.18] lg:leading-[1.15]">
                 {HEADLINE_LINE_1.map((word, index) => (
                   <span
                     key={word}
@@ -201,25 +199,23 @@ export function Hero({
                 ))}
               </div>
 
-              {/* Line 2 (div:nth-of-type(2)): Animated Editorial Typewriter Tagline */}
-              <motion.div
-                initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.65, delay: 0.2, ease: EASE_OUT_EXPO }}
-                className="relative flex items-center pt-0.5 pb-1.5 lg:pb-2.5 min-h-[1.5rem] sm:min-h-[1.85rem] lg:min-h-0 w-full text-[15px] sm:text-[17px] lg:text-[clamp(1.75rem,3.1vw,3.25rem)] leading-snug lg:leading-[1.15]"
+              {/* Line 2 (div:nth-of-type(2)): Smooth Editorial Serif Phrase Showcase (No Blinking Cursor) */}
+              <div
+                aria-label={HERO_TYPEWRITER_PHRASES[phraseIdx]}
+                className="relative flex items-center pt-0.5 pb-2 lg:pb-3 min-h-[1.75rem] sm:min-h-[2.1rem] lg:min-h-[2.75rem] w-full text-[17px] sm:text-[20px] lg:text-[clamp(1.85rem,3.1vw,3.25rem)] leading-snug lg:leading-[1.15] overflow-hidden"
               >
-                <TypewriterText
-                  phrases={HERO_TYPEWRITER_PHRASES}
-                  typingSpeed={34}
-                  deletingSpeed={16}
-                  pauseDuration={3200}
-                  startDelay={700}
-                  reserveLongestSpace={true}
-                  className="max-w-full text-[15px] sm:text-[17px] lg:text-[clamp(1.75rem,3.1vw,3.25rem)] leading-snug lg:leading-[1.15]"
-                  textClassName="font-serif-luxury italic font-semibold lg:font-normal text-[#7C4A24] lg:text-[#8A5A36] tracking-[0.01em] lg:tracking-[-0.01em]"
-                  cursorClassName="bg-[#7C4A24] lg:bg-[#8A5A36]"
-                  ariaLabel="fresh custom-cut meats, delivered fast."
-                />
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span
+                    key={phraseIdx}
+                    initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -10 }}
+                    transition={{ duration: 0.45, ease: EASE_OUT_EXPO }}
+                    className="block font-serif-luxury italic font-semibold lg:font-normal text-[#7C4A24] lg:text-[#8A5A36] tracking-[0.01em] lg:tracking-[-0.01em]"
+                  >
+                    {HERO_TYPEWRITER_PHRASES[phraseIdx]}
+                  </motion.span>
+                </AnimatePresence>
 
                 {/* Scroll-linked & Entrance-drawn Editorial Accent Hairline */}
                 <motion.span
@@ -230,7 +226,7 @@ export function Hero({
                   transition={{ duration: 1.05, delay: 0.52, ease: EASE_OUT_EXPO }}
                   className="pointer-events-none absolute left-0 bottom-0 h-[1.5px] w-full max-w-[260px] sm:max-w-[360px] bg-gradient-to-r from-[#8A5A36]/70 via-[#C5A880]/60 to-transparent origin-left"
                 />
-              </motion.div>
+              </div>
             </motion.div>
 
             {/* Desktop Subcopy & Primary CTA Row */}

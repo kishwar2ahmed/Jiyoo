@@ -1023,7 +1023,7 @@ export function CartModal({
               email: user?.email || "",
             },
             theme: {
-              color: "#059669",
+              color: "#1C1917",
             },
             modal: {
               ondismiss: function() {
@@ -1372,6 +1372,58 @@ export function CartModal({
                       </div>
                     ) : (
                       <>
+                        {orderType === "retail" && (
+                          <div className="mb-3.5 p-3 sm:p-3.5 rounded-2xl bg-white border border-[#E7E3DA] shadow-2xs">
+                            {typeof settings.freeDeliveryThreshold === "number" &&
+                            settings.freeDeliveryThreshold > 0 ? (
+                              <>
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <RealisticDeliveryScooter className="w-6 h-5 shrink-0" />
+                                    {isFreeDelivery ? (
+                                      <span className="text-xs font-semibold text-[#1C1917] flex items-center gap-1.5">
+                                        <span>Complimentary Delivery Unlocked</span>
+                                        <PremiumShieldMark className="w-3.5 h-3.5 shrink-0" variant="emerald" />
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs font-medium text-[#44403C]">
+                                        Add{" "}
+                                        <strong className="font-bold text-[#1C1917] tabular-nums">
+                                          ₹{Math.max(0, Math.ceil(settings.freeDeliveryThreshold - cartTotal))}
+                                        </strong>{" "}
+                                        more for <strong className="font-semibold text-[#8A5A36]">FREE delivery</strong>
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] font-mono font-bold text-[#78716C] tabular-nums shrink-0">
+                                    {Math.min(100, Math.round((cartTotal / settings.freeDeliveryThreshold) * 100))}%
+                                  </span>
+                                </div>
+                                <div className="h-1.5 w-full rounded-full bg-[#E7E3DA]/80 overflow-hidden">
+                                  <motion.div
+                                    initial={false}
+                                    animate={{
+                                      width: `${Math.min(100, Math.max(6, (cartTotal / settings.freeDeliveryThreshold) * 100))}%`,
+                                    }}
+                                    transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                                    className="h-full rounded-full bg-gradient-to-r from-[#8A5A36] via-[#C5A880] to-[#D4AF37]"
+                                  />
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <RealisticDeliveryScooter className="w-6 h-5 shrink-0" />
+                                  <span className="text-xs font-medium text-[#1C1917] truncate">
+                                    Express 60-Min Cold-Chain Delivery ·{" "}
+                                    <span className="text-[#78716C]">RO-Water Cleaned &amp; Hygienically Packed</span>
+                                  </span>
+                                </div>
+                                <PremiumShieldMark className="w-4 h-4 shrink-0" variant="emerald" />
+                              </div>
+                            )}
+                          </div>
+                        )}
                         <div className="space-y-3 sm:space-y-4 flex-1">
                           <AnimatePresence initial={false}>
                             {items.map((item, idx) => (

@@ -59,41 +59,59 @@ const defaultAboutUs: AboutUsSettings = {
   contactPhone: "+91 97393 91891",
 };
 
+const ensureCoreBanners = (banners: BannerSlide[]): BannerSlide[] => {
+  const list = [...banners];
+
+  const requiredIds = [
+    'jiyoo-diwali-hampers',
+    'jiyoo-diwali-feast',
+    'jiyoo-diwali-wholesale',
+    'diwali-special',
+    'wholesale-india',
+    'whatsapp-order',
+    'fast-foods-banner',
+  ];
+
+  requiredIds.forEach((reqId, targetIdx) => {
+    const defSlide = DEFAULT_HERO_BANNERS.find((b) => b.id === reqId);
+    if (!defSlide) return;
+    const existingIdx = list.findIndex(
+      (b: any) => b.id === reqId || b.image === defSlide.image
+    );
+    if (existingIdx === -1) {
+      list.splice(Math.min(targetIdx, list.length), 0, defSlide);
+    } else if (existingIdx !== targetIdx && targetIdx < 4) {
+      const [item] = list.splice(existingIdx, 1);
+      list.splice(Math.min(targetIdx, list.length), 0, item);
+    }
+  });
+
+  return list.map((b: BannerSlide, idx: number) => {
+    const isClassicDiwali =
+      b.id === 'diwali-special' ||
+      b.image?.includes('diwali_special_sale') ||
+      b.image?.includes('file_000000002410821198a81a83a16d503f');
+    const isWhatsApp =
+      b.id === 'whatsapp-order' ||
+      b.image?.includes('whatsapp') ||
+      b.image?.includes('file_00000000e7e48211898141e9b8e21f64');
+    return {
+      ...b,
+      order: idx,
+      durationMs: b.durationMs ?? (isWhatsApp ? 7500 : undefined),
+      hideCaption: Boolean(isClassicDiwali || isWhatsApp),
+    };
+  });
+};
+
 const getInitialBanners = (): BannerSlide[] => {
   if (typeof window !== 'undefined') {
     try {
       const cached = localStorage.getItem('jiyoo_hero_banners');
       if (cached) {
-        let parsed = JSON.parse(cached);
+        const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasDiwali = parsed.some((b: any) => 
-            b.id?.includes('diwali') || 
-            b.image?.includes('diwali') || 
-            b.image?.includes('file_000000002410821198a81a83a16d503f')
-          );
-          if (!hasDiwali) {
-            const diwaliSlide = DEFAULT_HERO_BANNERS.find(b => b.id === 'diwali-special') || DEFAULT_HERO_BANNERS[0];
-            parsed = [diwaliSlide, ...parsed];
-          }
-
-          const hasWhatsApp = parsed.some((b: any) => 
-            b.id?.includes('whatsapp') || 
-            b.image?.includes('whatsapp') || 
-            b.image?.includes('file_00000000e7e48211898141e9b8e21f64')
-          );
-          if (!hasWhatsApp) {
-            const waSlide = DEFAULT_HERO_BANNERS.find(b => b.id === 'whatsapp-order');
-            if (waSlide) {
-              parsed.splice(1, 0, waSlide);
-            }
-          }
-
-          return parsed.map((b: BannerSlide, idx: number) => ({
-            ...b,
-            order: typeof b.order === 'number' ? b.order : idx,
-            durationMs: b.durationMs ?? (b.id === 'whatsapp-order' || b.image?.includes('whatsapp') || b.image?.includes('file_00000000e7e48211898141e9b8e21f64') ? 8000 : undefined),
-            hideCaption: b.hideCaption ?? (b.id === 'whatsapp-order' || b.image?.includes('whatsapp') || b.image?.includes('file_00000000e7e48211898141e9b8e21f64')),
-          }));
+          return ensureCoreBanners(parsed);
         }
       }
     } catch {
@@ -147,7 +165,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             ...defaultSettings,
             ...parsed,
             aboutUs: { ...defaultAboutUs, ...(parsed.aboutUs || {}) },
-            heroBanners: Array.isArray(parsed.heroBanners) && parsed.heroBanners.length > 0 ? parsed.heroBanners : getInitialBanners(),
+            heroBanners: Array.isArray(parsed.heroBanners) && parsed.heroBanners.length > 0 ? ensureCoreBanners(parsed.heroBanners) : getInitialBanners(),
           };
         }
       } catch {
@@ -172,7 +190,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
               deliveryFee: typeof raw.deliveryFee === 'number' ? raw.deliveryFee : prev.deliveryFee,
               logoUrl: sanitizeImageUrl(raw.logoUrl) || prev.logoUrl,
               developerImageUrl: sanitizeImageUrl(raw.developerImageUrl) || prev.developerImageUrl,
-              heroBanners: Array.isArray(raw.heroBanners) && raw.heroBanners.length > 0 ? raw.heroBanners : prev.heroBanners,
+              heroBanners: Array.isArray(raw.heroBanners) && raw.heroBanners.length > 0 ? ensureCoreBanners(raw.heroBanners) : prev.heroBanners,
             };
             try {
               localStorage.setItem('jiyoo_store_settings_v2', JSON.stringify(next));
@@ -197,25 +215,27 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             let resolvedBanners: BannerSlide[] = prev.heroBanners || DEFAULT_HERO_BANNERS;
 
             if (Array.isArray(raw.heroBanners) && raw.heroBanners.length > 0) {
-              resolvedBanners = raw.heroBanners.map((b: any, index: number) => {
-                const isDiwali = b.id?.includes('diwali') || b.image?.includes('diwali') || b.image?.includes('file_000000002410821198a81a83a16d503f');
-                const isWhatsApp = b.id?.includes('whatsapp') || b.image?.includes('whatsapp') || b.image?.includes('file_00000000e7e48211898141e9b8e21f64');
-                return {
-                  id: b.id || `banner-${index}`,
-                  image: b.image || '/banners/02_Indian_Fruits_Original.png',
-                  alt: b.alt || b.title || 'JIYOO Banner',
-                  badge: b.badge || 'Featured',
-                  title: b.title || 'Fresh Produce',
-                  subtitle: b.subtitle || '',
-                  isActive: b.isActive !== false,
-                  isFeatured: typeof b.isFeatured === 'boolean' ? b.isFeatured : isDiwali,
-                  highlightTone: b.highlightTone || (isDiwali ? 'amber' : isWhatsApp ? 'emerald' : 'none'),
-                  durationMs: typeof b.durationMs === 'number' ? b.durationMs : (isWhatsApp ? 8000 : undefined),
-                  hideCaption: typeof b.hideCaption === 'boolean' ? b.hideCaption : isWhatsApp,
-                  order: typeof b.order === 'number' ? b.order : index,
-                  linkUrl: b.linkUrl || '',
-                };
-              }).sort((a: BannerSlide, b: BannerSlide) => a.order - b.order);
+              resolvedBanners = ensureCoreBanners(
+                raw.heroBanners.map((b: any, index: number) => {
+                  const isDiwali = b.id?.includes('diwali') || b.image?.includes('diwali') || b.image?.includes('file_000000002410821198a81a83a16d503f');
+                  const isWhatsApp = b.id?.includes('whatsapp') || b.image?.includes('whatsapp') || b.image?.includes('file_00000000e7e48211898141e9b8e21f64');
+                  return {
+                    id: b.id || `banner-${index}`,
+                    image: b.image || '/banners/02_Indian_Fruits_Original.png',
+                    alt: b.alt || b.title || 'JIYOO Banner',
+                    badge: b.badge || 'Featured',
+                    title: b.title || 'Fresh Produce',
+                    subtitle: b.subtitle || '',
+                    isActive: b.isActive !== false,
+                    isFeatured: typeof b.isFeatured === 'boolean' ? b.isFeatured : isDiwali,
+                    highlightTone: b.highlightTone || (isDiwali ? 'amber' : isWhatsApp ? 'emerald' : 'none'),
+                    durationMs: typeof b.durationMs === 'number' ? b.durationMs : (isWhatsApp ? 7500 : undefined),
+                    hideCaption: typeof b.hideCaption === 'boolean' ? b.hideCaption : (isWhatsApp || isDiwali),
+                    order: typeof b.order === 'number' ? b.order : index,
+                    linkUrl: b.linkUrl || '',
+                  };
+                }).sort((a: BannerSlide, b: BannerSlide) => a.order - b.order)
+              );
 
               if (typeof window !== 'undefined') {
                 try {

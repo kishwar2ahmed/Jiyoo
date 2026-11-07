@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ArrowLeft,
@@ -7,6 +7,7 @@ import {
   ShoppingBag,
   X,
   Minus,
+  Plus,
   Heart,
   ChevronLeft,
   ChevronRight,
@@ -15,7 +16,6 @@ import { useSettings } from "../../../contexts/SettingsContext";
 import { useCart } from "../../../contexts/CartContext";
 import { useToast } from "../../core/contexts/ToastContext";
 import { sanitizeWhatsAppNumber } from "../../../utils/whatsapp";
-import { TypewriterText } from "../../core/components/TypewriterText";
 import { useStorefrontProducts } from "../../storefront/hooks/useStorefrontProducts";
 import { VelvetyBalloonButton } from "../../product/components/VelvetyBalloonButton";
 import { VelvetWhatsAppButton } from "../../product/components/VelvetWhatsAppButton";
@@ -23,30 +23,29 @@ import { ProductDetailModal } from "../../product/components/ProductDetailModal"
 import { getOptimizedImageUrl, createSvgPlaceholder } from "../../../utils/imageUtils";
 import { Product } from "../../../types";
 import { PriceDisplay } from "../../core/components/PriceDisplay";
+import { InstaBlueTickIcon } from "../../core/components/SocialIcons";
+import { PremiumShieldMark } from "../../core/components/PremiumShieldMark";
+import { RealisticDeliveryScooter } from "../../core/components/RealisticDeliveryScooter";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 const WHOLESALE_TYPEWRITER_PHRASES = [
-  "Direct container imports & orchard-packed master cartons.",
-  "Calibrated citrus, pome & exotic fruit lots for HoReCa & retail.",
-  "Temperature-controlled cold-chain dispatch with GST invoicing.",
-  "Transparent ex-dock trade pricing per carton and per kilogram.",
+  "Full boxes of fresh fruits at wholesale prices.",
+  "Fresh oranges, apples, pears, berries, and grapes in bulk packs.",
+  "All over India delivery for full fruit boxes.",
+  "Save ₹300 to ₹500 on every full fruit box.",
 ] as const;
 
-type LotCategoryFilter = "All Lots" | "Citrus" | "Apples & Pears" | "Exotics & Berries" | "Vineyard Grapes";
+type LotCategoryFilter = "All Boxes" | "Oranges" | "Apples & Pears" | "Dragon Fruit & Berries" | "Grapes";
 
 const LOT_FILTERS: LotCategoryFilter[] = [
-  "All Lots",
-  "Citrus",
+  "All Boxes",
+  "Oranges",
   "Apples & Pears",
-  "Exotics & Berries",
-  "Vineyard Grapes",
+  "Dragon Fruit & Berries",
+  "Grapes",
 ];
 
-/**
- * Strips any stray emoji characters from legacy or cached strings
- * so the trade catalog remains 100% editorial and typographically pure.
- */
 function cleanEditorialText(input?: string | number | null): string {
   if (input === undefined || input === null) return "";
   return String(input)
@@ -59,16 +58,16 @@ function cleanEditorialText(input?: string | number | null): string {
 }
 
 function matchesLotFilter(product: Product, filter: LotCategoryFilter): boolean {
-  if (filter === "All Lots") return true;
+  if (filter === "All Boxes") return true;
   const haystack = `${product.name} ${product.description || ""} ${(product.tags || []).join(" ")}`.toLowerCase();
   switch (filter) {
-    case "Citrus":
+    case "Oranges":
       return haystack.includes("orange") || haystack.includes("citrus") || haystack.includes("mandarin") || haystack.includes("limpopo");
     case "Apples & Pears":
       return haystack.includes("apple") || haystack.includes("pear") || haystack.includes("crisp pink");
-    case "Exotics & Berries":
+    case "Dragon Fruit & Berries":
       return haystack.includes("dragon") || haystack.includes("blueberry") || haystack.includes("berry") || haystack.includes("exotic");
-    case "Vineyard Grapes":
+    case "Grapes":
       return haystack.includes("grape") || haystack.includes("seedless") || haystack.includes("sonaka");
     default:
       return true;
@@ -91,7 +90,7 @@ function computeIndicativeUnitRate(product: Product, wholesalePrice: number): st
   if (countNum && countNum > 0) {
     return `₹${Math.round(wholesalePrice / countNum).toLocaleString("en-IN")} / pc`;
   }
-  return "Trade Net";
+  return "Wholesale Net";
 }
 
 function triggerSafeExternalLink(url: string) {
@@ -106,7 +105,7 @@ function triggerSafeExternalLink(url: string) {
 
 function WholesaleLotCardImageArea({
   product,
-  lotNumber,
+  savingsAmount,
   isWishlisted,
   toggleWishlist,
   showToast,
@@ -115,7 +114,7 @@ function WholesaleLotCardImageArea({
   imageRefCallback,
 }: {
   product: Product;
-  lotNumber: string;
+  savingsAmount: number;
   isWishlisted: boolean;
   toggleWishlist: (id: string) => void;
   showToast: (msg: string, type: "info" | "success") => void;
@@ -135,10 +134,16 @@ function WholesaleLotCardImageArea({
 
   return (
     <div className="luxury-sheen-sweep relative aspect-[4/3] bg-white p-5 flex items-center justify-center border-b border-[#E7E3DA]/70 overflow-hidden">
-      {/* Quiet Unboxed Lot Index */}
-      <span className="absolute top-3.5 left-4 z-10 font-mono text-[10px] uppercase tracking-[0.22em] text-[#78716C] bg-white/70 backdrop-blur-xs px-1.5 py-0.5 rounded">
-        LOT {lotNumber}
-      </span>
+      {/* Savings / Wholesale Pack Tag */}
+      {savingsAmount > 0 ? (
+        <span className="absolute top-3.5 left-4 z-10 font-sans text-[10.5px] font-bold uppercase tracking-[0.08em] text-[#8A5A36] bg-[#FAF9F5]/95 border border-[#C5A880]/50 px-2.5 py-1 rounded-md shadow-2xs">
+          Save ₹{savingsAmount.toLocaleString("en-IN")} / Box
+        </span>
+      ) : (
+        <span className="absolute top-3.5 left-4 z-10 font-sans text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[#57534E] bg-[#FAF9F5]/95 border border-[#E7E3DA] px-2.5 py-1 rounded-md">
+          Wholesale Pack
+        </span>
+      )}
 
       {/* Wishlist Toggle */}
       <motion.button
@@ -149,19 +154,19 @@ function WholesaleLotCardImageArea({
           e.stopPropagation();
           toggleWishlist(String(product.id));
           showToast(
-            isWishlisted ? "Removed from saved lots" : "Saved wholesale lot",
+            isWishlisted ? "Removed from wishlist" : "Saved wholesale box",
             isWishlisted ? "info" : "success"
           );
         }}
-        aria-label={isWishlisted ? "Remove from wishlist" : "Save lot"}
-        className={`absolute top-3 right-3.5 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-colors border cursor-pointer ${
+        aria-label={isWishlisted ? "Remove from wishlist" : "Save to wishlist"}
+        className={`absolute top-3 right-3.5 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-colors border cursor-pointer shadow-2xs ${
           isWishlisted
             ? "bg-red-50 border-red-200 text-red-600"
-            : "bg-[#FAF9F5]/90 hover:bg-white text-[#1C1917] border-[#E7E3DA]"
+            : "bg-[#FAF9F5]/95 hover:bg-white text-[#1C1917] border-[#E7E3DA]"
         }`}
       >
         <Heart
-          className="w-3.5 h-3.5"
+          className="w-4 h-4"
           fill={isWishlisted ? "#DC2626" : "none"}
           stroke={isWishlisted ? "#DC2626" : "currentColor"}
         />
@@ -171,6 +176,7 @@ function WholesaleLotCardImageArea({
         ref={imageRefCallback}
         src={optimizedImg}
         alt={`${cleanName} - View ${activeIdx + 1}`}
+        referrerPolicy="no-referrer"
         onError={(e) => {
           const target = e.currentTarget;
           if (!target.dataset.fallback) {
@@ -186,18 +192,16 @@ function WholesaleLotCardImageArea({
       {/* Multi-Image Navigation Dots and Badges */}
       {allImages.length > 1 && (
         <>
-          {/* Photo Count Chip */}
           <div
             onClick={(e) => e.stopPropagation()}
-            className="absolute bottom-2.5 right-3 z-10 px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-xs text-[#FAF9F5] text-[9px] font-mono tracking-wider font-semibold pointer-events-none shadow-xs"
+            className="absolute bottom-2.5 right-3 z-10 px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-xs text-[#FAF9F5] text-[9.5px] font-mono tracking-wider font-semibold pointer-events-none shadow-xs"
           >
             {activeIdx + 1}/{allImages.length} Photos
           </div>
 
-          {/* Interactive Micro Dots */}
           <div
             onClick={(e) => e.stopPropagation()}
-            className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 backdrop-blur-xs"
+            className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 backdrop-blur-xs"
           >
             {allImages.map((_, i) => (
               <button
@@ -208,16 +212,19 @@ function WholesaleLotCardImageArea({
                   setActiveIdx(i);
                 }}
                 aria-label={`View photo ${i + 1} of ${allImages.length}`}
-                className={`transition-all duration-200 rounded-full cursor-pointer ${
-                  i === activeIdx
-                    ? "w-4 h-1.5 bg-[#E5C99B]"
-                    : "w-1.5 h-1.5 bg-white/70 hover:bg-white"
-                }`}
-              />
+                className="p-1 cursor-pointer flex items-center justify-center"
+              >
+                <span
+                  className={`block transition-all duration-200 rounded-full ${
+                    i === activeIdx
+                      ? "w-4 h-1.5 bg-[#E5C99B]"
+                      : "w-1.5 h-1.5 bg-white/75 hover:bg-white"
+                  }`}
+                />
+              </button>
             ))}
           </div>
 
-          {/* Next / Prev Hover Chevrons */}
           <button
             type="button"
             onClick={(e) => {
@@ -225,9 +232,9 @@ function WholesaleLotCardImageArea({
               setActiveIdx((prev) => (prev > 0 ? prev - 1 : allImages.length - 1));
             }}
             aria-label="Previous photo"
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-white/90 hover:bg-white text-[#1C1917] shadow-sm border border-[#E7E3DA] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer active:scale-90"
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-[#1C1917] shadow-sm border border-[#E7E3DA] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer active:scale-90"
           >
-            <ChevronLeft className="w-3.5 h-3.5" />
+            <ChevronLeft className="w-4 h-4" />
           </button>
           <button
             type="button"
@@ -236,9 +243,9 @@ function WholesaleLotCardImageArea({
               setActiveIdx((prev) => (prev < allImages.length - 1 ? prev + 1 : 0));
             }}
             aria-label="Next photo"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-white/90 hover:bg-white text-[#1C1917] shadow-sm border border-[#E7E3DA] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer active:scale-90"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-[#1C1917] shadow-sm border border-[#E7E3DA] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer active:scale-90"
           >
-            <ChevronRight className="w-3.5 h-3.5" />
+            <ChevronRight className="w-4 h-4" />
           </button>
         </>
       )}
@@ -269,9 +276,17 @@ export function WholesalePage({
   const { dbProducts } = useStorefrontProducts();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState<LotCategoryFilter>("All Lots");
+  const [selectedFilter, setSelectedFilter] = useState<LotCategoryFilter>("All Boxes");
   const [justAddedMap, setJustAddedMap] = useState<Record<string, boolean>>({});
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [wholesaleBannerIdx, setWholesaleBannerIdx] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setWholesaleBannerIdx((prev) => (prev + 1) % 4);
+    }, 4200);
+    return () => clearInterval(timer);
+  }, []);
 
   const imageRefs = useRef<Record<string, HTMLImageElement | null>>({});
 
@@ -403,14 +418,14 @@ export function WholesalePage({
       .join(" | ");
 
     const message = [
-      "Hello JIYOO Wholesale Trade Desk,",
+      "Hello JIYOO Wholesale,",
       "",
-      `I would like to place a wholesale trade inquiry for:`,
-      `Lot: ${cleanName}`,
+      `I would like to order a wholesale pack of:`,
+      `Product: ${cleanName}`,
       specs ? `Specifications: ${specs}` : "",
-      `Quoted Rate: ${priceText} per ${packText}`,
+      `Wholesale Rate: ${priceText} per ${packText}`,
       "",
-      "Please share current lot availability and dispatch schedule.",
+      "Please confirm availability and all over India delivery details.",
     ]
       .filter(Boolean)
       .join("\n");
@@ -420,156 +435,317 @@ export function WholesalePage({
   };
 
   return (
-    <section className="min-h-screen bg-[#FAF9F5] text-[#1C1917] pb-24 pt-6 px-4 sm:px-6 lg:px-8">
-      {/* Top Architectural Sub-Navigation Bar */}
-      <div className="max-w-7xl mx-auto mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-[#E7E3DA] pb-5">
-        <div className="flex items-center gap-4 sm:gap-6">
-          <button
-            type="button"
-            onClick={onBackToRetail}
-            className="group inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-xs font-semibold uppercase tracking-[0.14em] transition-all cursor-pointer active:scale-98"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
-            <span>Back to Retail Store</span>
-          </button>
-
-          <div className="hidden md:flex items-center gap-2 text-xs text-[#78716C] tracking-wide">
-            <span className="font-semibold text-[#1C1917] uppercase tracking-[0.16em] text-[10px]">
-              Trade Catalog
-            </span>
-            <span aria-hidden="true">·</span>
-            <span>Direct Container &amp; Orchard Lots</span>
-            <span aria-hidden="true">·</span>
-            <span>Hyderabad &amp; Pan-India Cold Chain</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 sm:gap-5">
-          <a
-            href={`https://wa.me/${b2bWhatsAppNumber}?text=${encodeURIComponent(
-              "Hello JIYOO Trade Desk, I would like to enquire about wholesale bulk lots and commercial procurement terms."
-            )}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1C1917] hover:text-[#8A5A36] border-b border-[#1C1917]/40 hover:border-[#8A5A36] pb-0.5 transition-colors"
-          >
-            Direct Trade Desk
-          </a>
-
-          {onOpenCart && (
-            <button
-              type="button"
-              onClick={onOpenCart}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white hover:bg-[#F5F2EB] border border-[#D6CFC2] text-[#1C1917] text-xs font-semibold uppercase tracking-[0.12em] shadow-2xs transition-all cursor-pointer active:scale-98"
-            >
-              <ShoppingBag className="w-3.5 h-3.5 text-[#8A5A36]" />
-              <span>Trade Bag</span>
-              <span className="px-1.5 py-0.5 rounded bg-[#1C1917] text-[#FAF9F5] font-mono text-[10px] font-bold tabular-nums">
-                {cartCount}
-              </span>
-              {cartTotal > 0 && (
-                <span className="hidden sm:inline font-mono text-[11px] font-bold text-[#8A5A36] tabular-nums">
-                  · ₹{cartTotal.toLocaleString("en-IN")}
-                </span>
-              )}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Editorial Trade Ledger Hero */}
-      <div className="max-w-7xl mx-auto mb-10">
+    <section className="min-h-screen bg-[#FAF9F5] text-[#1C1917] pb-16 pt-4 sm:pt-6 px-4 sm:px-6 lg:px-8">
+      {/* Warm-Luxury Editorial Hero — Bengaluru Wholesale & Bulk Supply */}
+      <div className="max-w-7xl mx-auto mb-9">
         <motion.div
-          initial={{ opacity: 0, y: 18 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.65, ease: EASE_OUT_EXPO }}
-          className="relative overflow-hidden rounded-2xl bg-[#161412] text-[#FAF9F5] p-7 sm:p-11 lg:p-14 border border-[#C5A880]/30 shadow-[0_24px_48px_-16px_rgba(28,25,23,0.28)]"
+          transition={{ duration: 0.6, ease: EASE_OUT_EXPO }}
+          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#FBF8F1] via-[#F5EFE2] to-[#ECE2CE] text-[#1C1917] p-6 sm:p-10 lg:p-12 border border-[#D8C7A8] shadow-[0_24px_60px_-20px_rgba(28,25,23,0.12)]"
         >
-          {/* Subtle Warm Champagne Radial Accent */}
+          {/* Ambient Warm Champagne Glow */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -top-32 -right-32 w-[28rem] h-[28rem] bg-[radial-gradient(circle,rgba(197,168,128,0.14)_0%,transparent_70%)]"
+            className="pointer-events-none absolute -top-28 -right-28 w-[26rem] h-[26rem] bg-[radial-gradient(circle,rgba(197,168,128,0.22)_0%,transparent_70%)]"
           />
 
-          <div className="relative z-10 max-w-3xl">
-            {/* Unboxed Editorial Division Kicker */}
-            <motion.div
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.55, delay: 0.08, ease: EASE_OUT_EXPO }}
-              className="flex items-center gap-3 mb-4"
-            >
-              <motion.span
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: 1 }}
-                transition={{ duration: 0.7, delay: 0.14, ease: EASE_OUT_EXPO }}
-                className="w-8 h-[1px] bg-[#C5A880] origin-left"
-                aria-hidden="true"
-              />
-              <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.26em] text-[#E5C99B]">
-                JIYOO Commercial &amp; HoReCa Division
-              </span>
-            </motion.div>
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
+            <div className="lg:col-span-6 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0 inline-flex items-center">
+                  <span className="font-sans text-[13px] sm:text-[15px] lg:text-[16px] font-extrabold tracking-[0.22em] sm:tracking-[0.26em] uppercase text-[#1C1917] leading-none select-none">
+                    JIYOO WHOLESALE
+                  </span>
+                </div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.65, delay: 0.14, ease: EASE_OUT_EXPO }}
-              className="font-serif-luxury text-3xl sm:text-5xl font-semibold tracking-tight text-[#FAF9F5] leading-[1.12] mb-3"
-            >
-              Direct Import &amp; Orchard Wholesale Lots
-            </motion.h1>
+                <button
+                  type="button"
+                  onClick={onBackToRetail}
+                  className="group inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/80 hover:bg-white text-[#1C1917] border border-[#D8C7A8] text-[11px] font-semibold uppercase tracking-[0.14em] transition-all cursor-pointer active:scale-98"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-[#8A5A36] transition-transform group-hover:-translate-x-0.5" />
+                  <span>Back to Retail</span>
+                </button>
+              </div>
 
-            <div className="py-1 mb-3">
-              <TypewriterText
-                phrases={WHOLESALE_TYPEWRITER_PHRASES}
-                typingSpeed={38}
-                deletingSpeed={18}
-                pauseDuration={2400}
-                className="justify-items-start"
-                textClassName="font-serif-luxury italic text-base sm:text-xl text-[#E5C99B]"
-                cursorClassName="bg-[#E5C99B]"
-              />
+              <h1 className="font-serif-luxury text-3xl sm:text-4xl lg:text-[42px] font-semibold tracking-tight text-[#1C1917] leading-[1.12]">
+                Fresh Fruit Boxes at Wholesale Prices
+              </h1>
+
+              <div className="py-0.5 min-h-[1.75rem] overflow-hidden">
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span
+                    key={wholesaleBannerIdx}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.4, ease: EASE_OUT_EXPO }}
+                    className="block font-serif-luxury italic text-base sm:text-xl text-[#8A5A36]"
+                  >
+                    {
+                      WHOLESALE_TYPEWRITER_PHRASES[
+                        wholesaleBannerIdx % WHOLESALE_TYPEWRITER_PHRASES.length
+                      ]
+                    }
+                  </motion.span>
+                </AnimatePresence>
+              </div>
+
+              <p className="text-sm sm:text-[15px] text-[#57534E] font-normal leading-relaxed">
+                Buy full boxes and crates of fresh fruits at direct wholesale prices. Great for homes, family functions, fruit shops, and bulk buyers with delivery all over India.
+              </p>
+
+              {/* Direct Action Row */}
+              <div className="pt-2 flex flex-wrap items-center gap-3">
+                <a
+                  href="#wholesale-catalog-grid"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#1C1917] hover:bg-black text-[#FAF2E1] border border-[#C5A880]/60 text-xs font-semibold uppercase tracking-[0.16em] shadow-sm transition-all"
+                >
+                  <span>Shop {wholesaleProducts.length} Boxes</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#E5C99B]" />
+                </a>
+
+                <VelvetWhatsAppButton
+                  onClick={() => {
+                    const url = `https://wa.me/${b2bWhatsAppNumber}?text=${encodeURIComponent(
+                      "Hello JIYOO Wholesale, I would like to order wholesale fruit boxes."
+                    )}`;
+                    triggerSafeExternalLink(url);
+                  }}
+                  label="Order on WhatsApp"
+                  size="card"
+                />
+
+                {onOpenCart && cartCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={onOpenCart}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white hover:bg-[#FAF6EE] border border-[#C5A880] text-[#1C1917] text-xs font-semibold uppercase tracking-[0.12em] shadow-xs transition-all cursor-pointer"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5 text-[#8A5A36]" />
+                    <span>Cart ({cartCount})</span>
+                    <span className="font-mono font-bold text-[#8A5A36] tabular-nums">
+                      · ₹{cartTotal.toLocaleString("en-IN")}
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
 
-            <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.65, delay: 0.24, ease: EASE_OUT_EXPO }}
-              className="text-sm sm:text-base text-[#D6D3D1] font-normal leading-relaxed max-w-2xl"
-            >
-              Calibrated export master cartons and vineyard crates curated for luxury hospitality, gourmet supermarkets, and institutional kitchens. Every lot is inspected for brix, firmness, and cold-chain integrity prior to dispatch.
-            </motion.p>
+            {/* Right Column: Interleaved General & JIYOO Diwali Wholesale Studio Banner Showcase */}
+            <div className="lg:col-span-6">
+              {(() => {
+                const wholesaleSlides = [
+                  {
+                    image: "/banners/wholesale_india_banner.jpg",
+                    alt: "Wholesale Fruit Boxes - All Over India Delivery",
+                    eyebrow: "A L L   O V E R   I N D I A",
+                    title: "Wholesale",
+                    subTitle: "F R U I T   B O X E S",
+                    isDiwali: false,
+                  },
+                  {
+                    image: "/banners/jiyoo_diwali_wholesale.jpg",
+                    alt: "JIYOO Diwali Wholesale Box Sale - All Over India Delivery",
+                    eyebrow: "A L L   I N D I A   D E L I V E R Y",
+                    title: "Diwali",
+                    subTitle: "W H O L E S A L E   B O X E S",
+                    isDiwali: true,
+                  },
+                  {
+                    image: "/banners/03_Imported_Fruits_Original.webp",
+                    alt: "Imported Fresh Fruit Crates at Wholesale Prices",
+                    eyebrow: "D I R E C T   I M P O R T   R A T E S",
+                    title: "Orchard",
+                    subTitle: "F U L L   F R U I T   C R A T E S",
+                    isDiwali: false,
+                  },
+                  {
+                    image: "/banners/jiyoo_diwali_hampers.jpg",
+                    alt: "JIYOO Exclusive Diwali Bulk Fruit Gift Boxes",
+                    eyebrow: "F E S T I V E   B U L K   G I F T I N G",
+                    title: "Diwali",
+                    subTitle: "F R U I T   G I F T   B O X E S",
+                    isDiwali: true,
+                  },
+                ];
+                const activeSlide =
+                  wholesaleSlides[wholesaleBannerIdx % wholesaleSlides.length];
+
+                return (
+                  <div className="group relative w-full aspect-[16/9] overflow-hidden rounded-2xl border border-[#C5A880]/80 shadow-[0_16px_40px_-12px_rgba(28,25,23,0.24)] bg-[#EFE9DE]">
+                    <AnimatePresence initial={false}>
+                      <motion.div
+                        key={wholesaleBannerIdx}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                        className="absolute inset-0 w-full h-full"
+                      >
+                        <img
+                          src={activeSlide.image}
+                          alt={activeSlide.alt}
+                          className="w-full h-full object-cover object-center select-none pointer-events-none"
+                          loading="eager"
+                          fetchPriority="high"
+                          decoding="async"
+                        />
+                        {/* Studio Sunlit Wall Poster Typography */}
+                        <div className="pointer-events-none absolute inset-y-0 left-0 w-[45%] sm:w-[44%] z-10 flex flex-col items-center justify-center text-center px-3 sm:px-5 pb-4 sm:pb-8">
+                          {/* Clean Modern Luxury Botanical Leaf & Crown Crest (Zero Diya/Pooja Motif) */}
+                          <svg
+                            viewBox="0 0 72 28"
+                            fill="none"
+                            aria-hidden="true"
+                            className="w-8 h-3.5 sm:w-12 sm:h-5 mb-1 sm:mb-1.5 shrink-0"
+                          >
+                            <path
+                              d="M36 3L40.5 11.5L36 21L31.5 11.5L36 3Z"
+                              stroke="#9A4B1A"
+                              strokeWidth="1.6"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M32 20C25 17 20 12.5 18 7C24 8.5 28.5 12.5 31 17.5"
+                              stroke="#9A4B1A"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M40 20C47 17 52 12.5 54 7C48 8.5 43.5 12.5 41 17.5"
+                              stroke="#9A4B1A"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M22 24H50"
+                              stroke="#9A4B1A"
+                              strokeWidth="1.2"
+                              strokeLinecap="round"
+                              opacity="0.65"
+                            />
+                          </svg>
+                          <span className="font-sans text-[7px] sm:text-[9.5px] font-semibold uppercase tracking-[0.16em] sm:tracking-[0.22em] text-[#142319] leading-none mb-0.5 sm:mb-1">
+                            {activeSlide.eyebrow}
+                          </span>
+                          <h2
+                            className={`font-serif-luxury font-bold tracking-tight text-[#0D2115] leading-[0.95] ${
+                              activeSlide.isDiwali
+                                ? "text-2xl sm:text-5xl lg:text-[54px]"
+                                : "text-xl sm:text-4xl lg:text-[44px]"
+                            }`}
+                          >
+                            {activeSlide.title}
+                          </h2>
+                          <span className="font-serif-luxury text-[8px] sm:text-xs font-semibold uppercase tracking-[0.14em] sm:tracking-[0.18em] text-[#9A4B1A] mt-0.5 sm:mt-1.5 leading-tight">
+                            {activeSlide.subTitle}
+                          </span>
+                          <div
+                            aria-hidden="true"
+                            className="flex items-center justify-center gap-1.5 sm:gap-2 w-24 sm:w-36 mt-1.5 sm:mt-2"
+                          >
+                            <span className="h-[1px] flex-1 bg-[#9A4B1A]/45" />
+                            <span className="w-1.5 h-1.5 rotate-45 bg-[#9A4B1A]/80 shrink-0" />
+                            <span className="h-[1px] flex-1 bg-[#9A4B1A]/45" />
+                          </div>
+                        </div>
+                      </motion.div>
+                    </AnimatePresence>
+
+                    {/* Slide Selector Dots */}
+                    <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/35 backdrop-blur-xs">
+                      {wholesaleSlides.map((_, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setWholesaleBannerIdx(idx)}
+                          aria-label={`View wholesale banner ${idx + 1}`}
+                          className="p-0.5 cursor-pointer"
+                        >
+                          <span
+                            className={`block rounded-full transition-all duration-200 ${
+                              wholesaleBannerIdx === idx
+                                ? "w-4 h-1.5 bg-[#E5C99B]"
+                                : "w-1.5 h-1.5 bg-white/75"
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
 
-          {/* Architectural Hairline Ledger Strip (Zero Nested Cards or Icons) */}
-          <div className="relative z-10 mt-8 pt-6 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-6">
-            {[
-              { label: "Cold Chain", value: "2°C – 4°C Reefer Transit" },
-              { label: "Lot Calibration", value: "Class-I Export Cartons" },
-              { label: "Documentation", value: "GST Commercial Invoice" },
-              { label: "Trade Pricing", value: "Direct Ex-Dock Net Rates" },
-            ].map((spec, idx) => (
-              <motion.div
-                key={spec.label}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.3 + idx * 0.06, ease: EASE_OUT_EXPO }}
-              >
-                <span className="block text-[10px] font-mono uppercase tracking-[0.2em] text-[#A8A29E] mb-1">
-                  {spec.label}
+          {/* Simple 4-Point Summary Bar */}
+          <div className="relative z-10 mt-8 pt-6 border-t border-[#D8C7A8]/80 grid grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white border border-[#D8C7A8] flex items-center justify-center shrink-0 mt-0.5">
+                <RealisticDeliveryScooter className="w-7 h-6" />
+              </div>
+              <div>
+                <span className="block text-[10px] font-mono uppercase tracking-[0.16em] text-[#8A5A36] font-semibold">
+                  Delivery
                 </span>
-                <span className="font-serif-luxury text-base sm:text-lg font-medium text-[#FAF9F5]">
-                  {spec.value}
+                <span className="font-serif-luxury text-base font-semibold text-[#1C1917]">
+                  All Over India Delivery
                 </span>
-              </motion.div>
-            ))}
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white border border-[#D8C7A8] flex items-center justify-center shrink-0 mt-0.5">
+                <PremiumShieldMark className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="block text-[10px] font-mono uppercase tracking-[0.16em] text-[#8A5A36] font-semibold">
+                  Quality
+                </span>
+                <span className="font-serif-luxury text-base font-semibold text-[#1C1917]">
+                  100% Fresh Fruit Boxes
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white border border-[#D8C7A8] flex items-center justify-center shrink-0 mt-0.5">
+                <InstaBlueTickIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="block text-[10px] font-mono uppercase tracking-[0.16em] text-[#8A5A36] font-semibold">
+                  Minimum Order
+                </span>
+                <span className="font-serif-luxury text-base font-semibold text-[#1C1917]">
+                  Start with Just 1 Box
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#1C1917] text-[#E5C99B] flex items-center justify-center shrink-0 mt-0.5 font-mono text-xs font-bold">
+                ₹
+              </div>
+              <div>
+                <span className="block text-[10px] font-mono uppercase tracking-[0.16em] text-[#8A5A36] font-semibold">
+                  Wholesale Price
+                </span>
+                <span className="font-serif-luxury text-base font-semibold text-[#1C1917]">
+                  Save ₹300 – ₹500 / Box
+                </span>
+              </div>
+            </div>
           </div>
         </motion.div>
       </div>
 
-      {/* Catalog Controls: Search & Segmented Lot Filter Bar */}
-      <div className="max-w-7xl mx-auto mb-8">
+      {/* Catalog Controls: Search & Category Filter Bar */}
+      <div id="wholesale-catalog-grid" className="max-w-7xl mx-auto mb-8 scroll-mt-24">
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#78716C]" />
@@ -577,8 +753,8 @@ export function WholesalePage({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by variety, brand, or origin (e.g. Limpopo, New Zealand)..."
-              className="w-full pl-10 pr-9 py-2.5 rounded-lg bg-white border border-[#E7E3DA] text-sm text-[#1C1917] placeholder-[#A8A29E] focus:outline-none focus:border-[#1C1917] transition-colors"
+              placeholder="Search fruit boxes (orange, apple, pear, grapes)..."
+              className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-white border border-[#E7E3DA] text-sm text-[#1C1917] placeholder-[#A8A29E] focus:outline-none focus:border-[#1C1917] transition-colors"
             />
             {searchQuery && (
               <button
@@ -592,11 +768,11 @@ export function WholesalePage({
             )}
           </div>
 
-          {/* Interactive Segmented Control Bar with Fluid Spring Pill */}
+          {/* Interactive Segmented Control Bar */}
           <div
             role="tablist"
-            aria-label="Wholesale lot categories"
-            className="inline-flex items-center gap-1 p-1 bg-[#F2EFE9] border border-[#E7E3DA] rounded-lg overflow-x-auto scrollbar-none"
+            aria-label="Wholesale categories"
+            className="inline-flex items-center gap-1 p-1 bg-[#F2EFE9] border border-[#E7E3DA] rounded-xl overflow-x-auto scrollbar-none"
           >
             {LOT_FILTERS.map((filter) => {
               const isActive = selectedFilter === filter;
@@ -607,7 +783,7 @@ export function WholesalePage({
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => setSelectedFilter(filter)}
-                  className={`relative px-3.5 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors duration-200 cursor-pointer z-10 ${
+                  className={`relative px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors duration-200 cursor-pointer z-10 ${
                     isActive
                       ? "text-[#FAF9F5]"
                       : "text-[#57534E] hover:text-[#1C1917]"
@@ -617,7 +793,7 @@ export function WholesalePage({
                     <motion.span
                       layoutId="wholesaleLotFilterPill"
                       transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                      className="pointer-events-none absolute inset-0 rounded-md bg-[#1C1917] shadow-xs -z-10"
+                      className="pointer-events-none absolute inset-0 rounded-lg bg-[#1C1917] shadow-xs -z-10"
                     />
                   )}
                   <span className="relative z-10">{filter}</span>
@@ -628,43 +804,43 @@ export function WholesalePage({
         </div>
       </div>
 
-      {/* Wholesale Product Lots Grid */}
+      {/* Wholesale Product Boxes Grid */}
       <div className="max-w-7xl mx-auto">
-        <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2 border-b border-[#E7E3DA] pb-3">
+        <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2 border-b border-[#E7E3DA] pb-3.5">
           <div className="flex items-baseline gap-3">
             <h2 className="font-serif-luxury text-2xl sm:text-3xl font-semibold text-[#1C1917]">
-              Current Trade Lots
+              Wholesale Fruit Boxes
             </h2>
-            <span className="text-xs font-mono text-[#78716C] tabular-nums">
-              ({filteredProducts.length} {filteredProducts.length === 1 ? "Lot" : "Lots"} Available)
+            <span className="text-xs font-mono text-[#8A5A36] font-semibold tabular-nums">
+              ({filteredProducts.length} {filteredProducts.length === 1 ? "Box" : "Boxes"})
             </span>
           </div>
-          <span className="text-[11px] uppercase tracking-[0.18em] text-[#78716C] font-medium">
-            Prices Inclusive of Standard Export Packing
+          <span className="text-[11px] uppercase tracking-[0.14em] text-[#78716C] font-medium">
+            Fresh Full Boxes at Wholesale Prices
           </span>
         </div>
 
         {filteredProducts.length === 0 ? (
-          <div className="bg-white rounded-xl border border-[#E7E3DA] p-12 text-center space-y-3">
+          <div className="bg-white rounded-2xl border border-[#E7E3DA] p-12 text-center space-y-3">
             <p className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#8A5A36]">
-              No Matching Trade Lots
+              No Boxes Found
             </p>
             <h3 className="font-serif-luxury text-2xl font-semibold text-[#1C1917]">
-              No wholesale lots match your current filter
+              No fruit boxes match your search
             </h3>
             <p className="text-sm text-[#78716C] max-w-md mx-auto">
-              Clear your search filter to view all active container and orchard lots, or contact our trade desk for custom variety sourcing.
+              Clear your search to see all 7 wholesale fruit boxes.
             </p>
             <div className="pt-2">
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery("");
-                  setSelectedFilter("All Lots");
+                  setSelectedFilter("All Boxes");
                 }}
-                className="px-5 py-2.5 rounded-lg bg-[#1C1917] text-[#FAF9F5] text-xs font-semibold uppercase tracking-[0.14em] cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-[#1C1917] text-[#FAF9F5] text-xs font-semibold uppercase tracking-[0.14em] cursor-pointer"
               >
-                Reset Filters
+                Show All 7 Boxes
               </button>
             </div>
           </div>
@@ -678,13 +854,19 @@ export function WholesalePage({
                   ? product.numericPrice
                   : Number(product.price) || 0;
 
+              const mrpAmount =
+                product.mrp && Number(product.mrp) > wholesalePrice
+                  ? Number(product.mrp)
+                  : 0;
+              const savingsAmount = mrpAmount > wholesalePrice ? mrpAmount - wholesalePrice : 0;
+
               const wholesaleUnit = cleanEditorialText(
                 product.wholesaleUnit || product.unit || "Master Carton"
               );
               const cleanName = cleanEditorialText(product.name);
               const cleanBrand = cleanEditorialText(product.brand);
               const cleanOrigin = cleanEditorialText(product.origin);
-              const cleanCount = cleanEditorialText(product.count) || "Standard Lot";
+              const cleanCount = cleanEditorialText(product.count) || "Standard Pack";
               const cleanNetWeight = cleanEditorialText(product.netWeight) || wholesaleUnit;
               const unitRateLabel = computeIndicativeUnitRate(product, wholesalePrice);
 
@@ -695,10 +877,9 @@ export function WholesalePage({
               const qtyInCart = matchingCartItem?.quantity || 0;
               const isJustAdded = !!justAddedMap[String(product.id)];
               const isWishlisted = wishlist.includes(String(product.id));
-              const lotNumber = String(index + 1).padStart(2, "0");
 
               const metadataParts = [
-                cleanOrigin || "Imported Lot",
+                cleanOrigin || "Imported Origin",
                 cleanBrand ? `${cleanBrand} Brand` : null,
                 cleanEditorialText(product.freshnessBadge) || "Export Grade",
               ].filter(Boolean);
@@ -712,7 +893,7 @@ export function WholesalePage({
                   whileTap={{ scale: 0.99 }}
                   transition={{ duration: 0.36, delay: (index % 3) * 0.04, ease: EASE_OUT_EXPO }}
                   onClick={() => setSelectedProduct(product)}
-                  className="group relative bg-white rounded-xl border border-[#E7E3DA] hover:border-[#C5A880] shadow-xs hover:shadow-[0_20px_40px_-14px_rgba(28,25,23,0.12)] transition-shadow duration-300 flex flex-col justify-between overflow-hidden cursor-pointer"
+                  className="group relative bg-white rounded-2xl border border-[#E7E3DA] hover:border-[#C5A880] shadow-xs hover:shadow-[0_20px_40px_-14px_rgba(28,25,23,0.12)] transition-shadow duration-300 flex flex-col justify-between overflow-hidden cursor-pointer"
                 >
                   {/* Top Ultra-Fine Gold Shimmer Line on Scroll */}
                   <motion.span
@@ -725,10 +906,10 @@ export function WholesalePage({
                   />
 
                   <div>
-                    {/* Full-Bleed Uncropped Image Header with Multi-Image Support */}
+                    {/* Full-Bleed Uncropped Image Header with Multi-Image Support & Savings Pill */}
                     <WholesaleLotCardImageArea
                       product={product}
-                      lotNumber={lotNumber}
+                      savingsAmount={savingsAmount}
                       isWishlisted={isWishlisted}
                       toggleWishlist={toggleWishlist}
                       showToast={showToast}
@@ -739,20 +920,29 @@ export function WholesalePage({
                       }}
                     />
 
-                    {/* Editorial Body & Hairline Trade Specifications */}
-                    <div className="p-5 pb-3">
-                      {/* Unboxed Provenance Metadata with Middot Separators */}
-                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] uppercase tracking-[0.16em] text-[#8A5A36] font-semibold mb-1.5">
-                        {metadataParts.map((part, idx) => (
-                          <React.Fragment key={idx}>
-                            {idx > 0 && (
-                              <span aria-hidden="true" className="text-[#A8A29E]">
-                                ·
-                              </span>
-                            )}
-                            <span>{part}</span>
-                          </React.Fragment>
-                        ))}
+                    {/* Editorial Body & Pack Specifications */}
+                    <div className="p-5 pb-3.5">
+                      {/* Provenance & Verified Stock Row */}
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] uppercase tracking-[0.15em] text-[#8A5A36] font-semibold">
+                          {metadataParts.map((part, idx) => (
+                            <React.Fragment key={idx}>
+                              {idx > 0 && (
+                                <span aria-hidden="true" className="text-[#A8A29E]">
+                                  ·
+                                </span>
+                              )}
+                              <span>{part}</span>
+                            </React.Fragment>
+                          ))}
+                        </div>
+
+                        <div className="inline-flex items-center gap-1 shrink-0">
+                          <InstaBlueTickIcon className="w-3.5 h-3.5 shrink-0" />
+                          <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#1C1917]">
+                            In Stock
+                          </span>
+                        </div>
                       </div>
 
                       <h3 className="font-serif-luxury text-xl sm:text-[22px] font-semibold text-[#1C1917] leading-snug mb-1.5 group-hover:text-black transition-colors">
@@ -765,10 +955,10 @@ export function WholesalePage({
                         </p>
                       )}
 
-                      {/* Architectural Hairline Specification Table (Zero Nested Card Box) */}
+                      {/* 3-Column Wholesale Pack Specification Table */}
                       <dl className="grid grid-cols-3 gap-2 py-2.5 border-y border-[#E7E3DA] text-left">
                         <div>
-                          <dt className="text-[9px] font-mono uppercase tracking-[0.16em] text-[#78716C] mb-0.5">
+                          <dt className="text-[9px] font-mono uppercase tracking-[0.14em] text-[#78716C] mb-0.5">
                             Pack Count
                           </dt>
                           <dd className="text-xs font-semibold text-[#1C1917] tabular-nums truncate">
@@ -776,18 +966,18 @@ export function WholesalePage({
                           </dd>
                         </div>
                         <div className="border-l border-[#E7E3DA]/70 pl-2.5">
-                          <dt className="text-[9px] font-mono uppercase tracking-[0.16em] text-[#78716C] mb-0.5">
-                            Net Weight
+                          <dt className="text-[9px] font-mono uppercase tracking-[0.14em] text-[#78716C] mb-0.5">
+                            Box Weight
                           </dt>
                           <dd className="text-xs font-semibold text-[#1C1917] tabular-nums truncate">
                             {cleanNetWeight}
                           </dd>
                         </div>
                         <div className="border-l border-[#E7E3DA]/70 pl-2.5">
-                          <dt className="text-[9px] font-mono uppercase tracking-[0.16em] text-[#78716C] mb-0.5">
-                            Indicative
+                          <dt className="text-[9px] font-mono uppercase tracking-[0.14em] text-[#8A5A36] font-semibold mb-0.5">
+                            Effective Rate
                           </dt>
-                          <dd className="text-xs font-mono font-semibold text-[#1C1917] tabular-nums truncate">
+                          <dd className="text-xs font-mono font-bold text-[#1C1917] tabular-nums truncate">
                             {unitRateLabel}
                           </dd>
                         </div>
@@ -795,38 +985,29 @@ export function WholesalePage({
                     </div>
                   </div>
 
-                  {/* Pricing & Action Footer */}
+                  {/* Un-Squished Pricing & 2-Row Action Footer */}
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    className="px-5 pb-5 pt-1 space-y-3.5"
+                    className="px-5 pb-5 pt-1 space-y-3"
                   >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <div>
-                        <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-[#78716C] block mb-0.5">
-                          Wholesale Lot Rate
-                        </span>
+                    {/* Row 1: Price + Un-squished Add to Cart with Full [ - ] & [ + ] Stepper */}
+                    <div className="flex items-end justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <PremiumShieldMark className="w-3.5 h-3.5 shrink-0" />
+                          <span className="text-[9.5px] font-mono uppercase tracking-[0.14em] text-[#78716C] truncate">
+                            {wholesaleUnit}
+                          </span>
+                        </div>
                         <PriceDisplay
                           amount={wholesalePrice}
-                          originalAmount={product.mrp && Number(product.mrp) > wholesalePrice ? Number(product.mrp) : undefined}
+                          originalAmount={mrpAmount > 0 ? mrpAmount : undefined}
                           size="xl"
                           weight="extrabold"
                         />
-
                       </div>
 
-                      <div className="text-right">
-                        <span className="text-[10px] font-mono uppercase tracking-[0.12em] text-[#57534E] block">
-                          {wholesaleUnit}
-                        </span>
-                        <span className="text-[10px] text-[#78716C] block">
-                          MOQ: {product.wholesaleMinQty || 1} Lot
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Action Controls: Add to Cart & Maroon Velvet WhatsApp Order */}
-                    <div className="grid grid-cols-2 items-center gap-2 pt-1">
-                      <div className="relative flex items-center gap-1.5 min-w-0 justify-center">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <AnimatePresence>
                           {qtyInCart > 0 && (
                             <motion.button
@@ -845,21 +1026,20 @@ export function WholesalePage({
                                   updateQuantity(String(matchingCartItem.id), qtyInCart - 1);
                                 }
                               }}
-                              aria-label="Decrease lot quantity"
-                              className="w-[32px] h-[32px] rounded-full flex items-center justify-center bg-[#1C1917] hover:bg-[#292524] text-[#FAF2E1] border border-[#C5A880]/70 shadow-sm cursor-pointer shrink-0"
+                              aria-label="Decrease box quantity"
+                              className="w-[34px] h-[34px] rounded-full flex items-center justify-center bg-[#1C1917] hover:bg-[#292524] text-[#FAF2E1] border border-[#C5A880]/70 shadow-sm cursor-pointer shrink-0"
                             >
                               <Minus className="w-3.5 h-3.5" strokeWidth={2.6} />
                             </motion.button>
                           )}
                         </AnimatePresence>
 
-                        <div className="relative inline-flex items-center justify-center w-full min-w-0">
+                        <div className="relative inline-flex items-center justify-center">
                           <VelvetyBalloonButton
                             onClick={(e) => handleAddToCart(e, product)}
                             justAdded={isJustAdded}
                             label="Add to Cart"
                             size="card"
-                            className="w-full flex items-center justify-center"
                           />
                           <AnimatePresence>
                             {qtyInCart > 0 && (
@@ -875,14 +1055,36 @@ export function WholesalePage({
                             )}
                           </AnimatePresence>
                         </div>
-                      </div>
 
-                      <div className="min-w-0 flex items-center justify-center">
+                        <AnimatePresence>
+                          {qtyInCart > 0 && (
+                            <motion.button
+                              type="button"
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0, opacity: 0 }}
+                              whileTap={{ scale: 0.85 }}
+                              onClick={(e) => handleAddToCart(e, product)}
+                              aria-label="Increase box quantity"
+                              className="w-[34px] h-[34px] rounded-full flex items-center justify-center bg-[#1C1917] hover:bg-[#292524] text-[#FAF2E1] border border-[#C5A880]/70 shadow-sm cursor-pointer shrink-0"
+                            >
+                              <Plus className="w-3.5 h-3.5" strokeWidth={2.6} />
+                            </motion.button>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Dedicated Full-Width WhatsApp Bulk Order Strip */}
+                    <div className="pt-2.5 border-t border-[#E7E3DA]/80 flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-[#57534E] font-medium">
+                        Quick WhatsApp Order
+                      </span>
+                      <div className="shrink-0">
                         <VelvetWhatsAppButton
                           onClick={(e) => handleWhatsAppOrder(e, product)}
                           label="Order via WhatsApp"
                           size="card"
-                          className="w-full"
                         />
                       </div>
                     </div>
@@ -893,96 +1095,6 @@ export function WholesalePage({
           </div>
         )}
       </div>
-
-      {/* Institutional & HoReCa Standing Contract Ledger */}
-      <div className="max-w-7xl mx-auto mt-16 pt-10 border-t border-[#E7E3DA]">
-        <div className="bg-white rounded-2xl border border-[#E7E3DA] p-7 sm:p-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
-            <div className="flex items-center gap-2.5">
-              <span className="w-6 h-[1px] bg-[#8A5A36]" aria-hidden="true" />
-              <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-[#8A5A36] font-semibold">
-                Standing Commercial Supply &amp; Pallet Contracts
-              </span>
-            </div>
-            <h3 className="font-serif-luxury text-2xl sm:text-3xl font-semibold text-[#1C1917]">
-              Custom Weekly Procurement for Hotels &amp; Supermarkets
-            </h3>
-            <p className="text-sm text-[#57534E] leading-relaxed">
-              We fulfill scheduled standing orders for five-star hospitality groups, fine-dining kitchens, and regional retail chains with dedicated cold-chain dispatch and consolidated GST billing.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 shrink-0 w-full lg:w-auto">
-            <VelvetWhatsAppButton
-              onClick={() => {
-                const url = `https://wa.me/${b2bWhatsAppNumber}?text=${encodeURIComponent(
-                  "Hello JIYOO Trade Desk, I would like to discuss standing weekly commercial supply and pallet procurement terms."
-                )}`;
-                triggerSafeExternalLink(url);
-              }}
-              label="Request Trade Quote"
-              size="modal"
-            />
-            <button
-              type="button"
-              onClick={onBackToRetail}
-              className="h-[50px] sm:h-[52px] px-6 rounded-full bg-[#1C1917] hover:bg-black text-[#FAF9F5] text-xs font-semibold uppercase tracking-[0.16em] transition-colors cursor-pointer"
-            >
-              Return to Retail Store
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Sticky Floating Wholesale Trade Cart Bar */}
-      <AnimatePresence>
-        {cartCount > 0 && onOpenCart && (
-          <motion.div
-            initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
-            transition={{ duration: 0.3, ease: EASE_OUT_EXPO }}
-            className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-2xl z-40"
-          >
-            <div className="bg-[#161412]/95 backdrop-blur-md text-[#FAF9F5] border border-[#C5A880]/50 rounded-2xl px-4 sm:px-6 py-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.45)] flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-[#C5A880]/15 border border-[#C5A880]/40 flex items-center justify-center shrink-0">
-                  <ShoppingBag className="w-5 h-5 text-[#E5C99B]" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#E5C99B]">
-                      Wholesale Trade Bag
-                    </span>
-                    <span className="px-1.5 py-0.2 rounded bg-[#C5A880]/20 text-[#FAF9F5] font-mono text-[10px] font-bold tabular-nums">
-                      {cartCount} {cartCount === 1 ? "Lot" : "Lots"}
-                    </span>
-                  </div>
-                  <div className="mt-0.5">
-                    <PriceDisplay
-                      amount={cartTotal}
-                      size="lg"
-                      weight="extrabold"
-                      isDark
-                      animated
-                    />
-                  </div>
-
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={onOpenCart}
-                className="inline-flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl bg-[#E5C99B] hover:bg-[#C5A880] text-[#161412] text-xs font-bold uppercase tracking-[0.14em] transition-all cursor-pointer shrink-0 active:scale-98 shadow-sm"
-              >
-                <span>View Cart &amp; Checkout</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Full Product Detail Modal on Card Click */}
       <ProductDetailModal

@@ -568,6 +568,8 @@ export function ProductDetailModal({
                       <PriceDisplay
                         amount={Number(currentPrice) * quantity}
                         discountPercent={product.discount}
+                        autoAnchor
+                        seedKey={product.id}
                         size="2xl"
                         weight="extrabold"
                         animated
