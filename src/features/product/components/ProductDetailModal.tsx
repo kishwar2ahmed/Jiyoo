@@ -282,7 +282,7 @@ export function ProductDetailModal({
             <div className="flex flex-col md:flex-row">
               {/* Left Column: Premium Image Area */}
               <div className="w-full md:w-1/2 shrink-0 flex flex-col">
-                <div className="luxury-sheen-sweep relative w-full aspect-[4/3] md:aspect-auto md:min-h-[500px] bg-white flex items-center justify-center overflow-hidden">
+                <div className="luxury-sheen-sweep relative w-full aspect-[4/3] md:aspect-auto md:min-h-[500px] bg-white p-4 sm:p-6 flex items-center justify-center overflow-hidden">
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.img
                       key={activeImage || product.image}
@@ -293,7 +293,7 @@ export function ProductDetailModal({
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 1.015 }}
                       transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                      className="w-full h-full object-contain will-change-transform"
+                      className="max-w-full max-h-full w-auto h-auto object-contain will-change-transform select-none"
                       loading="eager"
                       onLoad={(e) => {
                         preloadProductCutout(

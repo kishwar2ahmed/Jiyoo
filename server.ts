@@ -2649,11 +2649,13 @@ async function findWholesaleZoneForPincode(pincode: string): Promise<WholesaleZo
 }
 
 
-function generateOrderId(): string {
-  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  // Use crypto-secure randomness to prevent collision attacks on order ID guessing
-  const randomSuffix = crypto.randomBytes(6).toString('hex').toUpperCase();
-  return `JY-${dateStr}-${randomSuffix}`;
+function generateOrderId(attempt = 0): string {
+  // Human-friendly memorable order ID: JY-XXXXXX (e.g. JY-482910)
+  // 6 numeric digits: easy to remember, easy to read, easy to speak over phone or WhatsApp
+  const num = attempt < 3 
+    ? crypto.randomInt(100000, 999999) 
+    : crypto.randomInt(1000000, 9999999);
+  return `JY-${num}`;
 }
 
 async function createOrderWithUniqueId(
@@ -2689,7 +2691,7 @@ async function createOrderWithUniqueId(
   const idempotencyRef = (idempotencyKey && userId) ? db.collection('idempotencyKeys').doc(hashIdempotencyKey('order-create', userId, idempotencyKey)) : null;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const candidateId = generateOrderId();
+    const candidateId = generateOrderId(attempt);
     const orderRef = db.collection('orders').doc(candidateId);
     let genesisAuditEntry: Record<string, any> | null = null;
     const result = await db.runTransaction(async (tx) => {
@@ -4653,13 +4655,23 @@ app.use(compression() as unknown as express.RequestHandler);
       }
 
       const grandTotal = Math.max(0, subtotal - discountAmount) + deliveryFee;
-      const orderId = generateOrderId();
+      let orderId = generateOrderId();
+      try {
+        const firestoreDb = getFirestore();
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const snap = await firestoreDb.collection('orders').doc(orderId).get();
+          if (!snap.exists) break;
+          orderId = generateOrderId(attempt + 1);
+        }
+      } catch {
+        // stateless fallback
+      }
       const hmacSecret = env.RAZORPAY_KEY_SECRET || env.CRON_SECRET || WHATSAPP_BOOT_HMAC_SECRET;
       const signatureDigest = crypto
         .createHmac('sha256', hmacSecret)
         .update(`${orderId}:${grandTotal}:${orderType}:${validatedItems.map((i) => `${i.id}x${i.quantity}@${i.price}`).join(',')}`)
         .digest('hex')
-        .slice(0, 10)
+        .slice(0, 6)
         .toUpperCase();
       const verificationCode = `WA-${signatureDigest}`;
 

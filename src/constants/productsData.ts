@@ -674,12 +674,11 @@ export const ALL_PRODUCTS: Product[] = [
     unit: '15 kg Carton (72 Count)',
     categoryId: 'fruits',
     subcategoryId: 'imported-fruits',
-    image: '/assets/aistudio/image_d02558fa.png',
+    image: '/products/limpopo-citrus-carton-open.jpg',
     images: [
-      '/assets/aistudio/image_d02558fa.png',
-      '/assets/aistudio/IMG-20261030-WA0052_f22d2c1c.jpg',
-      '/assets/aistudio/IMG-20261030-WA0051_b4051f88.jpg',
-      '/assets/aistudio/IMG-20261030-WA0050_1dea6765.jpg'
+      '/products/limpopo-citrus-carton-open.jpg',
+      '/products/limpopo-citrus-label-sa.jpg',
+      '/products/limpopo-citrus-cartons-stack.jpg'
     ],
     tags: ['Wholesale', 'Imported', 'South Africa', 'Limpopo', 'Citrus', 'Orange', 'Oranges', 'Bulk Box', 'Count 72', '15kg'],
     freshnessBadge: 'Class-I Export',

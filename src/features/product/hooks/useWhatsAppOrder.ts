@@ -116,13 +116,9 @@ export function useWhatsAppOrder() {
     } catch {
       // Network/backend unreachable: clearly mark verification as pending
       priceVerified = false;
-      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const rand = Array.from(crypto.getRandomValues(new Uint8Array(4)))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('')
-        .toUpperCase();
-      orderId = `JY-${dateStr}-${rand}`;
-      verificationCode = `PENDING-${rand.slice(0, 6)}`;
+      const randomDigits = Math.floor(100000 + Math.random() * 900000);
+      orderId = `JY-${randomDigits}`;
+      verificationCode = `WA-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     }
 
     const url = createSingleProductWhatsAppUrl({

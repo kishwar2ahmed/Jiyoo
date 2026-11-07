@@ -1460,12 +1460,11 @@
       "unit": "15 kg Carton (72 Count)",
       "categoryId": "fruits",
       "subcategoryId": "imported-fruits",
-      "image": "/assets/aistudio/image_d02558fa.png",
+      "image": "/products/limpopo-citrus-carton-open.jpg",
       "images": [
-        "/assets/aistudio/image_d02558fa.png",
-        "/assets/aistudio/IMG-20261030-WA0052_f22d2c1c.jpg",
-        "/assets/aistudio/IMG-20261030-WA0051_b4051f88.jpg",
-        "/assets/aistudio/IMG-20261030-WA0050_1dea6765.jpg"
+        "/products/limpopo-citrus-carton-open.jpg",
+        "/products/limpopo-citrus-label-sa.jpg",
+        "/products/limpopo-citrus-cartons-stack.jpg"
       ],
       "tags": [
         "Wholesale",
@@ -1508,7 +1507,7 @@
       "id": "w_dragon_fruit_white_flesh",
       "name": "Tiny Moon White Dragon Fruit (Wholesale Box)",
       "slug": "dragon-white-flesh-wholesale-box",
-      "description": "Imported A-grade White Flesh Dragon Fruit packed in commercial 20-piece master cartons. Firm magenta scales with crisp, delicately sweet white pulp for gourmet platters and hospitality kitchens.",
+      "description": "Original wholesale master cartons of fresh Tiny Moon dragon fruit with bright magenta scales and crisp white flesh. Includes both open display crate and strapped export boxes.",
       "price": 999,
       "numericPrice": 999,
       "mrp": 1299,
@@ -1526,10 +1525,10 @@
         "Dragon",
         "Dragon Fruit",
         "White Flesh",
-        "20 nos / box",
+        "Tiny Moon",
         "Commercial Lot"
       ],
-      "freshnessBadge": "Class-I Export",
+      "freshnessBadge": "Tiny Moon Export",
       "deliveryEstimate": "Same-Day Cold Chain",
       "stockStatus": "in_stock",
       "origin": "Imported Lot (Vietnam / Thailand)",

@@ -30,10 +30,10 @@ import { RealisticDeliveryScooter } from "../../core/components/RealisticDeliver
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 const WHOLESALE_TYPEWRITER_PHRASES = [
-  "Full boxes of fresh fruits at wholesale prices.",
-  "Fresh oranges, apples, pears, berries, and grapes in bulk packs.",
-  "All over India delivery for full fruit boxes.",
-  "Save ₹300 to ₹500 on every full fruit box.",
+  "Full boxes of fresh products at wholesale prices.",
+  "Direct imports and farm-fresh produce in bulk master cartons.",
+  "All over India delivery for full product boxes.",
+  "Save ₹300 to ₹500 on every full wholesale box.",
 ] as const;
 
 type LotCategoryFilter = "All Boxes" | "Oranges" | "Apples & Pears" | "Dragon Fruit & Berries" | "Grapes";
@@ -133,14 +133,14 @@ function WholesaleLotCardImageArea({
   const optimizedImg = getOptimizedImageUrl(currentImage, 520, 82);
 
   return (
-    <div className="luxury-sheen-sweep relative aspect-[4/3] bg-white p-5 flex items-center justify-center border-b border-[#E7E3DA]/70 overflow-hidden">
+    <div className="luxury-sheen-sweep relative w-full aspect-[4/3] bg-white p-3 sm:p-4 flex items-center justify-center border-b border-[#E7E3DA]/70 overflow-hidden">
       {/* Savings / Wholesale Pack Tag */}
       {savingsAmount > 0 ? (
-        <span className="absolute top-3.5 left-4 z-10 font-sans text-[10.5px] font-bold uppercase tracking-[0.08em] text-[#8A5A36] bg-[#FAF9F5]/95 border border-[#C5A880]/50 px-2.5 py-1 rounded-md shadow-2xs">
+        <span className="absolute top-3 left-3 z-10 font-sans text-[10.5px] font-bold uppercase tracking-[0.08em] text-[#8A5A36] bg-[#FAF9F5]/95 border border-[#C5A880]/50 px-2.5 py-1 rounded-md shadow-2xs">
           Save ₹{savingsAmount.toLocaleString("en-IN")} / Box
         </span>
       ) : (
-        <span className="absolute top-3.5 left-4 z-10 font-sans text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[#57534E] bg-[#FAF9F5]/95 border border-[#E7E3DA] px-2.5 py-1 rounded-md">
+        <span className="absolute top-3 left-3 z-10 font-sans text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[#57534E] bg-[#FAF9F5]/95 border border-[#E7E3DA] px-2.5 py-1 rounded-md">
           Wholesale Pack
         </span>
       )}
@@ -159,7 +159,7 @@ function WholesaleLotCardImageArea({
           );
         }}
         aria-label={isWishlisted ? "Remove from wishlist" : "Save to wishlist"}
-        className={`absolute top-3 right-3.5 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-colors border cursor-pointer shadow-2xs ${
+        className={`absolute top-3 right-3 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-colors border cursor-pointer shadow-2xs ${
           isWishlisted
             ? "bg-red-50 border-red-200 text-red-600"
             : "bg-[#FAF9F5]/95 hover:bg-white text-[#1C1917] border-[#E7E3DA]"
@@ -184,7 +184,7 @@ function WholesaleLotCardImageArea({
             target.src = createSvgPlaceholder(cleanName, 520, 390);
           }
         }}
-        className="w-full h-full object-contain group-hover:scale-[1.045] transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+        className="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] select-none pointer-events-none"
         loading={index < 12 ? "eager" : "lazy"}
         decoding="async"
       />
@@ -470,7 +470,7 @@ export function WholesalePage({
               </div>
 
               <h1 className="font-serif-luxury text-3xl sm:text-4xl lg:text-[42px] font-semibold tracking-tight text-[#1C1917] leading-[1.12]">
-                Fresh Fruit Boxes at Wholesale Prices
+                Fresh Products Boxes at Wholesale Prices
               </h1>
 
               <div className="py-0.5 min-h-[1.75rem] overflow-hidden">
@@ -493,7 +493,7 @@ export function WholesalePage({
               </div>
 
               <p className="text-sm sm:text-[15px] text-[#57534E] font-normal leading-relaxed">
-                Buy full boxes and crates of fresh fruits at direct wholesale prices. Great for homes, family functions, fruit shops, and bulk buyers with delivery all over India.
+                Buy full boxes and master crates of fresh products at direct wholesale prices. Direct imports, farm-fresh produce, and commercial lots with delivery all over India.
               </p>
 
               {/* Direct Action Row */}
@@ -509,7 +509,7 @@ export function WholesalePage({
                 <VelvetWhatsAppButton
                   onClick={() => {
                     const url = `https://wa.me/${b2bWhatsAppNumber}?text=${encodeURIComponent(
-                      "Hello JIYOO Wholesale, I would like to order wholesale fruit boxes."
+                      "Hello JIYOO Wholesale, I would like to order wholesale product boxes."
                     )}`;
                     triggerSafeExternalLink(url);
                   }}
@@ -539,34 +539,34 @@ export function WholesalePage({
                 const wholesaleSlides = [
                   {
                     image: "/banners/wholesale_india_banner.jpg",
-                    alt: "Wholesale Fruit Boxes - All Over India Delivery",
-                    eyebrow: "A L L   O V E R   I N D I A",
+                    alt: "Wholesale Product Boxes - All Over India Delivery",
+                    eyebrow: "ALL OVER INDIA",
                     title: "Wholesale",
-                    subTitle: "F R U I T   B O X E S",
+                    subTitle: "PRODUCT BOXES",
                     isDiwali: false,
                   },
                   {
                     image: "/banners/jiyoo_diwali_wholesale.jpg",
                     alt: "JIYOO Diwali Wholesale Box Sale - All Over India Delivery",
-                    eyebrow: "A L L   I N D I A   D E L I V E R Y",
+                    eyebrow: "ALL INDIA DELIVERY",
                     title: "Diwali",
-                    subTitle: "W H O L E S A L E   B O X E S",
+                    subTitle: "WHOLESALE BOXES",
                     isDiwali: true,
                   },
                   {
                     image: "/banners/03_Imported_Fruits_Original.webp",
-                    alt: "Imported Fresh Fruit Crates at Wholesale Prices",
-                    eyebrow: "D I R E C T   I M P O R T   R A T E S",
-                    title: "Orchard",
-                    subTitle: "F U L L   F R U I T   C R A T E S",
+                    alt: "Imported Fresh Produce Crates at Wholesale Prices",
+                    eyebrow: "DIRECT IMPORT RATES",
+                    title: "Fresh Lots",
+                    subTitle: "FULL PRODUCT CRATES",
                     isDiwali: false,
                   },
                   {
                     image: "/banners/jiyoo_diwali_hampers.jpg",
-                    alt: "JIYOO Exclusive Diwali Bulk Fruit Gift Boxes",
-                    eyebrow: "F E S T I V E   B U L K   G I F T I N G",
+                    alt: "JIYOO Exclusive Festive Bulk Product Boxes",
+                    eyebrow: "FESTIVE BULK SUPPLY",
                     title: "Diwali",
-                    subTitle: "F R U I T   G I F T   B O X E S",
+                    subTitle: "PRODUCT GIFT BOXES",
                     isDiwali: true,
                   },
                 ];
@@ -593,13 +593,13 @@ export function WholesalePage({
                           decoding="async"
                         />
                         {/* Studio Sunlit Wall Poster Typography */}
-                        <div className="pointer-events-none absolute inset-y-0 left-0 w-[45%] sm:w-[44%] z-10 flex flex-col items-center justify-center text-center px-3 sm:px-5 pb-4 sm:pb-8">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 w-[50%] sm:w-[46%] z-10 flex flex-col items-center justify-center text-center px-2 sm:px-5 pb-3 sm:pb-8">
                           {/* Clean Modern Luxury Botanical Leaf & Crown Crest (Zero Diya/Pooja Motif) */}
                           <svg
                             viewBox="0 0 72 28"
                             fill="none"
                             aria-hidden="true"
-                            className="w-8 h-3.5 sm:w-12 sm:h-5 mb-1 sm:mb-1.5 shrink-0"
+                            className="w-7 h-3 sm:w-12 sm:h-5 mb-0.5 sm:mb-1.5 shrink-0"
                           >
                             <path
                               d="M36 3L40.5 11.5L36 21L31.5 11.5L36 3Z"
@@ -630,24 +630,24 @@ export function WholesalePage({
                               opacity="0.65"
                             />
                           </svg>
-                          <span className="font-sans text-[7px] sm:text-[9.5px] font-semibold uppercase tracking-[0.16em] sm:tracking-[0.22em] text-[#142319] leading-none mb-0.5 sm:mb-1">
+                          <span className="font-sans text-[7.5px] sm:text-[10px] font-semibold uppercase tracking-[0.14em] sm:tracking-[0.2em] text-[#142319] leading-tight mb-0.5 sm:mb-1 whitespace-nowrap">
                             {activeSlide.eyebrow}
                           </span>
                           <h2
                             className={`font-serif-luxury font-bold tracking-tight text-[#0D2115] leading-[0.95] ${
                               activeSlide.isDiwali
-                                ? "text-2xl sm:text-5xl lg:text-[54px]"
-                                : "text-xl sm:text-4xl lg:text-[44px]"
+                                ? "text-xl sm:text-5xl lg:text-[54px]"
+                                : "text-lg sm:text-4xl lg:text-[44px]"
                             }`}
                           >
                             {activeSlide.title}
                           </h2>
-                          <span className="font-serif-luxury text-[8px] sm:text-xs font-semibold uppercase tracking-[0.14em] sm:tracking-[0.18em] text-[#9A4B1A] mt-0.5 sm:mt-1.5 leading-tight">
+                          <span className="font-serif-luxury text-[8px] sm:text-xs font-semibold uppercase tracking-[0.12em] sm:tracking-[0.18em] text-[#9A4B1A] mt-0.5 sm:mt-1.5 leading-tight whitespace-nowrap">
                             {activeSlide.subTitle}
                           </span>
                           <div
                             aria-hidden="true"
-                            className="flex items-center justify-center gap-1.5 sm:gap-2 w-24 sm:w-36 mt-1.5 sm:mt-2"
+                            className="flex items-center justify-center gap-1.5 sm:gap-2 w-20 sm:w-36 mt-1 sm:mt-2"
                           >
                             <span className="h-[1px] flex-1 bg-[#9A4B1A]/45" />
                             <span className="w-1.5 h-1.5 rotate-45 bg-[#9A4B1A]/80 shrink-0" />
@@ -708,7 +708,7 @@ export function WholesalePage({
                   Quality
                 </span>
                 <span className="font-serif-luxury text-base font-semibold text-[#1C1917]">
-                  100% Fresh Fruit Boxes
+                  100% Fresh Product Boxes
                 </span>
               </div>
             </div>
@@ -753,7 +753,7 @@ export function WholesalePage({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search fruit boxes (orange, apple, pear, grapes)..."
+              placeholder="Search product boxes by name, origin, or category..."
               className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-white border border-[#E7E3DA] text-sm text-[#1C1917] placeholder-[#A8A29E] focus:outline-none focus:border-[#1C1917] transition-colors"
             />
             {searchQuery && (
@@ -809,7 +809,7 @@ export function WholesalePage({
         <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2 border-b border-[#E7E3DA] pb-3.5">
           <div className="flex items-baseline gap-3">
             <h2 className="font-serif-luxury text-2xl sm:text-3xl font-semibold text-[#1C1917]">
-              Wholesale Fruit Boxes
+              Wholesale Product Boxes
             </h2>
             <span className="text-xs font-mono text-[#8A5A36] font-semibold tabular-nums">
               ({filteredProducts.length} {filteredProducts.length === 1 ? "Box" : "Boxes"})
@@ -826,10 +826,10 @@ export function WholesalePage({
               No Boxes Found
             </p>
             <h3 className="font-serif-luxury text-2xl font-semibold text-[#1C1917]">
-              No fruit boxes match your search
+              No product boxes match your search
             </h3>
             <p className="text-sm text-[#78716C] max-w-md mx-auto">
-              Clear your search to see all 7 wholesale fruit boxes.
+              Clear your search to see all wholesale product boxes.
             </p>
             <div className="pt-2">
               <button
@@ -840,7 +840,7 @@ export function WholesalePage({
                 }}
                 className="px-5 py-2.5 rounded-xl bg-[#1C1917] text-[#FAF9F5] text-xs font-semibold uppercase tracking-[0.14em] cursor-pointer"
               >
-                Show All 7 Boxes
+                Show All Boxes
               </button>
             </div>
           </div>
@@ -950,7 +950,7 @@ export function WholesalePage({
                       </h3>
 
                       {product.description && (
-                        <p className="text-xs text-[#57534E] line-clamp-2 leading-relaxed font-normal mb-3.5">
+                        <p className="text-xs text-[#57534E] line-clamp-3 leading-relaxed font-normal mb-3.5">
                           {cleanEditorialText(product.description)}
                         </p>
                       )}
@@ -961,7 +961,7 @@ export function WholesalePage({
                           <dt className="text-[9px] font-mono uppercase tracking-[0.14em] text-[#78716C] mb-0.5">
                             Pack Count
                           </dt>
-                          <dd className="text-xs font-semibold text-[#1C1917] tabular-nums truncate">
+                          <dd className="text-xs font-semibold text-[#1C1917] tabular-nums whitespace-normal break-words">
                             {cleanCount}
                           </dd>
                         </div>
@@ -969,7 +969,7 @@ export function WholesalePage({
                           <dt className="text-[9px] font-mono uppercase tracking-[0.14em] text-[#78716C] mb-0.5">
                             Box Weight
                           </dt>
-                          <dd className="text-xs font-semibold text-[#1C1917] tabular-nums truncate">
+                          <dd className="text-xs font-semibold text-[#1C1917] tabular-nums whitespace-normal break-words">
                             {cleanNetWeight}
                           </dd>
                         </div>
@@ -977,7 +977,7 @@ export function WholesalePage({
                           <dt className="text-[9px] font-mono uppercase tracking-[0.14em] text-[#8A5A36] font-semibold mb-0.5">
                             Effective Rate
                           </dt>
-                          <dd className="text-xs font-mono font-bold text-[#1C1917] tabular-nums truncate">
+                          <dd className="text-xs font-mono font-bold text-[#1C1917] tabular-nums whitespace-normal break-words">
                             {unitRateLabel}
                           </dd>
                         </div>
@@ -995,7 +995,7 @@ export function WholesalePage({
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 mb-0.5">
                           <PremiumShieldMark className="w-3.5 h-3.5 shrink-0" />
-                          <span className="text-[9.5px] font-mono uppercase tracking-[0.14em] text-[#78716C] truncate">
+                          <span className="text-[9.5px] font-mono uppercase tracking-[0.14em] text-[#78716C] whitespace-normal break-words">
                             {wholesaleUnit}
                           </span>
                         </div>

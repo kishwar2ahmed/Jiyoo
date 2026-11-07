@@ -69,14 +69,12 @@ export function createWhatsAppOrderUrl({
     ? '📦 *NEW WHOLESALE ORDER - WELCOME TO JIYOO*'
     : '🛒 *NEW RETAIL ORDER - WELCOME TO JIYOO*';
 
-  const refId = orderId || `JYO-${Date.now().toString().slice(-6)}`;
+  const refId = orderId || `JY-${Math.floor(100000 + Math.random() * 900000)}`;
   const token = verificationCode || Math.random().toString(36).substring(2, 8).toUpperCase();
 
   let text = `${headerLabel}\n`;
   text += `🆔 *Order Reference:* \`\`\`${refId}\`\`\`\n`;
   text += `🔐 *Security Token:* \`\`\`${token}\`\`\`\n`;
-  text += `📋 *Status:* Confirmed (Processing)\n`;
-  text += `⚠️ *Verification:* ${priceVerified ? 'Verified & Quality Checked' : 'Pending Verification'}\n`;
   text += `────────────────────\n`;
 
   items.forEach((item, index) => {
@@ -178,14 +176,12 @@ export function createSingleProductWhatsAppUrl({
     ? '📦 *NEW WHOLESALE ORDER - WELCOME TO JIYOO*'
     : '🛒 *NEW RETAIL ORDER - WELCOME TO JIYOO*';
 
-  const refId = orderId || `JYO-${Date.now().toString().slice(-6)}`;
+  const refId = orderId || `JY-${Math.floor(100000 + Math.random() * 900000)}`;
   const token = verificationCode || Math.random().toString(36).substring(2, 8).toUpperCase();
 
   let text = `${headerLabel}\n`;
   text += `🆔 *Order Reference:* \`\`\`${refId}\`\`\`\n`;
   text += `🔐 *Security Token:* \`\`\`${token}\`\`\`\n`;
-  text += `📋 *Status:* Confirmed (Processing)\n`;
-  text += `⚠️ *Verification:* ${priceVerified ? 'Verified & Quality Checked' : 'Pending Verification'}\n`;
   text += `────────────────────\n`;
 
   const weightInfo = selectedWeight ? ` (${selectedWeight})` : '';

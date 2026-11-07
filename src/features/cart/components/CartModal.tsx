@@ -1208,13 +1208,9 @@ export function CartModal({
         return;
       }
       // Resilient fallback when server/database is unreachable: explicitly mark priceVerified = false
-      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      const rand = Array.from(crypto.getRandomValues(new Uint8Array(6)))
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("")
-        .toUpperCase();
-      serverOrderId = `JY-${dateStr}-${rand}`;
-      verificationCode = `LOC-${rand.slice(0, 6)}`;
+      const randomDigits = Math.floor(100000 + Math.random() * 900000);
+      serverOrderId = `JY-${randomDigits}`;
+      verificationCode = `WA-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
       isServerPriceVerified = false;
       setPriceVerifiedState(false);
     }
