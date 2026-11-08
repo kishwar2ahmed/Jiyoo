@@ -20,7 +20,6 @@ import {
 import { PremiumShieldMark } from "../../core/components/PremiumShieldMark";
 import { motion, AnimatePresence } from "motion/react";
 import { useCart } from "../../../contexts/CartContext";
-import { useSettings } from "../../../contexts/SettingsContext";
 import { useOrderActions } from "../hooks/useOrderActions";
 import { useModalBackButton } from "../../core/hooks/useModalBackButton";
 import { useToast } from "../../core/contexts/ToastContext";
@@ -52,7 +51,6 @@ export function AuthModal({
   const { currentProducts } = useStorefrontProducts();
   const { showToast } = useToast();
   const wishlistedProducts = (currentProducts || []).filter(p => wishlist?.includes(String(p.id)));
-  const { settings } = useSettings();
   const [activeProfileTab, setActiveProfileTab] = useState<
     "profile" | "orders" | "wishlist"
   >("profile");
@@ -78,7 +76,7 @@ export function AuthModal({
   // instead of navigating away from the site.
   useModalBackButton(isOpen, onClose);
 
-  const [phase, setPhase] = useState<
+  const [_phase, setPhase] = useState<
     "enter" | "walkToCard" | "grab" | "pull" | "release" | "idle" | "vanish"
   >("idle");
 

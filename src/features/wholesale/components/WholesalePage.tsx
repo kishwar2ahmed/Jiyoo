@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ArrowLeft,
-  ArrowRight,
+  ArrowDown,
   Search,
   ShoppingBag,
   X,
@@ -26,6 +26,7 @@ import { PriceDisplay } from "../../core/components/PriceDisplay";
 import { InstaBlueTickIcon } from "../../core/components/SocialIcons";
 import { PremiumShieldMark } from "../../core/components/PremiumShieldMark";
 import { RealisticDeliveryScooter } from "../../core/components/RealisticDeliveryScooter";
+import { applyWholesaleSeo, applyProductModalSeo } from "../../../utils/seo";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -36,9 +37,15 @@ const WHOLESALE_TYPEWRITER_PHRASES = [
   "Save ₹300 to ₹500 on every full wholesale box.",
 ] as const;
 
-type LotCategoryFilter = "All Boxes" | "Oranges" | "Apples & Pears" | "Dragon Fruit & Berries" | "Grapes";
+type LotCategoryFilter =
+  | "All Boxes"
+  | "Oranges"
+  | "Apples & Pears"
+  | "Dragon Fruit & Berries"
+  | "Grapes"
+  | "More Boxes";
 
-const LOT_FILTERS: LotCategoryFilter[] = [
+const BASE_LOT_FILTERS: LotCategoryFilter[] = [
   "All Boxes",
   "Oranges",
   "Apples & Pears",
@@ -60,15 +67,22 @@ function cleanEditorialText(input?: string | number | null): string {
 function matchesLotFilter(product: Product, filter: LotCategoryFilter): boolean {
   if (filter === "All Boxes") return true;
   const haystack = `${product.name} ${product.description || ""} ${(product.tags || []).join(" ")}`.toLowerCase();
+  const isOrange = haystack.includes("orange") || haystack.includes("citrus") || haystack.includes("mandarin") || haystack.includes("limpopo");
+  const isApplePear = haystack.includes("apple") || haystack.includes("pear") || haystack.includes("crisp pink");
+  const isDragonBerry = haystack.includes("dragon") || haystack.includes("blueberry") || haystack.includes("berry") || haystack.includes("exotic");
+  const isGrape = haystack.includes("grape") || haystack.includes("seedless") || haystack.includes("sonaka");
+
   switch (filter) {
     case "Oranges":
-      return haystack.includes("orange") || haystack.includes("citrus") || haystack.includes("mandarin") || haystack.includes("limpopo");
+      return isOrange;
     case "Apples & Pears":
-      return haystack.includes("apple") || haystack.includes("pear") || haystack.includes("crisp pink");
+      return isApplePear;
     case "Dragon Fruit & Berries":
-      return haystack.includes("dragon") || haystack.includes("blueberry") || haystack.includes("berry") || haystack.includes("exotic");
+      return isDragonBerry;
     case "Grapes":
-      return haystack.includes("grape") || haystack.includes("seedless") || haystack.includes("sonaka");
+      return isGrape;
+    case "More Boxes":
+      return !isOrange && !isApplePear && !isDragonBerry && !isGrape;
     default:
       return true;
   }
@@ -296,6 +310,19 @@ export function WholesalePage({
     return dbProducts.filter((p) => p.wholesaleEligible === true);
   }, [dbProducts]);
 
+  useEffect(() => {
+    if (selectedProduct) {
+      applyProductModalSeo(selectedProduct);
+    } else {
+      applyWholesaleSeo(wholesaleProducts.length);
+    }
+  }, [selectedProduct, wholesaleProducts.length]);
+
+  const availableLotFilters = useMemo<LotCategoryFilter[]>(() => {
+    const hasMoreBoxes = wholesaleProducts.some((p) => matchesLotFilter(p, "More Boxes"));
+    return hasMoreBoxes ? [...BASE_LOT_FILTERS, "More Boxes"] : BASE_LOT_FILTERS;
+  }, [wholesaleProducts]);
+
   const filteredProducts = useMemo(() => {
     return wholesaleProducts.filter((p) => {
       const q = searchQuery.toLowerCase().trim();
@@ -502,8 +529,8 @@ export function WholesalePage({
                   href="#wholesale-catalog-grid"
                   className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#1C1917] hover:bg-black text-[#FAF2E1] border border-[#C5A880]/60 text-xs font-semibold uppercase tracking-[0.16em] shadow-sm transition-all"
                 >
-                  <span>Shop {wholesaleProducts.length} Boxes</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-[#E5C99B]" />
+                  <span>Shop Wholesale</span>
+                  <ArrowDown className="w-3.5 h-3.5 text-[#E5C99B]" />
                 </a>
 
                 <VelvetWhatsAppButton
@@ -774,7 +801,7 @@ export function WholesalePage({
             aria-label="Wholesale categories"
             className="inline-flex items-center gap-1 p-1 bg-[#F2EFE9] border border-[#E7E3DA] rounded-xl overflow-x-auto scrollbar-none"
           >
-            {LOT_FILTERS.map((filter) => {
+            {availableLotFilters.map((filter) => {
               const isActive = selectedFilter === filter;
               return (
                 <button

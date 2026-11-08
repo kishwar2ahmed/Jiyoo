@@ -1,23 +1,57 @@
 {
-  "name": "JIYOO | Premium Products",
+  "id": "/",
+  "name": "JIYOO – Fresh Fruits, Vegetables, Meat & Wholesale",
   "short_name": "JIYOO",
-  "description": "The world's finest ingredients, curated for the uncompromising palate.",
+  "description": "Order fresh imported & Indian fruits, daily farm vegetables, RO-water cleaned chicken, mutton, fish & wholesale product boxes.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#FAFAF8",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#FAF9F5",
   "theme_color": "#1C1917",
+  "categories": ["food", "shopping", "lifestyle"],
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/logo.jpg",
+      "src": "/pwa-192x192.png",
       "sizes": "192x192",
-      "type": "image/jpeg",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "/logo.jpg",
+      "src": "/pwa-512x512.png",
       "sizes": "512x512",
-      "type": "image/jpeg",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Shop Fresh Retail",
+      "short_name": "Retail",
+      "description": "Browse fresh fruits, daily vegetables, chicken, mutton & seafood",
+      "url": "/?section=retail",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Wholesale Boxes",
+      "short_name": "Wholesale",
+      "description": "Order full product boxes at direct wholesale prices",
+      "url": "/?section=wholesale",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

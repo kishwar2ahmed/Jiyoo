@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { ShoppingBag, User, Search, X, Menu, ArrowRight, Plus } from "lucide-react";
+import { ShoppingBag, User, Search, X, Menu, ArrowRight, Plus, Download } from "lucide-react";
 import { useCart } from "../contexts/CartContext";
 import { motion, AnimatePresence, useScroll, useSpring } from "motion/react";
 import { useSettings } from "../contexts/SettingsContext";
@@ -11,6 +11,8 @@ import { getOptimizedImageUrl, createSvgPlaceholder } from "../utils/imageUtils"
 import { Product } from "../types";
 import { useModalBackButton } from "../features/core/hooks/useModalBackButton";
 import { PriceDisplay } from "../features/core/components/PriceDisplay";
+import { InstallAppModal } from "../features/core/components/InstallAppModal";
+import { useInstallPrompt, OPEN_INSTALL_MODAL_EVENT } from "../utils/installPrompt";
 
 const TRENDING_SEARCHES = [
   "Mango",
@@ -53,6 +55,8 @@ export function Navbar({
 }) {
   const { cartCount, cartTotal, items, user, searchQuery, setSearchQuery, addToCart, triggerFlyingItem } = useCart();
   const { settings } = useSettings();
+  const { isStandalone, isIOS, triggerInstall } = useInstallPrompt();
+  const [installModalOpen, setInstallModalOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [dropdownFocused, setDropdownFocused] = useState(false);
@@ -89,6 +93,12 @@ export function Navbar({
       setSuggestionIdx((prev) => (prev + 1) % EDITORIAL_SEARCH_SUGGESTIONS.length);
     }, 3400);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const handleOpenInstall = () => setInstallModalOpen(true);
+    window.addEventListener(OPEN_INSTALL_MODAL_EVENT, handleOpenInstall);
+    return () => window.removeEventListener(OPEN_INSTALL_MODAL_EVENT, handleOpenInstall);
   }, []);
 
   useEffect(() => {
@@ -1178,6 +1188,19 @@ export function Navbar({
                   <span>Help &amp; Contact</span>
                   <ArrowRight className="w-3.5 h-3.5 text-[#78716C]" />
                 </button>
+                {!isStandalone && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      void triggerInstall();
+                    }}
+                    className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-medium text-[#57534E] hover:text-[#1C1917] hover:bg-[#F4F1EA] active:bg-[#EAE5D9] transition-colors cursor-pointer"
+                  >
+                    <span>Install JIYOO App</span>
+                    <Download className="w-3.5 h-3.5 text-[#8F6B38]" />
+                  </button>
+                )}
                 <a
                   href="tel:+919739391891"
                   onClick={() => setMobileMenuOpen(false)}
@@ -1473,6 +1496,12 @@ export function Navbar({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <InstallAppModal
+        isOpen={installModalOpen}
+        onClose={() => setInstallModalOpen(false)}
+        isIOS={isIOS}
+      />
     </>
   );
 }

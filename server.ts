@@ -89,7 +89,7 @@ if (!getApps().length) {
       let parsedServiceAccount = null;
       try {
         parsedServiceAccount = JSON.parse(serviceAccountJson);
-      } catch (e) {
+      } catch {
         console.warn('FIREBASE_SERVICE_ACCOUNT_KEY is not valid JSON, falling back to projectId initialization.');
       }
       
@@ -2757,7 +2757,7 @@ async function createOrderWithUniqueId(
     if (result) {
       const replayed = Boolean((result as any).__idempotencyReplay);
       if (replayed) {
-        const { __idempotencyReplay, ...payload } = result as any;
+        const { __idempotencyReplay: _idempotencyReplay, ...payload } = result as any;
         return { orderId: String(payload.id || candidateId), payload, replayed: true };
       }
       if (genesisAuditEntry) {
@@ -2825,7 +2825,7 @@ async function applyCoupon(subtotal: number, couponCode?: string | null, userId?
   return { discountAmount, couponCode: code };
 }
 
-async function rollbackCouponRedemption(db: FirebaseFirestore.Firestore, couponCode: string | null, userId: string) {
+async function _rollbackCouponRedemption(db: FirebaseFirestore.Firestore, couponCode: string | null, userId: string) {
   if (!couponCode) return;
   const couponRef = db.collection('coupons').doc(String(couponCode).trim().toUpperCase());
   const redemptionRef = userId && userId !== 'guest' ? couponRef.collection('redemptions').doc(userId) : null;
@@ -2952,7 +2952,7 @@ const verifyPaymentSchema = z.object({
   orderType: z.enum(['retail', 'wholesale']).optional(),
 });
 
-const uploadUrlSchema = z.object({
+const _uploadUrlSchema = z.object({
   filename: z.string().min(1, 'Filename is required'),
   contentType: z.string().min(1, 'Content type is required'),
 });
@@ -3153,7 +3153,7 @@ app.use(compression() as unknown as express.RequestHandler);
        res.set('Content-Security-Policy', "default-src 'none'; sandbox");
        res.set('Cache-Control', 'public, max-age=31536000, immutable');
        res.send(buffer);
-    } catch (e) {
+    } catch {
        res.status(500).send('Failed to load image');
     }
   });
@@ -3268,7 +3268,7 @@ app.use(compression() as unknown as express.RequestHandler);
       const snap = await getFirestore().collection('audit_logs').orderBy('createdAt', 'desc').limit(150).get();
       const logs = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
       res.json({ success: true, logs });
-    } catch (err: any) {
+    } catch {
       res.status(500).json({ success: false, error: 'Failed to load audit logs' });
     }
   });
@@ -3287,7 +3287,7 @@ app.use(compression() as unknown as express.RequestHandler);
         });
       }
       res.json({ success: true, users });
-    } catch (err: any) {
+    } catch {
       res.status(500).json({ success: false, error: 'Failed to load users' });
     }
   });
@@ -3718,7 +3718,7 @@ app.use(compression() as unknown as express.RequestHandler);
           totpStandard: 'RFC 6238 SHA-1 · 6 digits · 30s step · Replay-Protected',
         },
       });
-    } catch (err) {
+    } catch {
       return res.status(500).json({ success: false, error: 'Failed to load admin security status' });
     }
   });
@@ -3791,7 +3791,7 @@ app.use(compression() as unknown as express.RequestHandler);
         recoveryCodes: plainCodes,
         remainingRecoveryCodes: codeHashes.length,
       });
-    } catch (err) {
+    } catch {
       return res.status(500).json({ success: false, error: 'Failed to regenerate backup recovery codes.' });
     }
   });
@@ -3833,7 +3833,7 @@ app.use(compression() as unknown as express.RequestHandler);
       invalidateServerCache('settings:');
       invalidateServerCache('delivery:');
       res.json({ success: true });
-    } catch (err: any) {
+    } catch {
       res.status(500).json({ success: false, error: 'Failed to save settings on server' });
     }
   });
@@ -3846,7 +3846,7 @@ app.use(compression() as unknown as express.RequestHandler);
       });
       res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
       res.json({ success: true, settings: settingsData });
-    } catch (err: any) {
+    } catch {
       res.status(500).json({ success: false, error: 'Failed to load settings' });
     }
   });
@@ -3863,7 +3863,7 @@ app.use(compression() as unknown as express.RequestHandler);
       const snap = await getFirestore().collection(col).limit(500).get();
       const items = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
       res.json({ success: true, items });
-    } catch (err: any) {
+    } catch {
       res.status(500).json({ success: false, error: 'Failed to load collection' });
     }
   });
@@ -3889,7 +3889,7 @@ app.use(compression() as unknown as express.RequestHandler);
       );
       invalidateServerCache();
       res.json({ success: true, id });
-    } catch (err: any) {
+    } catch {
       res.status(500).json({ success: false, error: 'Failed to save document' });
     }
   });
@@ -3904,7 +3904,7 @@ app.use(compression() as unknown as express.RequestHandler);
       await getFirestore().collection(col).doc(id).delete();
       invalidateServerCache();
       res.json({ success: true, id });
-    } catch (err: any) {
+    } catch {
       res.status(500).json({ success: false, error: 'Failed to delete document' });
     }
   });
@@ -4292,7 +4292,7 @@ app.use(compression() as unknown as express.RequestHandler);
       });
       res.set('Cache-Control', 'public, max-age=20, stale-while-revalidate=120');
       res.json(payload);
-    } catch (err: any) {
+    } catch {
       res.json({
         success: true,
         retailAreas: DEFAULT_RETAIL_AREAS,
@@ -4453,7 +4453,7 @@ app.use(compression() as unknown as express.RequestHandler);
       });
       res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
       return res.json(payload);
-    } catch (err: any) {
+    } catch {
       return res.status(500).json({ success: false, error: 'Failed to load catalog.' });
     }
   });
@@ -7070,6 +7070,68 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
   };
 
   app.post('/api/razorpay/webhook', handleWebhook);
+
+  // Dynamic SEO Sitemap & Robots.txt (adapts automatically to custom domain or Vercel URL and lists all active categories & products with image tags)
+  const handleRobotsTxt = (req: express.Request, res: express.Response) => {
+    const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+    const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'jiyoo.com').split(',')[0].trim();
+    const baseUrl = `${proto}://${host}`;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+    res.send(`User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${baseUrl}/sitemap.xml\n`);
+  };
+  app.get('/robots.txt', handleRobotsTxt);
+  app.get('/api/seo/robots.txt', handleRobotsTxt);
+
+  const handleSitemapXml = (req: express.Request, res: express.Response) => {
+    const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+    const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'jiyoo.com').split(',')[0].trim();
+    const baseUrl = `${proto}://${host}`;
+    const today = new Date().toISOString().split('T')[0];
+
+    const escapeXml = (str: string) =>
+      String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+
+    const urls: string[] = [
+      `  <url>\n    <loc>${escapeXml(baseUrl)}/</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>`,
+      `  <url>\n    <loc>${escapeXml(baseUrl)}/?view=wholesale</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.95</priority>\n  </url>`,
+    ];
+
+    for (const cat of BUNDLED_CATEGORIES) {
+      if (!cat?.id) continue;
+      urls.push(
+        `  <url>\n    <loc>${escapeXml(`${baseUrl}/?category=${encodeURIComponent(String(cat.id))}`)}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.9</priority>\n  </url>`
+      );
+    }
+
+    for (const prod of BUNDLED_PRODUCTS) {
+      if (!prod?.id || !prod?.name) continue;
+      const prodLoc = `${baseUrl}/?product=${encodeURIComponent(String(prod.id))}`;
+      const imgUrl = prod.image
+        ? String(prod.image).startsWith('http')
+          ? String(prod.image)
+          : `${baseUrl}${String(prod.image).startsWith('/') ? prod.image : `/${prod.image}`}`
+        : '';
+      const imgBlock = imgUrl
+        ? `\n    <image:image>\n      <image:loc>${escapeXml(imgUrl)}</image:loc>\n      <image:title>${escapeXml(String(prod.name))}</image:title>\n    </image:image>`
+        : '';
+      urls.push(
+        `  <url>\n    <loc>${escapeXml(prodLoc)}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>${imgBlock}\n  </url>`
+      );
+    }
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${urls.join('\n')}\n</urlset>\n`;
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+    res.send(xml);
+  };
+  app.get('/sitemap.xml', handleSitemapXml);
+  app.get('/api/seo/sitemap.xml', handleSitemapXml);
 
   // Serve static public assets (products, banners, icons)
   try {

@@ -1,7 +1,21 @@
 {
   "buildCommand": "vite build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
   "rewrites": [
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/seo/sitemap.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "/api/seo/robots.txt"
+    },
     {
       "source": "/api/:path*",
       "destination": "/api"

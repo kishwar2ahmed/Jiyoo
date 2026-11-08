@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { computeAnchoredPrice } from "./priceAnchoring";
+import { computeAnchoredPrice } from "./priceAnchoring.ts";
 
 test("preserves existing selling price and generates a strictly higher scratched MRP when autoAnchor is true", () => {
   const res = computeAnchoredPrice({

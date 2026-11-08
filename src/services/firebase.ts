@@ -61,13 +61,13 @@ try {
   firestoreDb = customDbId
     ? initializeFirestore(app, firestoreConfig, customDbId)
     : initializeFirestore(app, firestoreConfig);
-} catch (e) {
+} catch {
   try {
     firestoreConfig.localCache = memoryLocalCache();
     firestoreDb = customDbId
       ? initializeFirestore(app, firestoreConfig, customDbId)
       : initializeFirestore(app, firestoreConfig);
-  } catch (err) {
+  } catch {
     firestoreDb = customDbId ? getFirestore(app, customDbId) : getFirestore(app);
   }
 }

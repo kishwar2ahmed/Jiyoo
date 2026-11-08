@@ -10,6 +10,7 @@ import { useStorefrontCategories } from '../hooks/useStorefrontCategories';
 import { searchCatalogProducts } from '../../../utils/fuzzyMatch';
 import { useStorefrontProducts } from '../hooks/useStorefrontProducts';
 import { createSvgPlaceholder } from '../../../utils/imageUtils';
+import { applyCategorySeo, applyProductModalSeo } from '../../../utils/seo';
 
 export function Storefront() {
   const { categoriesList } = useStorefrontCategories();
@@ -271,9 +272,19 @@ export function Storefront() {
     };
 
     try {
-      const pendingCat = sessionStorage.getItem('jiyoo_pending_category');
+      const params = new URLSearchParams(window.location.search);
+      const urlCat = params.get('category');
+      const pendingCat = sessionStorage.getItem('jiyoo_pending_category') || urlCat;
       if (pendingCat && categoriesList.some((c) => c.id === pendingCat)) {
         activateAndScrollCategory(pendingCat);
+      }
+      const urlProdId = params.get('product');
+      if (urlProdId && currentProducts.length > 0) {
+        const matchedProd = currentProducts.find((p) => String(p.id) === urlProdId);
+        if (matchedProd) {
+          setSelectedProduct(matchedProd);
+          setIsDetailOpen(true);
+        }
       }
     } catch {
       // ignore
@@ -297,7 +308,15 @@ export function Storefront() {
       window.removeEventListener('select-category' as any, handleSelectCategory);
       window.removeEventListener('select-product' as any, handleSelectProduct);
     };
-  }, [categoriesList, handleProductClick, handleCategoryChange, applyCategoryState]);
+  }, [categoriesList, currentProducts, handleProductClick, handleCategoryChange, applyCategoryState]);
+
+  useEffect(() => {
+    if (isDetailOpen && selectedProduct) {
+      applyProductModalSeo(selectedProduct);
+    } else {
+      applyCategorySeo(activeCategory, displayedProducts);
+    }
+  }, [isDetailOpen, selectedProduct, activeCategory, displayedProducts]);
 
   const categoryThumbnails = useMemo(() => {
     const map = new Map<string, { type: 'real-composite' | 'products', urls: string[] }>();

@@ -1,6 +1,5 @@
-import { useState, useRef } from "react";
+import { useRef } from "react";
 import { motion, useScroll, useTransform, useSpring, useReducedMotion } from "motion/react";
-import { PremiumShieldMark } from "../features/core/components/PremiumShieldMark";
 import { RealisticDeliveryScooter } from "../features/core/components/RealisticDeliveryScooter";
 import {
   GooglePayIcon,
@@ -18,23 +17,17 @@ import {
   EmailEnvelopeIcon,
 } from "../features/core/components/SocialIcons";
 import { DeveloperFooter } from "./DeveloperFooter";
-import { InstallAppModal } from "../features/core/components/InstallAppModal";
 import { FssaiLogo } from "../features/core/components/FssaiLogo";
 import { ArchitecturalButterfly } from "../features/core/components/ArchitecturalButterfly";
-import { ArrowUpRight, Clock, ShieldCheck, Heart } from "lucide-react";
+import { ArrowUpRight, ShieldCheck } from "lucide-react";
 import { useSettings } from "../contexts/SettingsContext";
 import { sanitizeWhatsAppNumber } from "../utils/whatsapp";
-import {
-  canPromptInstall,
-  requestInstall,
-  isIOSDevice,
-  isRunningStandalone,
-} from "../utils/installPrompt";
+import { useInstallPrompt } from "../utils/installPrompt";
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 export function Footer() {
   const { settings } = useSettings();
-  const [alreadyInstalled] = useState(() => isRunningStandalone());
+  const { isStandalone: alreadyInstalled, triggerInstall } = useInstallPrompt();
   const storeName = settings.storeName || "JIYOO";
   const whatsappNum = sanitizeWhatsAppNumber(settings.whatsappNumber);
   const contactPhone = settings.contactPhone || settings.aboutUs?.contactPhone || "+919739391891";
@@ -43,7 +36,6 @@ export function Footer() {
     "shamsjiyoo@gmail.com";
   const fssaiNumber = settings.aboutUs?.fssaiNumber || "21226112000732";
   const udyamNumber = settings.aboutUs?.udyamNumber || "UDYAM-KR-19-0005999";
-  const [showInstallInstructions, setShowInstallInstructions] = useState(false);
   const footerRef = useRef<HTMLElement>(null);
   const prefersReducedMotion = useReducedMotion();
 
@@ -70,13 +62,8 @@ export function Footer() {
     prefersReducedMotion ? [0, 0] : [24, 0]
   );
 
-  const handleGetApp = async () => {
-    if (canPromptInstall()) {
-      const accepted = await requestInstall();
-      if (!accepted) setShowInstallInstructions(true);
-    } else {
-      setShowInstallInstructions(true);
-    }
+  const handleGetApp = () => {
+    void triggerInstall();
   };
 
   const scrollToProducts = () => {
@@ -313,19 +300,40 @@ export function Footer() {
                 </div>
               </div>
 
-              {/* Install PWA Prompt Button */}
+              {/* Architectural App Installation Ledger (Mobile & Desktop) */}
               {!alreadyInstalled && (
-                <div className="mt-5 sm:mt-6">
+                <div className="mt-5 sm:mt-6 max-w-md">
                   <button
                     type="button"
                     onClick={handleGetApp}
-                    className="group inline-flex items-center gap-2 text-xs font-sans-clean font-medium text-[#8F6B38] hover:text-stone-950 transition-colors cursor-pointer"
-                    title={`Install ${storeName} on your home screen`}
+                    title={`Install ${storeName} on Mobile or Desktop`}
+                    className="group w-full py-3 px-4 rounded-xl bg-stone-50 hover:bg-stone-100/90 border border-stone-200/80 hover:border-stone-300 flex items-center justify-between gap-3 text-left transition-all cursor-pointer"
                   >
-                    <span className="underline underline-offset-4 decoration-stone-300 group-hover:decoration-stone-950">
-                      Install {storeName} App on Your Phone
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img
+                        src={settings.logoUrl || "/jiyoo.logo.jpeg"}
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (!target.src.endsWith("/jiyoo.logo.jpeg")) {
+                            target.src = "/jiyoo.logo.jpeg";
+                          }
+                        }}
+                        alt={storeName}
+                        className="w-8 h-8 rounded-lg object-contain bg-white border border-stone-200/80 p-0.5 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <span className="block font-sans-clean text-xs font-semibold text-stone-900 tracking-wide">
+                          Install {storeName} App
+                        </span>
+                        <span className="block font-sans-clean text-[11px] text-stone-500 font-light truncate">
+                          For iPhone, Android, Mac &amp; Windows
+                        </span>
+                      </div>
+                    </div>
+                    <span className="inline-flex items-center gap-1 text-xs font-sans-clean font-medium text-[#8F6B38] group-hover:text-stone-950 transition-colors shrink-0">
+                      <span>Install</span>
+                      <ArrowUpRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                     </span>
-                    <ArrowUpRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 shrink-0" />
                   </button>
                 </div>
               )}
@@ -454,6 +462,18 @@ export function Footer() {
                       Refund &amp; Replacement Policy
                     </button>
                   </li>
+                  {!alreadyInstalled && (
+                    <li>
+                      <button
+                        type="button"
+                        onClick={handleGetApp}
+                        className="inline-flex items-center gap-1 text-[#8F6B38] font-medium hover:text-stone-950 transition-colors cursor-pointer text-left"
+                      >
+                        <span>Install {storeName} App</span>
+                        <ArrowUpRight className="w-3 h-3 shrink-0" />
+                      </button>
+                    </li>
+                  )}
 
                   <li className="pt-1.5">
                     <div className="group p-3 rounded-xl bg-stone-50 border border-stone-200/60 space-y-1">
@@ -592,12 +612,6 @@ export function Footer() {
           </div>
         </motion.div>
       </div>
-
-      <InstallAppModal
-        isOpen={showInstallInstructions}
-        onClose={() => setShowInstallInstructions(false)}
-        isIOS={isIOSDevice()}
-      />
     </footer>
   );
 }

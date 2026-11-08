@@ -33,7 +33,7 @@ export function ReviewsTab() {
       await adminDeleteDoc('reviews', id);
       setReviews(prev => prev.filter(r => r.id !== id));
       showToast('Review deleted', 'success');
-    } catch (err) {
+    } catch {
       showToast('Error deleting review', 'error');
     }
   };

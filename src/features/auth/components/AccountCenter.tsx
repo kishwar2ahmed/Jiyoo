@@ -3,7 +3,7 @@ import {
   X, User, MapPin, CreditCard, Globe, Bell, Shield, Heart, Package, Star, 
   HelpCircle, LogOut, Trash2, Camera, Loader2, ChevronRight, Edit3, Plus, 
   Search, Printer, RotateCcw, MessageSquare, CheckCircle2, Clock, 
-  Truck, ShoppingBag, RefreshCw, ExternalLink, Copy, Check 
+  Truck, ShoppingBag, RefreshCw, ExternalLink 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCart } from '../../../contexts/CartContext';
@@ -20,7 +20,7 @@ import { useToast } from '../../core/contexts/ToastContext';
 import { useConfirm } from '../../core/contexts/ConfirmContext';
 import { useModalBackButton } from '../../core/hooks/useModalBackButton';
 import { PremiumShieldMark } from '../../core/components/PremiumShieldMark';
-import { InstagramIcon, WhatsAppIcon, OFFICIAL_INSTAGRAM_URL } from '../../core/components/SocialIcons';
+import { InstagramIcon, OFFICIAL_INSTAGRAM_URL } from '../../core/components/SocialIcons';
 import { useStorefrontProducts } from '../../storefront/hooks/useStorefrontProducts';
 import { PriceDisplay } from '../../core/components/PriceDisplay';
 
@@ -226,7 +226,6 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [expandedAdvancedOrderId, setExpandedAdvancedOrderId] = useState<string | null>(null);
-  const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
 
   // Direct Order ID Lookup & Tracking state (supports tracking Guest WhatsApp or any Order ID)
   const [showOrderLookup, setShowOrderLookup] = useState(false);
@@ -1445,7 +1444,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                             await updateProfile(auth.currentUser, { displayName: name }).catch(() => {});
                           }
                           showToast('Profile updated successfully!', 'success');
-                        } catch (e) {
+                        } catch {
                           showToast('Failed to update profile', 'error');
                         }
                       }} className="bg-stone-900 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-stone-800 transition-colors w-full sm:w-auto cursor-pointer">
@@ -1506,7 +1505,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                                    }
                                    setShowAddressForm(false);
                                    setEditingAddress(null);
-                                 } catch (e) {
+                                 } catch {
                                    showToast('Failed to save address', 'error');
                                  } finally {
                                    setLoading(false);

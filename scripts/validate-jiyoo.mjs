@@ -20,7 +20,7 @@ const cart = fs.readFileSync(path.join(root, 'src/features/cart/components/CartM
 
 checks.push(['Server checkout supports optionalAuth for guest & signed-in orders', /app\.post\('\/api\/orders\/create', orderLimiter, optionalAuth/.test(server)]);
 checks.push(['Razorpay order supports optionalAuth', /app\.post\('\/api\/razorpay\/order', orderLimiter, optionalAuth/.test(server)]);
-checks.push(['Razorpay verify supports optionalAuth', /app\.post\('\/api\/razorpay\/verify', optionalAuth/.test(server)]);
+checks.push(['Razorpay verify supports optionalAuth', /app\.post\('\/api\/razorpay\/verify',\s*(?:orderLimiter,\s*)?optionalAuth/.test(server)]);
 checks.push(['Client checkout has auth guard helper', /const requireCheckoutAuth = \(\) =>/.test(cart) && /if \(!requireCheckoutAuth\(\)\) return;/.test(cart)]);
 checks.push(['Client checkout button transitions to checkout step', /onClick=\{\(\) => \{ if \(requireCheckoutAuth\(\)\) setStep\("checkout"\); \}\}/.test(cart)]);
 checks.push(['Guest & authenticated order creation route is active', /app\.post\('\/api\/orders\/create', orderLimiter, optionalAuth/.test(server)]);

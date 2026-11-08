@@ -7,8 +7,11 @@ import {
   DEFAULT_PAN_INDIA_WHOLESALE_ZONE,
 } from '../constants/deliveryAreas';
 
-const DATA_DIR = path.resolve(process.cwd(), '.server-data');
-const DB_FILE = path.join(DATA_DIR, 'store-db.json');
+const BUNDLED_DATA_DIR = path.resolve(process.cwd(), '.server-data');
+const BUNDLED_DB_FILE = path.join(BUNDLED_DATA_DIR, 'store-db.json');
+const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const DATA_DIR = IS_SERVERLESS ? '/tmp/.server-data' : BUNDLED_DATA_DIR;
+const DB_FILE = IS_SERVERLESS ? '/tmp/.server-data/store-db.json' : BUNDLED_DB_FILE;
 
 type CollectionStore = Record<string, Record<string, any>>;
 
@@ -122,8 +125,13 @@ function ensureInitialized() {
   initialized = true;
 
   try {
-    if (fs.existsSync(DB_FILE)) {
-      const raw = fs.readFileSync(DB_FILE, 'utf8');
+    const sourceFile = fs.existsSync(DB_FILE)
+      ? DB_FILE
+      : fs.existsSync(BUNDLED_DB_FILE)
+      ? BUNDLED_DB_FILE
+      : null;
+    if (sourceFile) {
+      const raw = fs.readFileSync(sourceFile, 'utf8');
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
         store = parsed;

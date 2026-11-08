@@ -2,18 +2,15 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Heart,
-  ShoppingBag,
   X,
   Minus,
   Plus,
-  Check,
   MessageCircle,
 } from "lucide-react";
 import { Product } from "../../../types";
 import { useCart } from "../../../contexts/CartContext";
 import { useSettings } from "../../../contexts/SettingsContext";
 import { ProductReviews } from "./ProductReviews";
-import { useWhatsAppOrder } from "../hooks/useWhatsAppOrder";
 import { getOptimizedImageUrl } from "../../../utils/imageUtils";
 import { useToast } from "../../core/contexts/ToastContext";
 import { useModalBackButton } from "../../core/hooks/useModalBackButton";
@@ -46,10 +43,9 @@ export function ProductDetailModal({
   onProductClick,
   initialTab = "details",
 }: ProductDetailModalProps) {
-  const { addToCart, triggerFlyingItem, user } = useCart();
+  const { addToCart, triggerFlyingItem } = useCart();
   const { settings } = useSettings();
   const { showToast } = useToast();
-  const { handleWhatsAppOrder: _handleWhatsAppOrder } = useWhatsAppOrder();
 
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(product?.image);

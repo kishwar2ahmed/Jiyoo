@@ -1,6 +1,6 @@
 import { ProductFormModal } from './ProductFormModal';
 import { useState, useEffect, useMemo } from 'react';
-import { collection, doc, setDoc, onSnapshot, writeBatch, query, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, limit } from 'firebase/firestore';
 
 import { db } from '../../../services/firebase';
 import { Category, Product } from '../../../types';
@@ -190,7 +190,7 @@ export function ProductsTab() {
         await Promise.all(
           chunk.map((p) => {
             const cleanProd = Object.fromEntries(
-              Object.entries({ ...p, id: String(p.id), isDeleted: false, updatedAt: new Date().toISOString() }).filter(([_, v]) => v !== undefined)
+              Object.entries({ ...p, id: String(p.id), isDeleted: false, updatedAt: new Date().toISOString() }).filter(([, v]) => v !== undefined)
             );
             return adminSaveDoc('products', String(p.id), cleanProd);
           })
@@ -233,7 +233,7 @@ export function ProductsTab() {
       updatedAt: new Date().toISOString(),
     } as Product;
     
-    const payload = Object.fromEntries(Object.entries(rawPayload).filter(([_, v]) => v !== undefined)) as Product;
+    const payload = Object.fromEntries(Object.entries(rawPayload).filter(([, v]) => v !== undefined)) as Product;
     
     try {
       await adminSaveDoc('products', id, payload);
@@ -275,7 +275,7 @@ export function ProductsTab() {
     setProducts(prev => prev.map(item => item.id === p.id ? { ...item, stockStatus: nextStatus } : item));
     try {
       const fullPayload = Object.fromEntries(
-        Object.entries({ ...p, id: String(p.id), stockStatus: nextStatus, isDeleted: false, updatedAt: new Date().toISOString() }).filter(([_, v]) => v !== undefined)
+        Object.entries({ ...p, id: String(p.id), stockStatus: nextStatus, isDeleted: false, updatedAt: new Date().toISOString() }).filter(([, v]) => v !== undefined)
       );
       await adminSaveDoc('products', String(p.id), fullPayload);
       showToast(nextStatus === 'out_of_stock' ? `"${p.name}" marked out of stock.` : `"${p.name}" marked in stock.`, 'success');

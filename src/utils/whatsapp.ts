@@ -35,7 +35,6 @@ export function createWhatsAppOrderUrl({
   customerAddressType,
   deliveryInstructions,
   selectedArea,
-  priceVerified = true,
   paymentMethod = 'Cash on Delivery / Direct UPI',
   whatsappNumber = '919739391891'
 }: {
@@ -148,7 +147,6 @@ export function createSingleProductWhatsAppUrl({
   selectedWeight,
   selectedCut,
   totalPrice,
-  priceVerified = true,
   paymentMethod = 'Cash on Delivery / Direct UPI',
   whatsappNumber = '919739391891'
 }: {

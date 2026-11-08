@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Save, Globe } from "lucide-react";
 import { useSettings } from "../../../contexts/SettingsContext";
-import { useCart } from "../../../contexts/CartContext";
 import { ImageUpload } from "./ImageUpload";
 import { useToast } from "../../core/contexts/ToastContext";
 import { PhonePeIcon, PaytmIcon, UpiOfficialIcon } from "../../core/components/UpiIcons";
@@ -9,7 +8,6 @@ import { PhonePeIcon, PaytmIcon, UpiOfficialIcon } from "../../core/components/U
 export function SettingsTab() {
   const { showToast } = useToast();
   const { settings, updateSettings } = useSettings();
-  const { user } = useCart();
   const [storeName, setStoreName] = useState(settings.storeName);
   const [contactEmail, setContactEmail] = useState(settings.contactEmail);
   const [whatsappNumber, setWhatsappNumber] = useState(

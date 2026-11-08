@@ -3,8 +3,6 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Heart,
-  ShoppingBag,
-  Check,
   Star,
   Plus,
   Minus,

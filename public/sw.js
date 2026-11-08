@@ -1,7 +1,11 @@
-const CACHE_NAME = 'jiyoo-catalog-v3';
+const CACHE_NAME = 'jiyoo-catalog-v4';
 const STATIC_ASSETS = [
   '/manifest.json',
+  '/pwa-192x192.png',
+  '/pwa-512x512.png',
+  '/apple-touch-icon.png',
   '/logo.jpg',
+  '/jiyoo.logo.jpeg',
   '/og-image.png',
   '/robots.txt',
   '/sitemap.xml'
@@ -70,6 +74,10 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/@') ||
     url.pathname.startsWith('/src/') ||
     url.pathname.startsWith('/node_modules/') ||
+    url.pathname.endsWith('.tsx') ||
+    url.pathname.endsWith('.ts') ||
+    url.searchParams.has('v') ||
+    url.searchParams.has('t') ||
     url.hostname.includes('firestore.googleapis.com')
   ) {
     return;

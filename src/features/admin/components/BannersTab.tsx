@@ -16,7 +16,6 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
   X,
   UploadCloud,
   Check,

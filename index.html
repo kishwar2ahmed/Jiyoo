@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="JIYOO" />
+    <meta name="application-name" content="JIYOO" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="format-detection" content="telephone=no" />
     <script>
@@ -30,27 +33,148 @@
         }
       }, true);
     </script>
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
     <link rel="icon" type="image/jpeg" href="/jiyoo.logo.jpeg" />
-    <link rel="apple-touch-icon" href="/jiyoo.logo.jpeg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#1C1917" />
-    <title>JIYOO | Premium Products</title>
-    
-    <!-- SEO and Social Preview (Open Graph) -->
-    <meta name="description" content="The world's finest ingredients, curated for the uncompromising palate. Delivered with precision and elegance." />
-    <meta property="og:title" content="JIYOO | Premium Products" />
-    <meta property="og:description" content="The world's finest ingredients, curated for the uncompromising palate. Delivered with precision and elegance." />
+    <title>JIYOO – Fresh Fruits, Vegetables, Meat &amp; Wholesale Boxes</title>
+
+    <!-- Primary SEO & Crawler Directives -->
+    <meta name="description" content="Order fresh imported &amp; Indian fruits, farm vegetables, RO-cleaned chicken, mutton, fish &amp; wholesale product boxes at JIYOO. Fast delivery in Bengaluru &amp; India." />
+    <meta name="keywords" content="JIYOO, Jiyoo Fresh, Shams Jiyoo, Jiyoo Bangalore, Jiyoo Wholesale, fresh fruits delivery Bangalore, imported fruits online Bengaluru, daily farm vegetables delivery Bangalore, fresh chicken mutton fish delivery Bangalore, RO water cleaned meat, wholesale fruit boxes India, wholesale product boxes Bangalore, Indiranagar, Whitefield, Frazer Town, Cooke Town, KR Puram, Kammanahalli, Kalyan Nagar, Hoodi" />
+    <meta name="author" content="JIYOO (SHAM'S™)" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="geo.region" content="IN-KA" />
+    <meta name="geo.placename" content="Bengaluru, Karnataka, India" />
+    <meta name="geo.position" content="13.0068;77.6152" />
+    <meta name="ICBM" content="13.0068, 77.6152" />
+    <link rel="canonical" href="https://jiyoo.com/" />
+
+    <!-- OpenGraph Social Cards (WhatsApp, Instagram, Facebook, LinkedIn) -->
+    <meta property="og:site_name" content="JIYOO" />
+    <meta property="og:locale" content="en_IN" />
     <meta property="og:type" content="website" />
+    <meta property="og:title" content="JIYOO – Fresh Fruits, Vegetables, Meat &amp; Wholesale Boxes" />
+    <meta property="og:description" content="Order fresh imported &amp; Indian fruits, farm vegetables, RO-cleaned chicken, mutton, fish &amp; wholesale product boxes at JIYOO. Fast delivery in Bengaluru &amp; India." />
+    <meta property="og:url" content="https://jiyoo.com/" />
     <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:alt" content="JIYOO – Fresh Fruits, Daily Vegetables, Custom-Cut Meats &amp; Wholesale Product Boxes" />
+
+    <!-- Twitter / X Large Summary Card -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="JIYOO – Fresh Fruits, Vegetables, Meat &amp; Wholesale Boxes" />
+    <meta name="twitter:description" content="Order fresh imported &amp; Indian fruits, farm vegetables, RO-cleaned chicken, mutton, fish &amp; wholesale product boxes at JIYOO. Fast delivery in Bengaluru &amp; India." />
     <meta name="twitter:image" content="/og-image.png" />
-    <!-- Structured Data (JSON-LD) -->
+
+    <!-- Rich Schema.org Structured Data (GroceryStore + Wholesale + WebSite + FAQPage) -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "Store",
-      "name": "JIYOO Premium Products",
-      "description": "The world's finest ingredients, curated for the uncompromising palate."
+      "@graph": [
+        {
+          "@type": ["GroceryStore", "LocalBusiness", "Store"],
+          "@id": "https://jiyoo.com/#store",
+          "name": "JIYOO",
+          "alternateName": ["JIYOO Fresh", "SHAM'S JIYOO", "JIYOO Wholesale"],
+          "legalName": "SHAM'S™",
+          "description": "Order fresh imported & Indian fruits, daily farm vegetables, RO-water cleaned chicken, mutton, fish, seafood, and wholesale product boxes. Express home delivery in Bengaluru and wholesale box delivery across India.",
+          "url": "https://jiyoo.com/",
+          "logo": "https://jiyoo.com/jiyoo.logo.jpeg",
+          "image": "https://jiyoo.com/og-image.png",
+          "telephone": "+91-9739391891",
+          "email": "shamsjiyoo@gmail.com",
+          "priceRange": "₹₹",
+          "currenciesAccepted": "INR",
+          "paymentAccepted": "UPI, Google Pay, PhonePe, Paytm, Credit Card, Debit Card, Cash on Delivery",
+          "openingHoursSpecification": [
+            {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": [
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+                "Sunday"
+              ],
+              "opens": "07:00",
+              "closes": "22:00"
+            }
+          ],
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Bengaluru",
+            "addressRegion": "Karnataka",
+            "postalCode": "560005",
+            "addressCountry": "IN"
+          },
+          "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": 13.0068,
+            "longitude": 77.6152
+          },
+          "areaServed": [
+            { "@type": "City", "name": "Bengaluru" },
+            { "@type": "Place", "name": "Frazer Town, Bengaluru" },
+            { "@type": "Place", "name": "Cooke Town, Bengaluru" },
+            { "@type": "Place", "name": "Indiranagar, Bengaluru" },
+            { "@type": "Place", "name": "Whitefield, Bengaluru" },
+            { "@type": "Place", "name": "KR Puram, Bengaluru" },
+            { "@type": "Place", "name": "Kammanahalli, Bengaluru" },
+            { "@type": "Place", "name": "Kalyan Nagar, Bengaluru" },
+            { "@type": "Place", "name": "Banaswadi, Bengaluru" },
+            { "@type": "Place", "name": "Hoodi, Bengaluru" },
+            { "@type": "Country", "name": "India" }
+          ],
+          "founder": [
+            { "@type": "Person", "name": "Syed Shams", "jobTitle": "Founder, CEO & CFO" },
+            { "@type": "Person", "name": "Dr. Mehraj Sultana", "jobTitle": "Managing Director" }
+          ],
+          "sameAs": [
+            "https://www.instagram.com/shamsjiyoo2026"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://jiyoo.com/#website",
+          "url": "https://jiyoo.com/",
+          "name": "JIYOO",
+          "publisher": { "@id": "https://jiyoo.com/#store" },
+          "inLanguage": "en-IN"
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://jiyoo.com/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What does JIYOO deliver in Bengaluru?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "JIYOO delivers handpicked imported and Indian fruits, daily farm-fresh vegetables, custom-cut chicken, tender mutton, fish, and sea prawns cleaned with pure RO water across Bengaluru from 7:00 AM to 10:00 PM daily."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does JIYOO supply wholesale fruit and product boxes across India?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes, JIYOO Wholesale supplies full master cartons and wholesale product boxes at direct wholesale rates with a minimum order of just 1 box and pan-India delivery."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How can I place an order on JIYOO?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "You can order directly on the JIYOO website using UPI, Cards, or Cash on Delivery, or use instant 1-tap WhatsApp Checkout (+91 97393 91891)."
+              }
+            }
+          ]
+        }
+      ]
     }
     </script>
     <!-- Preconnect to image CDNs -->

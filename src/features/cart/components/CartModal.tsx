@@ -26,7 +26,6 @@ import {
   VisaIcon,
   MastercardIcon,
   RuPayIcon,
-  UpiAppsPillRow,
 } from "../../core/components/UpiIcons";
 import { VelvetWhatsAppButton } from "../../product/components/VelvetWhatsAppButton";
 import { db } from "../../../services/firebase";
@@ -54,26 +53,6 @@ import {
   normalizeIndianPincode,
 } from "../../../constants/deliveryAreas";
 
-// Trust & Payment Method Official Brand Logos
-const PaytmLogo = ({ className = "h-4 w-auto" }: { className?: string }) => (
-  <PaytmIcon className={className} />
-);
-
-const UpiLogo = ({ className = "h-4 w-auto" }: { className?: string }) => (
-  <UpiOfficialIcon className={className} />
-);
-
-const PhonePeBadge = ({ className = "h-4 w-auto" }: { className?: string }) => (
-  <div className={`inline-flex items-center gap-1 ${className}`}>
-    <PhonePeIcon className="h-4 w-4" />
-    <span className="text-[11px] font-bold text-[#5F259E] leading-none">PhonePe</span>
-  </div>
-);
-
-const GPayBadge = ({ className = "h-4 w-auto" }: { className?: string }) => (
-  <GooglePayIcon className={className} />
-);
-
 const getValidPrice = (item: any) => {
   const p1 = Number(item.numericPrice);
   if (!isNaN(p1) && p1 > 0) return p1;
@@ -83,7 +62,7 @@ const getValidPrice = (item: any) => {
 export function CartModal({
   isOpen,
   onClose,
-  onRequestAuth,
+  onRequestAuth: _onRequestAuth,
   initialWhatsAppCheckout = false,
   onConsumeWhatsAppCheckout,
 }: {
@@ -456,62 +435,6 @@ export function CartModal({
     }
   }, [user]);
 
-  const handleSavedAddress = async () => {
-    if (user) {
-      try {
-        setIsProcessing(true);
-        if (user.address) {
-          populateStructuredFromRawAddress(user.address, user.pincode);
-          if (user.phone) setPhone(user.phone);
-          if (user.name) setName(user.name);
-          setFormErrors((prev) => ({ ...prev, address: undefined }));
-        }
-        const q = query(
-          collection(db, "users", user.id, "addresses"),
-          limit(10),
-        );
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const addrs: any[] = [];
-          snap.forEach((d) => addrs.push({ id: d.id, ...d.data() }));
-          setSavedAddressesList(addrs);
-
-          const addr = addrs[0];
-          if (addr.address) populateStructuredFromRawAddress(addr.address, addr.pincode);
-          if (addr.phone) setPhone(addr.phone);
-          if (addr.name) setName(addr.name);
-          setFormErrors((prev) => ({ ...prev, address: undefined }));
-        } else if (!user.address) {
-          setFormErrors((prev) => ({
-            ...prev,
-            address:
-              "No saved address found. Please enter address manually below or click GPS.",
-          }));
-        }
-      } catch (e) {
-        console.error(e);
-        if (user.address) {
-          populateStructuredFromRawAddress(user.address, user.pincode);
-        } else {
-          setFormErrors((prev) => ({
-            ...prev,
-            address:
-              "Could not fetch saved address. Please enter manually below.",
-          }));
-        }
-      } finally {
-        setIsProcessing(false);
-      }
-    } else {
-      setFormErrors((prev) => ({
-        ...prev,
-        address:
-          "Please login to use saved addresses, or enter address manually below.",
-      }));
-    }
-  };
-
-  
   const getAuthToken = async () => {
     const auth = getAuth();
     if (auth.currentUser) {

@@ -15,6 +15,7 @@ import { Footer } from "./layouts/Footer";
 import { FlyingItemsLayer } from "./features/core/components/FlyingItemsLayer";
 import type { LegalPolicyTab } from "./features/core/components/LegalPolicyModal";
 import { WholesaleCurtainTransition } from "./features/wholesale/components/WholesaleCurtainTransition";
+import { applyWholesaleSeo, updateDocumentSeo } from "./utils/seo";
 
 const AuthModal = lazy(() =>
   import("./features/auth/components/AuthModal").then((m) => ({ default: m.AuthModal }))
@@ -59,9 +60,21 @@ function AppContent() {
   const [isContactOpen, setIsContactOpen] = useState(false);
   const [isLegalOpen, setIsLegalOpen] = useState(false);
   const [legalTab, setLegalTab] = useState<LegalPolicyTab>("privacy");
-  const [activePage, setActivePage] = useState<'retail' | 'wholesale'>(() =>
-    window.location.hash === '#wholesale' ? 'wholesale' : 'retail'
-  );
+  const [activePage, setActivePage] = useState<'retail' | 'wholesale'>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (
+        window.location.hash === '#wholesale' ||
+        params.get('view') === 'wholesale' ||
+        params.get('section') === 'wholesale'
+      ) {
+        return 'wholesale';
+      }
+    } catch {
+      // ignore
+    }
+    return 'retail';
+  });
   const [showSplash, setShowSplash] = useState<boolean>(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -104,6 +117,14 @@ function AppContent() {
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    if (activePage === 'wholesale') {
+      applyWholesaleSeo(8);
+    } else {
+      updateDocumentSeo({});
+    }
+  }, [activePage]);
 
   useEffect(() => {
     try {

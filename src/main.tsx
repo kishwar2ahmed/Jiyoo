@@ -92,34 +92,14 @@ if (typeof window !== "undefined") {
   });
 }
 
-// Register Service Worker in production; in dev/preview, unregister stale workers so Vite HMR/module requests are never cached
+// Register Service Worker so PWA installability (beforeinstallprompt) works on both Desktop & Mobile
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    if (import.meta.env.DEV) {
-      navigator.serviceWorker
-        .getRegistrations()
-        .then((registrations) => {
-          for (const registration of registrations) {
-            registration.unregister();
-          }
-        })
-        .catch(() => {});
-      if ("caches" in window) {
-        caches
-          .keys()
-          .then((names) => Promise.all(names.map((n) => caches.delete(n))))
-          .catch(() => {});
-      }
-    } else {
-      navigator.serviceWorker
-        .register("/sw.js")
-        .then((reg) => {
-          console.log("JIYOO Service Worker registered:", reg.scope);
-        })
-        .catch((err) => {
-          console.warn("Service Worker registration failed:", err);
-        });
-    }
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .catch(() => {
+        // Ignore registration errors in restricted preview frames
+      });
   });
 }
 
