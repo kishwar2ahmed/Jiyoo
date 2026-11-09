@@ -126,10 +126,10 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
                     Contact &amp; Official Socials
                   </h3>
                   <a
-                    href={`tel:${(settings.contactPhone || settings.aboutUs?.contactPhone || "+919739391891").replace(/\s+/g, "")}`}
+                    href={`tel:${(settings.aboutUs?.contactPhone || "+919611468986").replace(/\s+/g, "")}`}
                     className="inline-block text-brand-gray-600 hover:text-brand-black font-medium text-base font-mono mb-3 tabular-nums transition-colors"
                   >
-                    {settings.contactPhone || settings.aboutUs?.contactPhone || "+91 97393 91891"}
+                    {settings.aboutUs?.contactPhone || "+91 96114 68986"}
                   </a>
                   <div className="flex items-center gap-2.5">
                     {SOCIAL_LINKS.map((link) => (

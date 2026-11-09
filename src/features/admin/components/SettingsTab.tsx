@@ -50,7 +50,7 @@ export function SettingsTab() {
   const [mdName, setMdName] = useState(settings.aboutUs?.mdName || "");
   const [mdRole, setMdRole] = useState(settings.aboutUs?.mdRole || "Managing Director (MD)");
   const [marketedBy, setMarketedBy] = useState(settings.aboutUs?.marketedBy || "JIYOO");
-  const [contactPhone, setContactPhone] = useState(settings.aboutUs?.contactPhone || "+91 97393 91891");
+  const [contactPhone, setContactPhone] = useState(settings.aboutUs?.contactPhone || "+91 96114 68986");
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -78,7 +78,7 @@ export function SettingsTab() {
       setMdName(settings.aboutUs.mdName || "");
       setMdRole(settings.aboutUs.mdRole || "Managing Director (MD)");
       setMarketedBy(settings.aboutUs.marketedBy || "JIYOO");
-      setContactPhone(settings.aboutUs.contactPhone || "+91 97393 91891");
+      setContactPhone(settings.aboutUs.contactPhone || "+91 96114 68986");
     }
   }, [settings]);
 

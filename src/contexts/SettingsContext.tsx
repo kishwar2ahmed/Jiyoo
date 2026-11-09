@@ -56,7 +56,7 @@ const defaultAboutUs: AboutUsSettings = {
   mdName: "",
   mdRole: "",
   marketedBy: "JIYOO",
-  contactPhone: "+91 97393 91891",
+  contactPhone: "+91 96114 68986",
 };
 
 const normalizeAboutUs = (raw?: AboutUsSettings): AboutUsSettings => {
@@ -78,6 +78,9 @@ const normalizeAboutUs = (raw?: AboutUsSettings): AboutUsSettings => {
   }
   if (!merged.marketedBy || /sham/i.test(merged.marketedBy)) {
     merged.marketedBy = "JIYOO";
+  }
+  if (!merged.contactPhone || merged.contactPhone.replace(/\D/g, "").endsWith("9739391891")) {
+    merged.contactPhone = "+91 96114 68986";
   }
   return merged;
 };
@@ -181,7 +184,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const cached = localStorage.getItem('jiyoo_store_settings_v3');
+        const cached = localStorage.getItem('jiyoo_store_settings_v4');
         if (cached) {
           const parsed = JSON.parse(cached);
           return {
@@ -216,7 +219,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
               heroBanners: Array.isArray(raw.heroBanners) && raw.heroBanners.length > 0 ? ensureCoreBanners(raw.heroBanners) : prev.heroBanners,
             };
             try {
-              localStorage.setItem('jiyoo_store_settings_v3', JSON.stringify(next));
+              localStorage.setItem('jiyoo_store_settings_v4', JSON.stringify(next));
             } catch {
               // ignore storage quota errors
             }
@@ -280,7 +283,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
               heroBanners: resolvedBanners,
             };
             try {
-              localStorage.setItem('jiyoo_store_settings_v3', JSON.stringify(remoteSettings));
+              localStorage.setItem('jiyoo_store_settings_v4', JSON.stringify(remoteSettings));
             } catch {
               // ignore storage quota errors
             }
@@ -301,7 +304,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     setSettings(updated);
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('jiyoo_store_settings_v3', JSON.stringify(updated));
+        localStorage.setItem('jiyoo_store_settings_v4', JSON.stringify(updated));
       } catch {
         // ignore storage quota errors
       }
