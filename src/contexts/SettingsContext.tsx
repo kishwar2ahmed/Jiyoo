@@ -51,12 +51,34 @@ const defaultAboutUs: AboutUsSettings = {
   objectiveText: "Our objective is to build an efficient and robust online & offline platform that showcases our strengths in quality, express service, and value for money. We specialize in exotic and imported fresh produce, while continuously expanding to offer a wider range of healthy food products.",
   visionText: "Our vision is to consistently deliver premium quality with a wide assortment of healthy foods while enhancing customer experience through customized solutions and a pay-per-demand model.",
   standardsText: "With an experienced team serving hotels, retail stores, restaurants, general trade, and end-users, we are committed to maintaining the highest standards of hygiene, safety, and customer satisfaction in everything we do.",
-  founderName: "Syed Shams",
+  founderName: "Dr. Mehraj Sultana",
   founderRole: "Founder, CEO & CFO",
-  mdName: "Dr. Mehraj Sultana",
-  mdRole: "Managing Director (MD)",
-  marketedBy: "SHAM'S™",
+  mdName: "",
+  mdRole: "",
+  marketedBy: "JIYOO",
   contactPhone: "+91 97393 91891",
+};
+
+const normalizeAboutUs = (raw?: AboutUsSettings): AboutUsSettings => {
+  const merged: AboutUsSettings = { ...defaultAboutUs, ...(raw || {}) };
+  if (!merged.founderName || merged.founderName.trim().toLowerCase() === "syed shams") {
+    merged.founderName = "Dr. Mehraj Sultana";
+  }
+  if (!merged.founderRole || merged.founderRole.trim() === "Founder & CEO") {
+    merged.founderRole = "Founder, CEO & CFO";
+  }
+  if (merged.mdName && merged.mdName.trim().toLowerCase() === "dr. mehraj sultana") {
+    merged.mdName = "";
+    merged.mdRole = "";
+  }
+  if (
+    !merged.marketedBy ||
+    merged.marketedBy.trim() === "SHAM'S™" ||
+    merged.marketedBy.trim() === "SHAM'S"
+  ) {
+    merged.marketedBy = "JIYOO";
+  }
+  return merged;
 };
 
 const ensureCoreBanners = (banners: BannerSlide[]): BannerSlide[] => {
@@ -158,13 +180,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const cached = localStorage.getItem('jiyoo_store_settings_v2');
+        const cached = localStorage.getItem('jiyoo_store_settings_v3');
         if (cached) {
           const parsed = JSON.parse(cached);
           return {
             ...defaultSettings,
             ...parsed,
-            aboutUs: { ...defaultAboutUs, ...(parsed.aboutUs || {}) },
+            aboutUs: normalizeAboutUs(parsed.aboutUs),
             heroBanners: Array.isArray(parsed.heroBanners) && parsed.heroBanners.length > 0 ? ensureCoreBanners(parsed.heroBanners) : getInitialBanners(),
           };
         }
@@ -186,14 +208,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             const next: Settings = {
               ...prev,
               ...raw,
-              aboutUs: { ...defaultAboutUs, ...(prev.aboutUs || {}), ...(raw.aboutUs || {}) },
+              aboutUs: normalizeAboutUs({ ...(prev.aboutUs || {}), ...(raw.aboutUs || {}) }),
               deliveryFee: typeof raw.deliveryFee === 'number' ? raw.deliveryFee : prev.deliveryFee,
               logoUrl: sanitizeImageUrl(raw.logoUrl) || prev.logoUrl,
               developerImageUrl: sanitizeImageUrl(raw.developerImageUrl) || prev.developerImageUrl,
               heroBanners: Array.isArray(raw.heroBanners) && raw.heroBanners.length > 0 ? ensureCoreBanners(raw.heroBanners) : prev.heroBanners,
             };
             try {
-              localStorage.setItem('jiyoo_store_settings_v2', JSON.stringify(next));
+              localStorage.setItem('jiyoo_store_settings_v3', JSON.stringify(next));
             } catch {
               // ignore storage quota errors
             }
@@ -250,14 +272,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
               ...defaultSettings,
               ...prev,
               ...raw,
-              aboutUs: { ...defaultAboutUs, ...(prev.aboutUs || {}), ...(raw.aboutUs || {}) },
+              aboutUs: normalizeAboutUs({ ...(prev.aboutUs || {}), ...(raw.aboutUs || {}) }),
               deliveryFee: typeof raw.deliveryFee === 'number' ? raw.deliveryFee : (raw.deliveryFee ? Number(raw.deliveryFee) : 40),
               logoUrl: sanitizeImageUrl(raw.logoUrl) || defaultSettings.logoUrl,
               developerImageUrl: sanitizeImageUrl(raw.developerImageUrl) || defaultSettings.developerImageUrl,
               heroBanners: resolvedBanners,
             };
             try {
-              localStorage.setItem('jiyoo_store_settings_v2', JSON.stringify(remoteSettings));
+              localStorage.setItem('jiyoo_store_settings_v3', JSON.stringify(remoteSettings));
             } catch {
               // ignore storage quota errors
             }
@@ -278,7 +300,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     setSettings(updated);
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('jiyoo_store_settings_v2', JSON.stringify(updated));
+        localStorage.setItem('jiyoo_store_settings_v3', JSON.stringify(updated));
       } catch {
         // ignore storage quota errors
       }

@@ -23,7 +23,7 @@ import { useCart } from "../../../contexts/CartContext";
 import { useOrderActions } from "../hooks/useOrderActions";
 import { useModalBackButton } from "../../core/hooks/useModalBackButton";
 import { useToast } from "../../core/contexts/ToastContext";
-import { getOptimizedImageUrl } from "../../../utils/imageUtils";
+import { getOptimizedImageUrl, createSvgPlaceholder } from "../../../utils/imageUtils";
 import { useStorefrontProducts } from "../../storefront/hooks/useStorefrontProducts";
 import { auth, googleProvider, db } from "../../../services/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -75,10 +75,6 @@ export function AuthModal({
   // Let the device/browser back button close this modal one step at a time
   // instead of navigating away from the site.
   useModalBackButton(isOpen, onClose);
-
-  const [_phase, setPhase] = useState<
-    "enter" | "walkToCard" | "grab" | "pull" | "release" | "idle" | "vanish"
-  >("idle");
 
   useEffect(() => {
     if (user && activeProfileTab === "orders" && isOpen) {
@@ -147,7 +143,6 @@ export function AuthModal({
       setStep("login");
       setMode("signin");
       setIsLoading(false);
-      setPhase("idle");
     }
   }, [isOpen]);
 
@@ -279,9 +274,6 @@ export function AuthModal({
           {/* Background overlay click to close */}
           <div className="absolute inset-0" onClick={onClose} />
 
-          {/* Hidden recaptcha container */}
-          <div id="recaptcha-container"></div>
-
           {/* Card Container */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15, filter: "blur(10px)" }}
@@ -293,6 +285,7 @@ export function AuthModal({
             {/* Close Button */}
             {!hideClose && (
               <button
+                type="button"
                 onClick={onClose}
                 className="absolute top-5 right-5 p-2 text-stone-400 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-full transition-colors z-20"
                 aria-label="Close"
@@ -311,6 +304,7 @@ export function AuthModal({
                 {/* Tabs */}
                 <div className="flex bg-stone-50 p-1 rounded-xl mb-6 border border-stone-200">
                   <button
+                    type="button"
                     onClick={() => setActiveProfileTab("profile")}
                     className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
                       activeProfileTab === "profile"
@@ -321,6 +315,7 @@ export function AuthModal({
                     Profile
                   </button>
                   <button
+                    type="button"
                     onClick={() => setActiveProfileTab("orders")}
                     className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
                       activeProfileTab === "orders"
@@ -331,6 +326,7 @@ export function AuthModal({
                     Orders
                   </button>
                   <button
+                    type="button"
                     onClick={() => setActiveProfileTab("wishlist")}
                     className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
                       activeProfileTab === "wishlist"
@@ -451,16 +447,26 @@ export function AuthModal({
                                 ))}
                               </div>
                               <button
+                                type="button"
                                 onClick={() => {
                                   order.items.forEach((item: any) => {
+                                    const numPrice =
+                                      Number(item.price || item.numericPrice) ||
+                                      parseFloat(String(item.price || "0").replace(/[^0-9.]/g, "")) ||
+                                      0;
                                     addToCart(
                                       {
                                         id: item.id,
+                                        baseId: item.baseId,
                                         name: item.name,
-                                        price: item.price,
-                                        image: item.image || "/placeholder.png",
+                                        price: `₹${numPrice}`,
+                                        numericPrice: numPrice,
+                                        selectedWeight: item.selectedWeight || undefined,
+                                        selectedCut: item.selectedCut || undefined,
+                                        selectedCleaning: item.selectedCleaning || undefined,
+                                        image: item.image || createSvgPlaceholder(item.name || "Product", 160, 160),
                                       } as any,
-                                      item.quantity,
+                                      item.quantity || 1,
                                     );
                                   });
                                   onClose();
@@ -603,7 +609,9 @@ export function AuthModal({
                             type="button"
                             onClick={() => {
                               onClose();
-                              const el = document.getElementById('products');
+                              const el =
+                                document.getElementById('products') ||
+                                document.getElementById('wholesale-catalog-grid');
                               if (el) {
                                 el.scrollIntoView({ behavior: 'smooth' });
                               }
@@ -807,6 +815,7 @@ export function AuthModal({
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
                           className="absolute inset-y-0 right-0 pr-3 flex items-center text-stone-400 hover:text-[#1C1917] transition-colors"
                         >
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

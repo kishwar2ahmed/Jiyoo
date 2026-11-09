@@ -67,7 +67,10 @@ export function Footer() {
   };
 
   const scrollToProducts = () => {
-    const el = document.getElementById("products") || document.getElementById("storefront-section");
+    const el =
+      document.getElementById("products") ||
+      document.getElementById("wholesale-catalog-grid") ||
+      document.getElementById("storefront-section");
     if (el) {
       el.scrollIntoView({ behavior: "smooth" });
     } else {
@@ -492,7 +495,7 @@ export function Footer() {
                     <p className="text-[11px] text-stone-500">
                       Marketed by{" "}
                       <span className="font-medium text-stone-900">
-                        {settings.aboutUs?.marketedBy || "SHAM'S™"}
+                        {settings.aboutUs?.marketedBy || "JIYOO"}
                       </span>
                     </p>
                   </li>

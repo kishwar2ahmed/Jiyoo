@@ -32,10 +32,19 @@ function ProductCardRating({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       className="flex items-center gap-1.5 mt-1 cursor-pointer hover:opacity-80 transition-opacity"
       onClick={(e) => {
         e.stopPropagation();
         onProductClick?.(product, "reviews");
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.stopPropagation();
+          e.preventDefault();
+          onProductClick?.(product, "reviews");
+        }
       }}
     >
       <div className="flex items-center text-yellow-500">

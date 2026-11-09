@@ -6,9 +6,6 @@ import { DEFAULT_HERO_BANNERS } from '../../../constants/banners';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { getOptimizedBannerUrl } from '../../../utils/imageUtils';
 
-export type { BannerSlide };
-export const HERO_BANNERS = DEFAULT_HERO_BANNERS;
-
 const FAST_AUTOPLAY_INTERVAL = 3600; // 3.6s for general category slides
 const SLOW_AUTOPLAY_INTERVAL = 4500; // 4.5s for Diwali & featured highlight slides
 

@@ -465,6 +465,7 @@ export function CartModal({
             quantity: i.quantity,
             selectedWeight: (i as any).selectedWeight || null,
             selectedCut: (i as any).selectedCut || null,
+            selectedCleaning: (i as any).selectedCleaning || null,
           })),
         }),
       });
@@ -692,6 +693,7 @@ export function CartModal({
         price: getValidPrice(i),
         selectedWeight: (i as any).selectedWeight || null,
         selectedCut: (i as any).selectedCut || null,
+        selectedCleaning: (i as any).selectedCleaning || null,
         image: i.image,
       })),
       shippingDetails: shippingPayload,
@@ -715,6 +717,7 @@ export function CartModal({
               price: getValidPrice(i),
               selectedWeight: (i as any).selectedWeight,
               selectedCut: (i as any).selectedCut,
+              selectedCleaning: (i as any).selectedCleaning || null,
               image: i.image,
             })),
             shippingDetails: shippingPayload,
@@ -815,6 +818,7 @@ export function CartModal({
               price: getValidPrice(i),
               selectedWeight: (i as any).selectedWeight || null,
               selectedCut: (i as any).selectedCut || null,
+              selectedCleaning: (i as any).selectedCleaning || null,
               image: i.image,
             })),
             currency: "INR",
@@ -1079,6 +1083,7 @@ export function CartModal({
             price: getValidPrice(i),
             selectedWeight: (i as any).selectedWeight || null,
             selectedCut: (i as any).selectedCut || null,
+            selectedCleaning: (i as any).selectedCleaning || null,
             image: i.image,
           })),
           shippingDetails: {
@@ -1283,6 +1288,7 @@ export function CartModal({
                           Your bag is empty.
                         </p>
                         <button
+                          type="button"
                           onClick={onClose}
                           className="px-8 py-3 bg-black text-white text-sm tracking-widest uppercase hover:bg-gray-800 transition-colors"
                         >
@@ -1443,6 +1449,7 @@ export function CartModal({
                                         )}
                                       </div>
                                       <button
+                                        type="button"
                                         onClick={() => removeFromCart(item.id)}
                                         aria-label={`Remove ${item.name}`}
                                         className="p-1 -mr-1 -mt-0.5 text-stone-400 hover:text-red-500 transition-colors cursor-pointer shrink-0"
@@ -1465,6 +1472,7 @@ export function CartModal({
                                   <div className="flex items-center justify-between gap-2 mt-2.5 sm:mt-3.5">
                                     <div className="flex items-center gap-2 sm:gap-3 bg-[#FAF9F5] rounded-xl p-1 border border-[#E7E3DA]">
                                       <button
+                                        type="button"
                                         onClick={() => {
                                           const minQty = Number((item as any).wholesaleMinQty) || 1;
                                           const nextQty = item.quantity <= minQty ? 0 : item.quantity - 1;
@@ -1490,6 +1498,7 @@ export function CartModal({
                                         </AnimatePresence>
                                       </span>
                                       <button
+                                        type="button"
                                         onClick={() =>
                                           updateQuantity(
                                             item.id,
@@ -1537,6 +1546,7 @@ export function CartModal({
                             />
                             {isPromoApplied ? (
                               <button
+                                type="button"
                                 onClick={() => {
                                   setAppliedCoupon(null);
                                   setPromoCode("");
@@ -1548,6 +1558,7 @@ export function CartModal({
                               </button>
                             ) : (
                               <button
+                                type="button"
                                 onClick={handleApplyPromo}
                                 disabled={isValidatingPromo || !promoCode.trim()}
                                 className="px-5 py-2.5 bg-[#1C1917] text-[#FAF9F5] rounded-xl text-[10px] uppercase font-bold tracking-wider hover:bg-black transition-colors cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2126,6 +2137,7 @@ export function CartModal({
                         </a>
                       ) : (
                         <button
+                          type="button"
                           onClick={triggerWhatsAppOrder}
                           className="w-full py-3.5 bg-emerald-600 text-white text-xs font-semibold tracking-wider uppercase hover:bg-emerald-700 transition-colors rounded-xl flex items-center justify-center gap-2 shadow-sm"
                         >
@@ -2134,6 +2146,7 @@ export function CartModal({
                       )}
 
                       <button
+                        type="button"
                         onClick={onClose}
                         className="w-full py-3 bg-gray-100 text-gray-700 text-xs tracking-wider uppercase hover:bg-gray-200 transition-colors rounded-xl font-medium"
                       >

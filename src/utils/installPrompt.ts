@@ -32,11 +32,6 @@ if (typeof window !== "undefined") {
   });
 }
 
-/** True once the app has been installed in this browser session. */
-export function wasJustInstalled(): boolean {
-  return hasInstalled;
-}
-
 /** True if already running as an installed app (standalone or window-controls-overlay). */
 export function isRunningStandalone(): boolean {
   if (typeof window === "undefined") return false;

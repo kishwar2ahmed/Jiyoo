@@ -64,7 +64,7 @@ function AppContent() {
     try {
       const params = new URLSearchParams(window.location.search);
       if (
-        window.location.hash === '#wholesale' ||
+        window.location.hash.startsWith('#wholesale') ||
         params.get('view') === 'wholesale' ||
         params.get('section') === 'wholesale'
       ) {
@@ -112,7 +112,7 @@ function AppContent() {
   const openRetailPage = () => {
     setIsWholesaleCurtainActive(false);
     setActivePage('retail');
-    if (window.location.hash === '#wholesale') {
+    if (window.location.hash.startsWith('#wholesale')) {
       window.history.pushState({ jiyooPage: 'retail' }, '', window.location.pathname + window.location.search);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -172,7 +172,7 @@ function AppContent() {
     const checkHash = () => {
       if (window.location.hash === '#admin') {
         setIsAdminOpen(true);
-      } else if (window.location.hash === '#wholesale') {
+      } else if (window.location.hash.startsWith('#wholesale')) {
         setActivePage('wholesale');
       } else if (window.location.hash === '') {
         setActivePage('retail');
@@ -236,7 +236,7 @@ function AppContent() {
       const current = navStateRef.current;
 
       // Direct hash navigation to #wholesale or #admin is a forward navigation, not an exit
-      if (window.location.hash === '#wholesale') {
+      if (window.location.hash.startsWith('#wholesale')) {
         setActivePage('wholesale');
         return;
       }

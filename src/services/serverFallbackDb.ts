@@ -6,6 +6,12 @@ import {
   DEFAULT_RETAIL_PINCODES,
   DEFAULT_PAN_INDIA_WHOLESALE_ZONE,
 } from '../constants/deliveryAreas';
+import {
+  syncDocumentToSupabase,
+  deleteDocumentFromSupabase,
+  fetchAllDocumentsFromSupabase,
+  getSupabaseConfig,
+} from './supabaseBridge';
 
 const BUNDLED_DATA_DIR = path.resolve(process.cwd(), '.server-data');
 const BUNDLED_DB_FILE = path.join(BUNDLED_DATA_DIR, 'store-db.json');
@@ -242,6 +248,42 @@ function ensureInitialized() {
   if (!store.audit_logs) store.audit_logs = {};
 
   scheduleSave();
+
+  if (getSupabaseConfig().enabled) {
+    void fetchAllDocumentsFromSupabase()
+      .then((remoteStore) => {
+        if (!remoteStore) return;
+        let changed = false;
+        for (const [colName, docs] of Object.entries(remoteStore)) {
+          if (!store[colName]) store[colName] = {};
+          for (const [docId, docData] of Object.entries(docs)) {
+            if (!docData || typeof docData !== 'object') continue;
+            if (colName === 'products' && store.products[docId]) {
+              // Merge remote overrides while preserving catalog fields
+              store.products[docId] = {
+                ...store.products[docId],
+                ...docData,
+                id: docId,
+              };
+            } else {
+              store[colName][docId] = docData;
+            }
+            changed = true;
+          }
+        }
+        if (changed) {
+          scheduleSave();
+        }
+      })
+      .catch((err) => {
+        console.warn('[ServerFallbackDb] Background Supabase hydration skipped:', err);
+      });
+  }
+}
+
+export function getFallbackStoreSnapshot(): Record<string, CollectionStore> {
+  ensureInitialized();
+  return JSON.parse(JSON.stringify(store));
 }
 
 function getCollectionMap(name: string): CollectionStore {
@@ -303,6 +345,7 @@ class FallbackDocumentReference {
     }
     col[this.id] = current;
     scheduleSave();
+    void syncDocumentToSupabase(this.collectionName, this.id, current);
   }
 
   async update(data: Record<string, any>): Promise<void> {
@@ -316,12 +359,14 @@ class FallbackDocumentReference {
     }
     col[this.id] = current;
     scheduleSave();
+    void syncDocumentToSupabase(this.collectionName, this.id, current);
   }
 
   async delete(): Promise<void> {
     const col = getCollectionMap(this.collectionName);
     delete col[this.id];
     scheduleSave();
+    void deleteDocumentFromSupabase(this.collectionName, this.id);
   }
 }
 

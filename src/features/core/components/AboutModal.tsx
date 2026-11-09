@@ -52,7 +52,9 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
               </h2>
             </div>
             <button
+              type="button"
               onClick={onClose}
+              aria-label="Close"
               className="p-2 text-brand-gray-500 hover:text-brand-black transition-colors rounded-full hover:bg-brand-gray-100 cursor-pointer"
             >
               <X className="w-6 h-6" />
@@ -90,24 +92,25 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
                   Leadership
                 </h3>
                 <div className="space-y-4">
-                  {settings.aboutUs?.founderName && (
-                    <div>
-                      <p className="font-medium text-brand-black">{settings.aboutUs.founderName}</p>
-                      <p className="text-xs text-brand-gray-500 uppercase tracking-wider">
-                        {settings.aboutUs.founderRole || "Founder & CEO"}
-                      </p>
-                    </div>
-                  )}
-                  {settings.aboutUs?.mdName && (
-                    <div>
-                      <p className="font-medium text-brand-black">
-                        {settings.aboutUs.mdName}
-                      </p>
-                      <p className="text-xs text-brand-gray-500 uppercase tracking-wider">
-                        {settings.aboutUs.mdRole || "Managing Director"}
-                      </p>
-                    </div>
-                  )}
+                  <div>
+                    <p className="font-medium text-brand-black">
+                      {settings.aboutUs?.founderName || "Dr. Mehraj Sultana"}
+                    </p>
+                    <p className="text-xs text-brand-gray-500 uppercase tracking-wider">
+                      {settings.aboutUs?.founderRole || "Founder, CEO & CFO"}
+                    </p>
+                  </div>
+                  {settings.aboutUs?.mdName &&
+                    settings.aboutUs.mdName !== (settings.aboutUs?.founderName || "Dr. Mehraj Sultana") && (
+                      <div>
+                        <p className="font-medium text-brand-black">
+                          {settings.aboutUs.mdName}
+                        </p>
+                        <p className="text-xs text-brand-gray-500 uppercase tracking-wider">
+                          {settings.aboutUs.mdRole || "Managing Director"}
+                        </p>
+                      </div>
+                    )}
                 </div>
               </div>
 
@@ -116,7 +119,7 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
                   <h3 className="text-lg font-bold text-brand-black mb-2">
                     Marketed By
                   </h3>
-                  <p className="text-brand-gray-600 font-medium">{settings.aboutUs?.marketedBy || "SHAM'S™"}</p>
+                  <p className="text-brand-gray-600 font-medium">{settings.aboutUs?.marketedBy || "JIYOO"}</p>
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-brand-black mb-2">

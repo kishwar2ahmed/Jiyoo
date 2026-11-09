@@ -302,6 +302,17 @@ export function WholesalePage({
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const handleFilterEvent = (e: Event) => {
+      const custom = e as CustomEvent<string>;
+      if (custom.detail) {
+        setSelectedFilter(custom.detail as LotCategoryFilter);
+      }
+    };
+    window.addEventListener("select-wholesale-filter", handleFilterEvent);
+    return () => window.removeEventListener("select-wholesale-filter", handleFilterEvent);
+  }, []);
+
   const imageRefs = useRef<Record<string, HTMLImageElement | null>>({});
 
   const b2bWhatsAppNumber = sanitizeWhatsAppNumber(settings?.whatsappNumber);
@@ -461,6 +472,16 @@ export function WholesalePage({
     triggerSafeExternalLink(url);
   };
 
+  const scrollToCatalogGrid = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    const el = document.getElementById("wholesale-catalog-grid");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      window.scrollTo({ top: 650, behavior: "smooth" });
+    }
+  };
+
   return (
     <section className="min-h-screen bg-[#FAF9F5] text-[#1C1917] pb-16 pt-4 sm:pt-6 px-4 sm:px-6 lg:px-8">
       {/* Warm-Luxury Editorial Hero — Bengaluru Wholesale & Bulk Supply */}
@@ -525,13 +546,15 @@ export function WholesalePage({
 
               {/* Direct Action Row */}
               <div className="pt-2 flex flex-wrap items-center gap-3">
-                <a
-                  href="#wholesale-catalog-grid"
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#1C1917] hover:bg-black text-[#FAF2E1] border border-[#C5A880]/60 text-xs font-semibold uppercase tracking-[0.16em] shadow-sm transition-all"
+                <button
+                  type="button"
+                  onClick={scrollToCatalogGrid}
+                  className="group inline-flex items-center gap-2 px-5 py-3 rounded-full bg-[#1C1917] hover:bg-black text-[#FAF2E1] border border-[#C5A880]/60 text-xs font-semibold uppercase tracking-[0.16em] shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-98"
+                  aria-label="Shop Wholesale Catalog"
                 >
                   <span>Shop Wholesale</span>
-                  <ArrowDown className="w-3.5 h-3.5 text-[#E5C99B]" />
-                </a>
+                  <ArrowDown className="w-3.5 h-3.5 text-[#E5C99B] group-hover:translate-y-0.5 transition-transform" />
+                </button>
 
                 <VelvetWhatsAppButton
                   onClick={() => {

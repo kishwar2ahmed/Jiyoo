@@ -123,24 +123,3 @@ export function RuPayIcon({ className = "h-4 w-auto", size }: IconProps) {
     />
   );
 }
-
-/**
- * Composite UPI & Cards Accepted Row
- * Clean, high-fidelity trust bar with original brand marks
- */
-export function UpiAppsPillRow({ className = "" }: { className?: string }) {
-  return (
-    <div
-      className={`inline-flex flex-wrap items-center gap-3.5 py-1 ${className}`}
-      aria-label="Supported Payment Methods: Google Pay, PhonePe, Paytm, UPI, Mastercard, Visa, RuPay"
-    >
-      <GooglePayIcon className="h-4 w-auto" />
-      <PhonePeIcon className="h-4 w-auto" />
-      <PaytmIcon className="h-3.5 w-auto" />
-      <UpiOfficialIcon className="h-4 w-auto" />
-      <VisaIcon className="h-3.5 w-auto" />
-      <MastercardIcon className="h-4 w-auto" />
-      <RuPayIcon className="h-3.5 w-auto" />
-    </div>
-  );
-}

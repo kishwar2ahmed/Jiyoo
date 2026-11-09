@@ -260,7 +260,7 @@ export function ProductDetailModal({
                   {pendingOrderId && <p className="font-mono text-xs font-bold text-stone-700 mb-6">Order #{pendingOrderId}</p>}
                   <div className="w-full max-w-xs space-y-3">
                     {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="w-full h-[52px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-md transition-all"> <MessageCircle className="w-4 h-4" /> Open WhatsApp </a>}
-                    <button onClick={() => { setShowWhatsappSuccess(false); onClose(); }} className="w-full h-[52px] bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-semibold text-sm transition-all">Close</button>
+                    <button type="button" onClick={() => { setShowWhatsappSuccess(false); onClose(); }} className="w-full h-[52px] bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-semibold text-sm transition-all">Close</button>
                     {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="block text-xs text-brand-gray-500 hover:text-emerald-600 underline">Open WhatsApp again</a>}
                   </div>
                 </motion.div>
@@ -269,7 +269,9 @@ export function ProductDetailModal({
 
             {/* Close Button */}
             <button
+              type="button"
               onClick={onClose}
+              aria-label="Close product details"
               className="absolute top-6 right-6 z-30 w-10 h-10 bg-brand-white/80 backdrop-blur-md hover:bg-brand-white text-brand-black rounded-full flex items-center justify-center shadow-md transition-colors"
             >
               <X className="w-5 h-5" />
@@ -419,6 +421,7 @@ export function ProductDetailModal({
 
                   <div className="flex gap-6 border-b border-brand-gray-100 mb-6">
                     <button
+                      type="button"
                       onClick={() => setActiveTab("details")}
                       className={`pb-3 text-sm font-semibold transition-colors relative ${activeTab === "details" ? "text-brand-black" : "text-brand-gray-400 hover:text-brand-gray-600"}`}
                     >
@@ -431,6 +434,7 @@ export function ProductDetailModal({
                       )}
                     </button>
                     <button
+                      type="button"
                       onClick={() => setActiveTab("reviews")}
                       className={`pb-3 text-sm font-semibold transition-colors relative ${activeTab === "reviews" ? "text-brand-black" : "text-brand-gray-400 hover:text-brand-gray-600"}`}
                     >
@@ -469,6 +473,7 @@ export function ProductDetailModal({
                             <div className="flex flex-wrap gap-2">
                               {product.weights.map((w) => (
                                 <button
+                                  type="button"
                                   key={w.label}
                                   onClick={() => setSelectedWeight(w)}
                                   className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-300 ${
@@ -493,6 +498,7 @@ export function ProductDetailModal({
                             <div className="flex flex-wrap gap-2">
                               {product.fishCuts.map((c) => (
                                 <button
+                                  type="button"
                                   key={c}
                                   onClick={() => setSelectedCut(c)}
                                   className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-300 ${
@@ -518,6 +524,7 @@ export function ProductDetailModal({
                               <div className="flex flex-wrap gap-2">
                                 {product.cleaningOptions.map((c) => (
                                   <button
+                                    type="button"
                                     key={c}
                                     onClick={() => setSelectedCleaning(c)}
                                     className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-300 ${
@@ -563,8 +570,15 @@ export function ProductDetailModal({
                       </span>
                       <PriceDisplay
                         amount={Number(currentPrice) * quantity}
+                        originalAmount={
+                          isWholesaleProduct &&
+                          product.mrp &&
+                          Number(product.mrp) > Number(currentPrice)
+                            ? Number(product.mrp) * quantity
+                            : undefined
+                        }
                         discountPercent={product.discount}
-                        autoAnchor
+                        autoAnchor={!isWholesaleProduct}
                         seedKey={product.id}
                         size="2xl"
                         weight="extrabold"
@@ -578,7 +592,9 @@ export function ProductDetailModal({
                       {/* Quantity Selector */}
                       <div className="bg-brand-gray-50/80 p-1 rounded-2xl flex items-center border border-brand-gray-100 h-[50px] sm:h-[52px]">
                         <button
+                          type="button"
                           onClick={handleDecrease}
+                          aria-label="Decrease quantity"
                           disabled={quantity <= 1 || isOutOfStock}
                           className="w-10 h-10 rounded-xl flex items-center justify-center text-brand-black hover:bg-brand-white active:scale-90 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
                         >
@@ -599,7 +615,9 @@ export function ProductDetailModal({
                           </AnimatePresence>
                         </span>
                         <button
+                          type="button"
                           onClick={handleIncrease}
+                          aria-label="Increase quantity"
                           disabled={isOutOfStock}
                           className="w-10 h-10 rounded-xl flex items-center justify-center text-brand-black hover:bg-brand-white active:scale-90 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
                         >
@@ -609,6 +627,7 @@ export function ProductDetailModal({
 
                       {/* Wishlist Icon */}
                       <button
+                        type="button"
                         onClick={() => toggleWishlist(String(product.id))}
                         aria-label="Toggle wishlist"
                         className="w-[50px] h-[50px] sm:w-[52px] sm:h-[52px] bg-brand-gray-50/80 border border-brand-gray-100 hover:bg-brand-gray-100 rounded-2xl flex items-center justify-center text-brand-black transition-all shrink-0 active:scale-95"

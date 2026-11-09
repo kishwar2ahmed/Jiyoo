@@ -35,7 +35,11 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { getFirestore as getFirebaseAdminFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import appletConfig from './firebase-applet-config.json';
-import { serverFallbackDb } from './src/services/serverFallbackDb';
+import { serverFallbackDb, getFallbackStoreSnapshot } from './src/services/serverFallbackDb';
+import {
+  getSupabaseConfig,
+  bulkSyncStoreToSupabase,
+} from './src/services/supabaseBridge';
 import { PRODUCTS as BUNDLED_PRODUCTS, CATEGORIES as BUNDLED_CATEGORIES } from './src/constants/data';
 import {
   DEFAULT_RETAIL_AREAS,
@@ -66,6 +70,9 @@ const envSchema = z.object({
   SMTP_FROM: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   CRON_SECRET: z.string().optional(),
+  SUPABASE_URL: z.string().optional(),
+  SUPABASE_ANON_KEY: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 });
 
 let env: z.infer<typeof envSchema>;
@@ -7375,6 +7382,59 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
     } catch (error: any) {
       console.error('Email sending error:', error?.message || error);
       res.status(500).json({ success: false, error: 'Failed to send email' });
+    }
+  });
+
+  // Admin Supabase Status & Manual Full Sync Endpoints
+  app.get('/api/admin/supabase/status', requireAdmin, async (_req, res) => {
+    const cfg = getSupabaseConfig();
+    let urlHost: string | null = null;
+    if (cfg.enabled) {
+      try {
+        urlHost = new URL(cfg.url).host;
+      } catch {
+        urlHost = null;
+      }
+    }
+    res.json({
+      success: true,
+      configured: cfg.enabled,
+      urlHost,
+      mode: cfg.enabled
+        ? process.env.SUPABASE_SERVICE_ROLE_KEY
+          ? 'service_role'
+          : 'anon'
+        : 'unconfigured',
+    });
+  });
+
+  app.post('/api/admin/supabase/sync', requireAdmin, async (_req, res) => {
+    const cfg = getSupabaseConfig();
+    if (!cfg.enabled) {
+      return res.status(400).json({
+        success: false,
+        error: 'Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in environment variables.',
+      });
+    }
+    try {
+      const snapshot = getFallbackStoreSnapshot();
+      const result = await bulkSyncStoreToSupabase(snapshot);
+      if (result.error) {
+        return res.status(502).json({
+          success: false,
+          syncedCount: result.syncedCount,
+          error: result.error,
+        });
+      }
+      return res.json({
+        success: true,
+        syncedCount: result.syncedCount,
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: err?.message || 'Failed to sync store to Supabase',
+      });
     }
   });
 

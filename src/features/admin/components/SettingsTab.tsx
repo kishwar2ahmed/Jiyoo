@@ -45,11 +45,11 @@ export function SettingsTab() {
   const [aboutObjective, setAboutObjective] = useState(settings.aboutUs?.objectiveText || "");
   const [aboutVision, setAboutVision] = useState(settings.aboutUs?.visionText || "");
   const [aboutStandards, setAboutStandards] = useState(settings.aboutUs?.standardsText || "");
-  const [founderName, setFounderName] = useState(settings.aboutUs?.founderName || "Syed Shams");
+  const [founderName, setFounderName] = useState(settings.aboutUs?.founderName || "Dr. Mehraj Sultana");
   const [founderRole, setFounderRole] = useState(settings.aboutUs?.founderRole || "Founder, CEO & CFO");
-  const [mdName, setMdName] = useState(settings.aboutUs?.mdName || "Dr. Mehraj Sultana");
+  const [mdName, setMdName] = useState(settings.aboutUs?.mdName || "");
   const [mdRole, setMdRole] = useState(settings.aboutUs?.mdRole || "Managing Director (MD)");
-  const [marketedBy, setMarketedBy] = useState(settings.aboutUs?.marketedBy || "SHAM'S™");
+  const [marketedBy, setMarketedBy] = useState(settings.aboutUs?.marketedBy || "JIYOO");
   const [contactPhone, setContactPhone] = useState(settings.aboutUs?.contactPhone || "+91 97393 91891");
 
   const [isSaving, setIsSaving] = useState(false);
@@ -73,11 +73,11 @@ export function SettingsTab() {
       setAboutObjective(settings.aboutUs.objectiveText || "");
       setAboutVision(settings.aboutUs.visionText || "");
       setAboutStandards(settings.aboutUs.standardsText || "");
-      setFounderName(settings.aboutUs.founderName || "Syed Shams");
+      setFounderName(settings.aboutUs.founderName || "Dr. Mehraj Sultana");
       setFounderRole(settings.aboutUs.founderRole || "Founder, CEO & CFO");
-      setMdName(settings.aboutUs.mdName || "Dr. Mehraj Sultana");
+      setMdName(settings.aboutUs.mdName || "");
       setMdRole(settings.aboutUs.mdRole || "Managing Director (MD)");
-      setMarketedBy(settings.aboutUs.marketedBy || "SHAM'S™");
+      setMarketedBy(settings.aboutUs.marketedBy || "JIYOO");
       setContactPhone(settings.aboutUs.contactPhone || "+91 97393 91891");
     }
   }, [settings]);

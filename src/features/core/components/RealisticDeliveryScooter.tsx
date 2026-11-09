@@ -2,7 +2,6 @@ import React, { useEffect, useId } from "react";
 
 export interface RealisticDeliveryScooterProps {
   className?: string;
-  showSmoke?: boolean;
   animated?: boolean;
 }
 
@@ -413,5 +412,3 @@ export const RealisticDeliveryScooter = React.memo(function RealisticDeliverySco
     </span>
   );
 });
-
-export const ExpressDeliveryTruckIcon = RealisticDeliveryScooter;

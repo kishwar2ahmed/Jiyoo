@@ -517,14 +517,14 @@ export function buildOrderStatusEmailHtml(params: {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
           <tr>
             <td align="center" style="padding-bottom:12px;">
-              <a href="${trackOrderUrl}" target="_blank" style="display:inline-block;width:100%;box-sizing:border-box;background:#1C1917;color:#FAF9F5;text-align:center;padding:14px 20px;font-size:13px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;text-decoration:none;border-radius:10px;">
+              <a href="${trackOrderUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;width:100%;box-sizing:border-box;background:#1C1917;color:#FAF9F5;text-align:center;padding:14px 20px;font-size:13px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;text-decoration:none;border-radius:10px;">
                 Track Live Order Status &rarr;
               </a>
             </td>
           </tr>
           <tr>
             <td align="center">
-              <a href="${whatsappSupportUrl}" target="_blank" style="display:inline-block;width:100%;box-sizing:border-box;background:#25D366;color:#FFFFFF;text-align:center;padding:12px 20px;font-size:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;text-decoration:none;border-radius:10px;">
+              <a href="${whatsappSupportUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;width:100%;box-sizing:border-box;background:#25D366;color:#FFFFFF;text-align:center;padding:12px 20px;font-size:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;text-decoration:none;border-radius:10px;">
                 💬 Message WhatsApp Concierge
               </a>
             </td>

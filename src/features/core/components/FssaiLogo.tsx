@@ -1,12 +1,5 @@
 import React from "react";
 
-interface FssaiLogoProps {
-  className?: string;
-  showLicense?: boolean;
-  licenseNumber?: string;
-  variant?: "original" | "onDark";
-}
-
 /**
  * Official FSSAI (Food Safety and Standards Authority of India) Logo Mark
  * Exact authentic multi-color vector graphic as mandated by Government of India regulations:
@@ -63,30 +56,5 @@ export function FssaiLogo({
         d="m781.8 210.4c-.4-.7-.8-1.4-1.3-2.1-4.5-6.2-13.2-7.6-19.4-3.1-.8.5-1.5 1.2-2.1 1.9-2.5 2.7-3.8 5.4-3.8 10.5 0 4.2 1.8 7 4.3 9.6 5.4 5.4 14.2 5.4 19.6-.1.2-.2.3-.3.5-.5 1.9-2.2 3.1-4.9 3.6-7.8.3-2.9-.2-5.8-1.4-8.4"
       />
     </svg>
-  );
-}
-
-/**
- * Official FSSAI License Mark & Registration Number
- * Unboxed, authentic presentation without artificial pill borders
- */
-export function FssaiLicenseBadge({
-  className = "",
-  showLicense = true,
-  licenseNumber = "21226112000732",
-  variant = "original",
-}: FssaiLogoProps) {
-  return (
-    <div
-      className={`inline-flex items-center gap-2 select-none ${className}`}
-      title="FSSAI Licensed Food Business Operator"
-    >
-      <FssaiLogo className="h-5 w-auto" variant={variant} />
-      {showLicense && (
-        <span className="font-mono text-[11px] font-medium tracking-wider tabular-nums">
-          Lic. No. {licenseNumber}
-        </span>
-      )}
-    </div>
   );
 }

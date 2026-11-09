@@ -706,16 +706,22 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
     if (!order.items || order.items.length === 0) return;
     let addedCount = 0;
     order.items.forEach((item: any) => {
+      const numPrice =
+        Number(item.price || item.numericPrice) ||
+        parseFloat(String(item.price || '0').replace(/[^0-9.]/g, '')) ||
+        0;
       addToCart({
         id: item.id,
+        baseId: item.baseId,
         name: item.name,
-        price: `₹${item.price || item.numericPrice}`,
-        numericPrice: item.price || item.numericPrice,
+        price: `₹${numPrice}`,
+        numericPrice: numPrice,
         image: item.image || '',
-        category: item.category || 'fresh',
-        unit: item.selectedWeight || '500g',
-        stock: 100
-      }, item.quantity || 1);
+        selectedWeight: item.selectedWeight || undefined,
+        selectedCut: item.selectedCut || undefined,
+        selectedCleaning: item.selectedCleaning || undefined,
+        badge: item.selectedWeight || item.badge || undefined,
+      } as any, item.quantity || 1);
       addedCount += (item.quantity || 1);
     });
     showToast(`Successfully added ${addedCount} item(s) from this order back to your cart!`, "success");
@@ -802,7 +808,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
       <div className="w-full max-w-xs bg-white border-r border-stone-200 flex flex-col hidden md:flex">
         <div className="p-6 border-b border-stone-200 flex items-center justify-between">
           <h2 className="text-xl font-serif font-bold text-stone-900">Account Center</h2>
-          <button onClick={onClose} className="p-2 hover:bg-stone-100 rounded-full transition-colors">
+          <button type="button" onClick={onClose} aria-label="Close Account Center" className="p-2 hover:bg-stone-100 rounded-full transition-colors">
             <X className="w-5 h-5 text-stone-500" />
           </button>
         </div>
@@ -816,7 +822,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                 {(user.name || user.email || 'U').charAt(0).toUpperCase()}
               </div>
             )}
-            <button onClick={() => fileInputRef.current?.click()} className="absolute bottom-0 right-0 w-6 h-6 bg-white border border-stone-200 rounded-full flex items-center justify-center shadow-sm hover:bg-stone-50">
+            <button type="button" onClick={() => fileInputRef.current?.click()} aria-label="Upload profile photo" className="absolute bottom-0 right-0 w-6 h-6 bg-white border border-stone-200 rounded-full flex items-center justify-center shadow-sm hover:bg-stone-50">
               {isUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />}
             </button>
             <input type="file" ref={fileInputRef} onChange={handleProfileImageUpload} accept="image/*" className="hidden" />
@@ -877,13 +883,14 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
       <div className="flex-1 flex flex-col bg-stone-50 h-full overflow-hidden">
         {/* Mobile Header */}
         <div className="md:hidden bg-white border-b border-stone-200 p-4 flex items-center gap-2 sm:gap-4">
-          <button onClick={onClose} className="p-2 hover:bg-stone-100 rounded-full transition-colors">
+          <button type="button" onClick={onClose} aria-label="Close Account Center" className="p-2 hover:bg-stone-100 rounded-full transition-colors">
              <X className="w-5 h-5 text-stone-600" />
           </button>
           
           <div className="flex-1 flex flex-wrap gap-2 mx-2 justify-center overflow-x-auto py-1">
             {tabs.map(t => (
               <button 
+                type="button"
                 key={t.id}
                 onClick={() => setActiveTab(t.id)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeTab === t.id ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'}`}
@@ -894,10 +901,10 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="flex items-center gap-1">
-            <button onClick={() => { document.dispatchEvent(new CustomEvent('open-contact')); onClose(); }} className="p-2 text-stone-600 hover:text-emerald-600 hover:bg-stone-100 rounded-full transition-colors">
+            <button type="button" onClick={() => { document.dispatchEvent(new CustomEvent('open-contact')); onClose(); }} aria-label="Help and Support" className="p-2 text-stone-600 hover:text-emerald-600 hover:bg-stone-100 rounded-full transition-colors">
               <HelpCircle className="w-5 h-5" />
             </button>
-            <button onClick={() => { logoutUser(); onClose(); }} className="p-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors">
+            <button type="button" onClick={() => { logoutUser(); onClose(); }} aria-label="Log Out" className="p-2 text-stone-600 hover:bg-stone-100 rounded-full transition-colors">
               <LogOut className="w-5 h-5" />
             </button>
           </div>
@@ -1683,7 +1690,9 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                           type="button"
                           onClick={() => {
                             onClose();
-                            const el = document.getElementById('products');
+                            const el =
+                              document.getElementById('products') ||
+                              document.getElementById('wholesale-catalog-grid');
                             if (el) {
                               el.scrollIntoView({ behavior: 'smooth' });
                             }

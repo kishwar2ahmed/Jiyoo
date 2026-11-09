@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { ShoppingBag, User, Search, X, Menu, ArrowRight, Plus, Download } from "lucide-react";
+import { ShoppingBag, User, Search, X, Menu, ArrowRight, ArrowDown, Plus, Download } from "lucide-react";
 import { useCart } from "../contexts/CartContext";
 import { motion, AnimatePresence, useScroll, useSpring } from "motion/react";
 import { useSettings } from "../contexts/SettingsContext";
@@ -284,6 +284,7 @@ export function Navbar({
     const unitPrice = defaultWeight ? defaultWeight.price : product.price;
     const unitLabel = defaultWeight ? defaultWeight.label : product.unit;
     const defaultCut = product.fishCuts?.[0];
+    const defaultCleaning = product.cleaningOptions?.[0];
     const numericPrice =
       typeof unitPrice === "number"
         ? unitPrice
@@ -301,13 +302,15 @@ export function Navbar({
 
     let itemName = product.name;
     if (defaultCut) itemName += ` - ${defaultCut}`;
+    if (defaultCleaning) itemName += ` (${defaultCleaning})`;
 
     addToCart(
       {
-        id: `${product.id}-${unitLabel || ""}-${defaultCut || ""}-`,
+        id: `${product.id}-${unitLabel || ""}-${defaultCut || ""}-${defaultCleaning || ""}`,
         baseId: product.id,
         selectedWeight: unitLabel,
         selectedCut: defaultCut || undefined,
+        selectedCleaning: defaultCleaning || undefined,
         name: itemName,
         price: `₹${numericPrice}`,
         numericPrice,
@@ -402,7 +405,15 @@ export function Navbar({
                   return (
                     <div
                       key={product.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleSelectProductFromSearch(product)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleSelectProductFromSearch(product);
+                        }
+                      }}
                       className="flex items-center gap-3 p-3 hover:bg-[#FAF9F5] transition-colors cursor-pointer group"
                     >
                       <img
@@ -519,7 +530,21 @@ export function Navbar({
           <div className="hidden lg:flex items-center justify-between gap-3 xl:gap-5 w-full min-w-0">
             {/* Zone 1: Brand Wordmark & Logo */}
             <div
+              role="button"
+              tabIndex={0}
+              aria-label="JIYOO Home"
               className="group cursor-pointer flex items-center gap-2.5 min-w-0 shrink-0"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setMobileMenuOpen(false);
+                  if (activePage === "wholesale") {
+                    onRetailClick?.();
+                  } else {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }
+                }
+              }}
               onClick={() => {
                 setMobileMenuOpen(false);
                 if (activePage === "wholesale") {
@@ -594,6 +619,7 @@ export function Navbar({
                   </button>
                 ))}
               <button
+                type="button"
                 onClick={onAboutClick}
                 className="group relative py-1 text-[13px] xl:text-sm font-medium text-[#57534E] hover:text-[#1C1917] transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
@@ -718,6 +744,7 @@ export function Navbar({
 
               {/* User Account Button */}
               <button
+                type="button"
                 onClick={() => {
                   setMobileMenuOpen(false);
                   onUserClick();
@@ -747,6 +774,7 @@ export function Navbar({
 
               {/* Cart Button (Always visible on Retail & Wholesale) */}
               <button
+                type="button"
                 id="cart-icon-button"
                 onClick={() => {
                   setMobileMenuOpen(false);
@@ -846,7 +874,21 @@ export function Navbar({
                 </button>
 
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label="JIYOO Home"
                   className="cursor-pointer flex items-center gap-1 sm:gap-1.5 min-w-0"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setMobileMenuOpen(false);
+                      if (activePage === "wholesale") {
+                        onRetailClick?.();
+                      } else {
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }
+                    }
+                  }}
                   onClick={() => {
                     setMobileMenuOpen(false);
                     if (activePage === "wholesale") {
@@ -914,6 +956,7 @@ export function Navbar({
               {/* Right Group: User Account & High-Contrast Luxury Cart Pill */}
               <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                 <button
+                  type="button"
                   onClick={() => {
                     setMobileMenuOpen(false);
                     onUserClick();
@@ -942,6 +985,7 @@ export function Navbar({
                 </button>
 
                 <button
+                  type="button"
                   id="cart-icon-button-mobile"
                   onClick={() => {
                     setMobileMenuOpen(false);
@@ -1147,17 +1191,55 @@ export function Navbar({
               </div>
 
               <div className="flex flex-col gap-1">
-                {navCategories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => handleMobileNavCategory(cat.id)}
-                    className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-medium text-[#1C1917] hover:bg-[#F4F1EA] active:bg-[#EAE5D9] transition-colors capitalize cursor-pointer"
-                  >
-                    <span>{cat.label}</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#78716C]" />
-                  </button>
-                ))}
+                {activePage === "retail" ? (
+                  navCategories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => handleMobileNavCategory(cat.id)}
+                      className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-medium text-[#1C1917] hover:bg-[#F4F1EA] active:bg-[#EAE5D9] transition-colors capitalize cursor-pointer"
+                    >
+                      <span>{cat.label}</span>
+                      <ArrowRight className="w-3.5 h-3.5 text-[#78716C]" />
+                    </button>
+                  ))
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        window.dispatchEvent(new CustomEvent("select-wholesale-filter", { detail: "All Boxes" }));
+                        const el = document.getElementById("wholesale-catalog-grid");
+                        if (el) {
+                          el.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }
+                      }}
+                      className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-semibold text-[#1C1917] hover:bg-[#F4F1EA] active:bg-[#EAE5D9] transition-colors cursor-pointer"
+                    >
+                      <span>All Wholesale Boxes</span>
+                      <ArrowDown className="w-3.5 h-3.5 text-[#8A5A36]" />
+                    </button>
+                    {(["Oranges", "Apples & Pears", "Dragon Fruit & Berries", "Grapes"] as const).map((wCat) => (
+                      <button
+                        key={wCat}
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          window.dispatchEvent(new CustomEvent("select-wholesale-filter", { detail: wCat }));
+                          const el = document.getElementById("wholesale-catalog-grid");
+                          if (el) {
+                            el.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }
+                        }}
+                        className="w-full flex items-center justify-between text-left py-2 px-3 rounded-lg text-sm font-medium text-[#57534E] hover:text-[#1C1917] hover:bg-[#F4F1EA] active:bg-[#EAE5D9] transition-colors cursor-pointer"
+                      >
+                        <span>{wCat} Boxes</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-[#78716C]" />
+                      </button>
+                    ))}
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -1361,6 +1443,8 @@ export function Navbar({
                           return (
                             <motion.div
                               key={product.id}
+                              role="button"
+                              tabIndex={0}
                               initial={{ opacity: 0, y: 10, scale: 0.98 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               transition={{
@@ -1370,6 +1454,12 @@ export function Navbar({
                               }}
                               whileHover={{ y: -3 }}
                               onClick={() => handleSelectProductFromSearch(product)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  handleSelectProductFromSearch(product);
+                                }
+                              }}
                               className="flex items-center gap-3.5 p-3 bg-white rounded-2xl border border-[#E7E3DA] hover:border-[#C5A880] hover:shadow-[0_12px_28px_-10px_rgba(28,25,23,0.12)] transition-all cursor-pointer shadow-2xs group"
                             >
                               <img

@@ -391,11 +391,11 @@ export function Storefront() {
                         if (!target.dataset.fallback) {
                           target.dataset.fallback = 'true';
                           const localCategoryFallbacks: Record<string, string> = {
-                            fruits: '/src/assets/images/category_fruits_luxury_1793996370084.jpg',
-                            vegetables: '/src/assets/images/category_vegetables_luxury_1793996372315.jpg',
-                            meat: '/src/assets/images/category_meat_luxury_1793996372663.jpg',
+                            fruits: '/category-icons/fruits-luxury.jpg',
+                            vegetables: '/category-icons/vegetables-luxury.jpg',
+                            meat: '/category-icons/meat-luxury.jpg',
                             smoothies: '/category-icons/smoothies.jpg',
-                            'fast-foods': '/src/assets/images/category_fast_foods_jiyoo_1793998982503.jpg',
+                            'fast-foods': '/category-icons/fast-foods-luxury.jpg',
                           };
                           target.src = localCategoryFallbacks[category.id] || createSvgPlaceholder(category.label, 360, 450);
                         }

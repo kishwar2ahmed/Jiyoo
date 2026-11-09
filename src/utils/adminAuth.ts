@@ -230,10 +230,6 @@ export async function logoutAdminSession(): Promise<void> {
   }
 }
 
-export async function exchangeFirebaseTokenForAdminSession(): Promise<string | null> {
-  return getStoredAdminSignedToken();
-}
-
 export async function getAdminAuthHeaders(includeJsonContentType = false): Promise<Record<string, string>> {
   const token: string | null = getStoredAdminSignedToken();
 

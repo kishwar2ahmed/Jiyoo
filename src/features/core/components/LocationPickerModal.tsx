@@ -184,7 +184,9 @@ export function LocationPickerModal({
               <h3 className="font-serif text-lg font-semibold text-gray-900">Select Delivery Location</h3>
             </div>
             <button
+              type="button"
               onClick={onClose}
+              aria-label="Close"
               className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-full transition-colors"
             >
               <X className="w-5 h-5" />
@@ -194,6 +196,7 @@ export function LocationPickerModal({
           {/* Navigation Tabs */}
           <div className="flex border-b border-gray-100 text-xs font-medium">
             <button
+              type="button"
               onClick={() => setActiveTab('map')}
               className={`flex-1 py-3 text-center transition-all flex items-center justify-center gap-2 ${
                 activeTab === 'map'
@@ -205,6 +208,7 @@ export function LocationPickerModal({
               Google Map & Search
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('saved')}
               className={`flex-1 py-3 text-center transition-all flex items-center justify-center gap-2 ${
                 activeTab === 'saved'

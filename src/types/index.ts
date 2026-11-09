@@ -79,36 +79,6 @@ export interface Product {
   netWeight?: string;
 }
 
-// A single retail-deliverable PIN code, admin-managed. Document id in
-// Firestore is the pincode itself. Never readable by customers directly --
-// serviceability is checked through POST /api/delivery/check-pincode so the
-// full list of serviceable localities is never exposed to the client.
-export interface DeliveryPincode {
-  pincode: string;
-  label?: string;
-  enabled: boolean;
-  deliveryFee?: number;
-  minOrderAmount?: number;
-  createdAt?: string;
-  updatedAt?: string;
-  createdBy?: string;
-}
-
-// A wholesale shipping zone: a named group of 3-digit PIN code prefixes
-// (e.g. Karnataka = "560","561","562"...) with its own fee/MOQ, so wholesale
-// serviceability is validated against real configured zones rather than
-// promising every Indian PIN code works.
-export interface WholesaleZone {
-  id: string;
-  label: string;
-  pincodePrefixes: string[];
-  enabled: boolean;
-  shippingFee: number;
-  minOrderValue: number;
-  etaDays?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
 
 export interface Banner {
   id: string;
@@ -176,16 +146,6 @@ export interface AuthUser {
   pincode?: string;
 }
 
-export interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  address?: string;
-  pincode?: string;
-  role?: 'admin' | 'customer';
-  createdAt?: { seconds: number; nanoseconds: number } | string | number | Date;
-}
 
 export interface Order {
   id: string;

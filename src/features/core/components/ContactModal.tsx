@@ -65,7 +65,9 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
               </p>
             </div>
             <button
+              type="button"
               onClick={onClose}
+              aria-label="Close"
               className="p-2 text-stone-400 hover:text-[#1C1917] hover:bg-stone-200 transition-colors rounded-full cursor-pointer"
             >
               <X className="w-6 h-6" />
