@@ -86,7 +86,16 @@ try {
 }
 
 let hasServiceAccountCredentials = false;
-const resolvedProjectId = appletConfig?.projectId || process.env.GOOGLE_CLOUD_PROJECT || 'pacific-channel-75v9p';
+const envFirebaseProjectId = (
+  process.env.FIREBASE_PROJECT_ID ||
+  process.env.VITE_FIREBASE_PROJECT_ID ||
+  ''
+).trim();
+const resolvedProjectId =
+  envFirebaseProjectId ||
+  appletConfig?.projectId ||
+  process.env.GOOGLE_CLOUD_PROJECT ||
+  'jiyoo-7';
 
 // Initialize Firebase Admin SDK with explicit projectId so verifyIdToken() always works
 if (!getApps().length) {
@@ -117,8 +126,11 @@ if (!getApps().length) {
 function getFirestore(): any {
   if (hasServiceAccountCredentials) {
     try {
+      const isDefaultAppletProject = resolvedProjectId === appletConfig?.projectId;
       const targetDbId =
-        appletConfig?.firestoreDatabaseId && appletConfig.firestoreDatabaseId !== '(default)'
+        isDefaultAppletProject &&
+        appletConfig?.firestoreDatabaseId &&
+        appletConfig.firestoreDatabaseId !== '(default)'
           ? appletConfig.firestoreDatabaseId
           : undefined;
       return targetDbId
@@ -1146,28 +1158,40 @@ async function verifyFirebaseIdTokenWithFallback(bearer: string): Promise<any | 
   try {
     return await getAuth().verifyIdToken(bearer);
   } catch {
-    // Fallback to Google Identity Toolkit REST verification using applet apiKey
-    const apiKey = (appletConfig as any)?.apiKey;
-    if (!apiKey) return null;
-    try {
-      const resp = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken: bearer }),
-      });
-      if (!resp.ok) return null;
-      const data: any = await resp.json();
-      const account = data?.users?.[0];
-      if (!account?.localId) return null;
-      return {
-        uid: String(account.localId),
-        email: String(account.email || '').trim().toLowerCase(),
-        email_verified: Boolean(account.emailVerified),
-        name: account.displayName || account.email || 'User',
-      };
-    } catch {
-      return null;
+    // Fallback to Google Identity Toolkit REST verification using configured Firebase API key
+    const candidateKeys = Array.from(
+      new Set(
+        [
+          process.env.VITE_FIREBASE_API_KEY,
+          process.env.FIREBASE_API_KEY,
+          (appletConfig as any)?.apiKey,
+        ]
+          .map((k) => String(k || '').trim())
+          .filter(Boolean)
+      )
+    );
+    for (const apiKey of candidateKeys) {
+      try {
+        const resp = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken: bearer }),
+        });
+        if (!resp.ok) continue;
+        const data: any = await resp.json();
+        const account = data?.users?.[0];
+        if (!account?.localId) continue;
+        return {
+          uid: String(account.localId),
+          email: String(account.email || '').trim().toLowerCase(),
+          email_verified: Boolean(account.emailVerified),
+          name: account.displayName || account.email || 'User',
+        };
+      } catch {
+        // try next key
+      }
     }
+    return null;
   }
 }
 

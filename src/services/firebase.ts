@@ -32,14 +32,31 @@ export const isFirebaseConfigured = Boolean(
   missingFirebaseEnvVars.length === 0
 );
 
+const customProjectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID || '').trim();
+const isUsingCustomProject = Boolean(
+  import.meta.env.VITE_FIREBASE_API_KEY ||
+  (customProjectId && customProjectId !== appletConfig?.projectId)
+);
+
+const activeProjectId = customProjectId || appletConfig.projectId || 'jiyoo-7';
+
 const firebaseConfig = {
-  apiKey: appletConfig.apiKey || import.meta.env.VITE_FIREBASE_API_KEY || 'disabled-client-config',
-  authDomain: appletConfig.authDomain || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'disabled-client-config.firebaseapp.com',
-  projectId: appletConfig.projectId || import.meta.env.VITE_FIREBASE_PROJECT_ID || 'disabled-client-config',
-  storageBucket: appletConfig.storageBucket || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'disabled-client-config.appspot.com',
-  messagingSenderId: appletConfig.messagingSenderId || import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '000000000000',
-  appId: appletConfig.appId || import.meta.env.VITE_FIREBASE_APP_ID || '1:000000000000:web:0000000000000000000000',
-  measurementId: appletConfig.measurementId || import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || '',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || appletConfig.apiKey || 'disabled-client-config',
+  authDomain:
+    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ||
+    (isUsingCustomProject ? `${activeProjectId}.firebaseapp.com` : appletConfig.authDomain) ||
+    'jiyoo-7.firebaseapp.com',
+  projectId: activeProjectId,
+  storageBucket:
+    import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ||
+    (isUsingCustomProject ? `${activeProjectId}.firebasestorage.app` : appletConfig.storageBucket) ||
+    'jiyoo-7.firebasestorage.app',
+  messagingSenderId:
+    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ||
+    (isUsingCustomProject ? '646981074808' : appletConfig.messagingSenderId) ||
+    '646981074808',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || appletConfig.appId || '1:646981074808:web:0000000000000000000000',
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || appletConfig.measurementId || '',
 };
 
 const app = initializeApp(firebaseConfig);
@@ -51,7 +68,9 @@ const firestoreConfig: any = {
 };
 
 const customDbId =
-  appletConfig?.firestoreDatabaseId && appletConfig.firestoreDatabaseId !== '(default)'
+  !isUsingCustomProject &&
+  appletConfig?.firestoreDatabaseId &&
+  appletConfig.firestoreDatabaseId !== '(default)'
     ? appletConfig.firestoreDatabaseId
     : undefined;
 
