@@ -1288,7 +1288,7 @@ export function Navbar({
                   onClick={() => setMobileMenuOpen(false)}
                   className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-medium text-emerald-800 hover:bg-emerald-50/80 active:bg-emerald-100/70 transition-colors cursor-pointer"
                 >
-                  <span>Call Support (+91 97393 91891)</span>
+                  <span>Call Support</span>
                   <ArrowRight className="w-3.5 h-3.5 text-emerald-700" />
                 </a>
               </div>
