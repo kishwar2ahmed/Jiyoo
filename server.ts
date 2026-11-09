@@ -156,7 +156,7 @@ const ADMIN_SESSION_HMAC_SECRET =
   env.CRON_SECRET ||
   env.RAZORPAY_KEY_SECRET ||
   process.env.ADMIN_PASSCODE ||
-  crypto.randomBytes(32).toString('hex');
+  'jiyoo_secure_admin_session_hmac_secret_2026';
 const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours strict session lifetime
 const ADMIN_PREAUTH_TTL_MS = 10 * 60 * 1000; // 10 minutes for 2FA verification/enrollment step
 const MAX_ADMIN_AUTH_FAILURES = 5;

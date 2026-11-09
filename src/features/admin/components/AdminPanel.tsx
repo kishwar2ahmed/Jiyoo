@@ -547,7 +547,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
               {loginMethod === 'google' && (
                 <div className="space-y-3">
                   <p className="text-xs text-stone-500 leading-relaxed">
-                    Sign in with your verified administrator Google account (<code className="font-bold text-stone-800">yoyokishwar@gmail.com</code>).
+                    Sign in with your verified administrator Google account.
                   </p>
                   <button
                     type="button"

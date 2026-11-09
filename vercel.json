@@ -5,6 +5,10 @@
     "api/index.ts": {
       "maxDuration": 60,
       "memory": 1024
+    },
+    "api/[...path].ts": {
+      "maxDuration": 60,
+      "memory": 1024
     }
   },
   "rewrites": [
