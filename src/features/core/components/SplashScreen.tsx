@@ -182,7 +182,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
                 Personalized Curation
               </span>
               <span className="text-xs font-serif italic text-stone-800 tracking-wider">
-                by SHAM'S
+                by JIYOO
               </span>
             </div>
           </div>

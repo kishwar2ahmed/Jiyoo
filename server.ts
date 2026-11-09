@@ -3287,7 +3287,7 @@ app.use(compression() as unknown as express.RequestHandler);
       if (users.length === 0) {
         users.push({
           id: 'jiyoo_store_owner',
-          name: 'Syed Shams',
+          name: 'Dr. Mehraj Sultana',
           email: 'shamsjiyoo@gmail.com',
           role: 'admin',
           admin: true,

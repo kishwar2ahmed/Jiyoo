@@ -47,7 +47,7 @@ interface SettingsContextType {
 }
 
 const defaultAboutUs: AboutUsSettings = {
-  introText: "JIYOO (jiyoooshams) is an emerging online service provider connecting businesses and consumers with the finest fresh fruits, vegetables, meat, seafood, and other premium produce, sourced through a strong network of farmers, importers, and distributors both locally and internationally.",
+  introText: "JIYOO is an emerging online service provider connecting businesses and consumers with the finest fresh fruits, vegetables, meat, seafood, and other premium produce, sourced through a strong network of farmers, importers, and distributors both locally and internationally.",
   objectiveText: "Our objective is to build an efficient and robust online & offline platform that showcases our strengths in quality, express service, and value for money. We specialize in exotic and imported fresh produce, while continuously expanding to offer a wider range of healthy food products.",
   visionText: "Our vision is to consistently deliver premium quality with a wide assortment of healthy foods while enhancing customer experience through customized solutions and a pay-per-demand model.",
   standardsText: "With an experienced team serving hotels, retail stores, restaurants, general trade, and end-users, we are committed to maintaining the highest standards of hygiene, safety, and customer satisfaction in everything we do.",
@@ -61,7 +61,12 @@ const defaultAboutUs: AboutUsSettings = {
 
 const normalizeAboutUs = (raw?: AboutUsSettings): AboutUsSettings => {
   const merged: AboutUsSettings = { ...defaultAboutUs, ...(raw || {}) };
-  if (!merged.founderName || merged.founderName.trim().toLowerCase() === "syed shams") {
+  if (merged.introText) {
+    merged.introText = merged.introText
+      .replace(/\s*\(jiyoo+shams\)/gi, "")
+      .replace(/\bshams\b/gi, "JIYOO");
+  }
+  if (!merged.founderName || /shams/i.test(merged.founderName)) {
     merged.founderName = "Dr. Mehraj Sultana";
   }
   if (!merged.founderRole || merged.founderRole.trim() === "Founder & CEO") {
@@ -71,11 +76,7 @@ const normalizeAboutUs = (raw?: AboutUsSettings): AboutUsSettings => {
     merged.mdName = "";
     merged.mdRole = "";
   }
-  if (
-    !merged.marketedBy ||
-    merged.marketedBy.trim() === "SHAM'S™" ||
-    merged.marketedBy.trim() === "SHAM'S"
-  ) {
+  if (!merged.marketedBy || /sham/i.test(merged.marketedBy)) {
     merged.marketedBy = "JIYOO";
   }
   return merged;

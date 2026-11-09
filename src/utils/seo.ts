@@ -202,7 +202,7 @@ export function applyProductModalSeo(product: Product | null) {
             : "https://schema.org/InStock",
         seller: {
           "@type": "Organization",
-          name: "JIYOO (SHAM'S™)",
+          name: "JIYOO",
         },
       },
     },
