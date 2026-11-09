@@ -210,23 +210,41 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   const handleEmailAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
-    if (!adminEmail.trim() || !adminPassword) {
-      setAuthError('Please enter both your administrator email and password.');
+    const rawIdent = adminEmail.trim();
+    if (!rawIdent || !adminPassword) {
+      setAuthError('Please enter both your administrator identifier and password.');
       return;
     }
     setIsSigningIn(true);
     try {
-      const cred = await signInWithEmailAndPassword(auth, adminEmail.trim(), adminPassword);
+      // 1. Check direct backend credentials verification first (supports temporary phone/passcode access)
+      const primaryRes = await initiateAdminPrimaryAuth({
+        identifier: rawIdent,
+        password: adminPassword,
+      });
+      if (primaryRes.success) {
+        handlePrimaryAuthResult(primaryRes);
+        return;
+      }
+
+      // If it's a phone number or non-email and direct auth failed, display error
+      if (!rawIdent.includes('@')) {
+        setAuthError(primaryRes.error || 'Invalid administrator phone number or password.');
+        return;
+      }
+
+      // 2. Otherwise fallback to Firebase Auth for regular email accounts
+      const cred = await signInWithEmailAndPassword(auth, rawIdent, adminPassword);
       const email = cred.user?.email || '';
       const idTokenResult = await cred.user.getIdTokenResult(true);
       if (idTokenResult.claims.admin === true || isOwnerAdminEmail(email)) {
-        const primaryRes = await initiateAdminPrimaryAuth();
-        handlePrimaryAuthResult(primaryRes);
+        const res = await initiateAdminPrimaryAuth();
+        handlePrimaryAuthResult(res);
       } else {
         setAuthError(`Account (${email}) does not have administrator privileges.`);
       }
     } catch (err: any) {
-      setAuthError(err?.message || 'Invalid administrator email or password.');
+      setAuthError(err?.message || 'Invalid administrator credentials.');
     } finally {
       setIsSigningIn(false);
     }
@@ -549,10 +567,10 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                   <div className="relative">
                     <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
-                      type="email"
+                      type="text"
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
-                      placeholder="Admin Email Address"
+                      placeholder="Admin Phone or Email (e.g. 9739391891)"
                       disabled={lockoutSeconds > 0}
                       className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:border-stone-900"
                     />
