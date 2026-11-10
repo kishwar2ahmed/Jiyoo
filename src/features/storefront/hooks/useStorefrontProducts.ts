@@ -198,15 +198,30 @@ export function mergeCatalogRecords(
     }
   }
 
+  let localOverrides: Array<Record<string, any>> = [];
+  if (typeof window !== 'undefined') {
+    try {
+      const rawLocal = localStorage.getItem('jiyoo_admin_col_products');
+      if (rawLocal) {
+        const parsed = JSON.parse(rawLocal);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          localOverrides = Object.entries(parsed).map(([id, item]: [string, any]) => ({ ...(item || {}), id }));
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   let validRecordCount = 0;
   let deletedCount = 0;
 
-  for (const record of dbRecords) {
+  for (const record of [...dbRecords, ...localOverrides]) {
     if (!record || typeof record !== 'object') continue;
     const id = String(record.id ?? '').trim();
     if (!id) continue;
 
-    if (record.isDeleted === true) {
+    if (record.isDeleted === true || record.__deleted === true) {
       deletedCount++;
       mergedMap.delete(id);
       continue;

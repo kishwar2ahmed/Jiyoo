@@ -206,11 +206,11 @@ export function ProductFormModal({
               <div>
                 <label className="block text-sm font-medium text-brand-gray-700 mb-1">Image URL (Optional Direct Link)</label>
                 <input
-                  type="url"
+                  type="text"
                   value={editingProduct.image && !editingProduct.image.startsWith('data:') && !editingProduct.image.startsWith('/api/images/') ? editingProduct.image : ''}
                   onChange={(e) => setEditingProduct((prev) => ({ ...prev, image: e.target.value }))}
                   className="w-full bg-brand-gray-50 border border-brand-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-600"
-                  placeholder="https://images.unsplash.com/... or paste image URL"
+                  placeholder="https://images.unsplash.com/... or /products/..."
                 />
               </div>
 

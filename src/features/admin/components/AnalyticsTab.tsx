@@ -119,8 +119,8 @@ export function AnalyticsTab() {
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-brand-gray-200 flex-1 min-h-[400px]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-brand-gray-200 h-[400px] w-full">
+        <ResponsiveContainer width="100%" height={340}>
           <AreaChart
             data={data}
             margin={{ top: 10, right: 30, left: 0, bottom: 0 }}

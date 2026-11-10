@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { db, isFirebaseConfigured } from '../services/firebase';
+import { auth, db, isFirebaseConfigured } from '../services/firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { BannerSlide } from '../types';
 import { DEFAULT_HERO_BANNERS } from '../constants/banners';
-import { getAdminAuthHeaders } from '../utils/adminAuth';
+import { getAdminAuthHeaders, isOwnerAdminEmail } from '../utils/adminAuth';
 
 export interface AboutUsSettings {
   introText?: string;
@@ -310,20 +310,23 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    const headers = await getAdminAuthHeaders(true);
-    const serverRes = await fetch('/api/admin/settings', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(updated),
-    }).catch(() => null);
-
-    // Best-effort mirror to client Firestore
     try {
-      await setDoc(doc(db, 'settings', 'global'), updated, { merge: true });
-    } catch (err) {
-      if (!serverRes || !serverRes.ok) {
-        console.warn('Could not sync settings to Firestore:', err);
-        throw err;
+      const headers = await getAdminAuthHeaders(true);
+      await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(updated),
+      });
+    } catch {
+      // Local persistence already succeeded
+    }
+
+    // Best-effort mirror to client Firestore when signed in via Firebase Auth
+    if (auth.currentUser && auth.currentUser.emailVerified && isOwnerAdminEmail(auth.currentUser.email)) {
+      try {
+        await setDoc(doc(db, 'settings', 'global'), updated, { merge: true });
+      } catch {
+        // Ignore optional client-side mirror error
       }
     }
   };

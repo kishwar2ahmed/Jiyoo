@@ -15,10 +15,24 @@ function mergeCategories(rawDocs: Array<Record<string, any>>): Category[] {
   for (const c of defaultCategories) {
     catMap.set(String(c.id), c);
   }
-  for (const data of rawDocs) {
+  let localCats: Array<Record<string, any>> = [];
+  if (typeof window !== 'undefined') {
+    try {
+      const rawLocal = localStorage.getItem('jiyoo_admin_col_categories');
+      if (rawLocal) {
+        const parsed = JSON.parse(rawLocal);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          localCats = Object.entries(parsed).map(([id, item]: [string, any]) => ({ ...(item || {}), id }));
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  for (const data of [...rawDocs, ...localCats]) {
     if (!data || typeof data !== 'object' || !data.id) continue;
     const id = String(data.id);
-    if (data.isDeleted === true || data.isFrozen === true) {
+    if (data.isDeleted === true || data.isFrozen === true || data.__deleted === true) {
       catMap.delete(id);
     } else {
       const existing = catMap.get(id);

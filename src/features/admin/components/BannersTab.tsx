@@ -961,8 +961,8 @@ export function BannersTab() {
                   {imageSourceTab === 'url' && (
                     <div className="p-4 bg-brand-gray-50 rounded-xl border border-brand-gray-200 space-y-2">
                       <input
-                        type="url"
-                        placeholder="https://example.com/images/banner.jpg"
+                        type="text"
+                        placeholder="https://example.com/images/banner.jpg or /banners/..."
                         value={editingBanner.image}
                         onChange={(e) =>
                           setEditingBanner({ ...editingBanner, image: e.target.value })

@@ -153,7 +153,6 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
 
   // Verify existing server-signed 2FA session on mount or initiate 2FA if Firebase admin is signed in
   useEffect(() => {
-    if (isAuthLoading) return;
     let cancelled = false;
 
     const verifyExistingSession = async () => {
@@ -176,7 +175,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
         handlePrimaryAuthResult(primaryRes);
       } else {
         if (!cancelled) {
-          setAuthStep('PRIMARY_LOGIN');
+          setAuthStep((prev) => (prev === 'CHECKING' ? 'PRIMARY_LOGIN' : prev));
         }
       }
     };
@@ -397,7 +396,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
     setAuthStep('PRIMARY_LOGIN');
   };
 
-  if (isAuthLoading || authStep === 'CHECKING') {
+  if (authStep === 'CHECKING') {
     return (
       <div className="fixed inset-0 z-[100] bg-brand-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
@@ -591,7 +590,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                     disabled={isSigningIn || lockoutSeconds > 0}
                     className="w-full bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer"
                   >
-                    Continue to 2FA Verification
+                    {isSigningIn ? 'Unlocking Admin...' : 'Unlock Admin Panel'}
                   </button>
                 </form>
               )}
@@ -821,7 +820,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
               </span>
             </div>
             <p className="text-xs text-brand-gray-500 truncate max-w-[200px]">
-              {securityStatus?.email || verifiedEmail || user?.email || 'Control Panel'}
+              {user?.email || 'Store Owner • Administrator'}
             </p>
           </div>
         </div>
@@ -981,7 +980,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                     Admin Security, Rate Limiting &amp; 2FA
                   </h3>
                   <p className="text-xs text-stone-500">
-                    {securityStatus?.email || verifiedEmail || user?.email}
+                    {user?.email || 'Store Owner • Administrator'}
                   </p>
                 </div>
               </div>

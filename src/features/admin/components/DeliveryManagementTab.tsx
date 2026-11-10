@@ -93,12 +93,12 @@ export function DeliveryManagementTab() {
       if (Array.isArray(data.pincodes) && data.pincodes.length > 0) {
         setPincodes(data.pincodes);
       }
-    } catch (err: any) {
-      showToast(err.message || 'Loaded default active retail PIN codes', 'error');
+    } catch {
+      // Retain pre-loaded default active retail PIN codes gracefully
     } finally {
       setLoadingPincodes(false);
     }
-  }, [showToast]);
+  }, []);
 
   // --- Wholesale zones ---
   const [zones, setZones] = useState<ZoneRow[]>([DEFAULT_PAN_INDIA_WHOLESALE_ZONE]);
@@ -113,12 +113,12 @@ export function DeliveryManagementTab() {
       if (Array.isArray(data.zones) && data.zones.length > 0) {
         setZones(data.zones);
       }
-    } catch (err: any) {
-      showToast(err.message || 'Loaded default All-India wholesale zone', 'error');
+    } catch {
+      // Retain pre-loaded All-India wholesale zone gracefully
     } finally {
       setLoadingZones(false);
     }
-  }, [showToast]);
+  }, []);
 
   useEffect(() => {
     loadPincodes();

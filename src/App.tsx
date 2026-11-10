@@ -55,7 +55,13 @@ function AppContent() {
   const [openInWhatsAppMode, setOpenInWhatsAppMode] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState<boolean>(() => {
+    try {
+      return window.location.hash === '#admin';
+    } catch {
+      return false;
+    }
+  });
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
   const [isLegalOpen, setIsLegalOpen] = useState(false);
@@ -77,6 +83,7 @@ function AppContent() {
   });
   const [showSplash, setShowSplash] = useState<boolean>(() => {
     try {
+      if (window.location.hash === '#admin') return false;
       const params = new URLSearchParams(window.location.search);
       if (params.get('autostart') === '1') return false;
       return true;
@@ -356,7 +363,15 @@ function AppContent() {
         onComplete={() => setIsWholesaleCurtainActive(false)}
       />
       <OfflineBanner />
-      <Suspense fallback={null}>
+      <Suspense
+        fallback={
+          isAdminOpen ? (
+            <div className="fixed inset-0 z-[100] bg-[#FAF9F5] flex items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-700"></div>
+            </div>
+          ) : null
+        }
+      >
         {isAdminOpen && <AdminPanel onClose={() => {
           setIsAdminOpen(false);
           window.history.pushState("", document.title, window.location.pathname + window.location.search);

@@ -28,7 +28,7 @@
           "price": 299
         }
       ],
-      "category": "General",
+      "category": "Fruits",
       "subSubcategoryId": null,
       "wholesalePrice": 299,
       "wholesaleEligible": false,
@@ -41,7 +41,7 @@
       "reservedStock": 0,
       "isDeleted": false,
       "adminEdited": true,
-      "updatedAt": "2026-11-06T21:40:58.663Z",
+      "updatedAt": "2026-11-09T23:09:08.251Z",
       "images": [
         "/products/f_apple_royal_gala.jpg"
       ]
@@ -8354,5 +8354,197 @@
   },
   "orders": {},
   "users": {},
-  "audit_logs": {}
+  "audit_logs": {
+    "doc_1794263895744_03b392ed6405": {
+      "action": "ADMIN_SIGN_IN_TEMPORARY",
+      "category": "USERS",
+      "actor": "yoyokishwar@gmail.com",
+      "actorRole": "admin",
+      "details": "Administrator signed in using authorized temporary access credentials (Passcode)",
+      "createdAt": "2026-11-09T22:38:15.744Z"
+    },
+    "doc_1794263956419_54d0c2b3b4a2": {
+      "action": "ADMIN_SIGN_IN_TEMPORARY",
+      "category": "USERS",
+      "actor": "yoyokishwar@gmail.com",
+      "actorRole": "admin",
+      "details": "Administrator signed in using authorized temporary access credentials (Passcode)",
+      "createdAt": "2026-11-09T22:39:16.419Z"
+    },
+    "doc_1794263961583_b8fc1176c6f4": {
+      "action": "ADMIN_SESSION_LOGOUT",
+      "category": "USERS",
+      "actor": "yoyokishwar@gmail.com",
+      "actorRole": "admin",
+      "details": "Administrator yoyokishwar@gmail.com signed out and revoked session token adm_0173a8cb874a7577036110ae",
+      "createdAt": "2026-11-09T22:39:21.583Z"
+    },
+    "doc_1794263962454_3b5ba906c61e": {
+      "action": "ADMIN_SIGN_IN_TEMPORARY",
+      "category": "USERS",
+      "actor": "yoyokishwar@gmail.com",
+      "actorRole": "admin",
+      "details": "Administrator signed in using authorized temporary access credentials (Phone/Password)",
+      "createdAt": "2026-11-09T22:39:22.454Z"
+    },
+    "doc_1794265600492_63f6c4549261": {
+      "action": "ADMIN_SIGN_IN_TEMPORARY",
+      "category": "USERS",
+      "actor": "yoyokishwar@gmail.com",
+      "actorRole": "admin",
+      "details": "Administrator signed in using authorized temporary access credentials (Phone/Password)",
+      "createdAt": "2026-11-09T23:06:40.492Z"
+    },
+    "doc_1794265664761_20069dce5103": {
+      "action": "ADMIN_SIGN_IN_TEMPORARY",
+      "category": "USERS",
+      "actor": "yoyokishwar@gmail.com",
+      "actorRole": "admin",
+      "details": "Administrator signed in using authorized temporary access credentials (Phone/Password)",
+      "createdAt": "2026-11-09T23:07:44.761Z"
+    },
+    "doc_1794265743955_7ea62a326126": {
+      "action": "ADMIN_SIGN_IN_TEMPORARY",
+      "category": "USERS",
+      "actor": "yoyokishwar@gmail.com",
+      "actorRole": "admin",
+      "details": "Administrator signed in using authorized temporary access credentials (Phone/Password)",
+      "createdAt": "2026-11-09T23:09:03.955Z"
+    },
+    "doc_1794265817304_5eaa006e0c3f": {
+      "action": "ADMIN_SIGN_IN_TEMPORARY",
+      "category": "USERS",
+      "actor": "yoyokishwar@gmail.com",
+      "actorRole": "admin",
+      "details": "Administrator signed in using authorized temporary access credentials (Passcode)",
+      "createdAt": "2026-11-09T23:10:17.304Z"
+    },
+    "doc_1794265907783_9717c26098bb": {
+      "action": "ADMIN_SIGN_IN_TEMPORARY",
+      "category": "USERS",
+      "actor": "yoyokishwar@gmail.com",
+      "actorRole": "admin",
+      "details": "Administrator signed in using authorized temporary access credentials (Passcode)",
+      "createdAt": "2026-11-09T23:11:47.783Z"
+    },
+    "doc_1794265966020_3a4d09ab3398": {
+      "action": "ADMIN_SIGN_IN_TEMPORARY",
+      "category": "USERS",
+      "actor": "yoyokishwar@gmail.com",
+      "actorRole": "admin",
+      "details": "Administrator signed in using authorized temporary access credentials (Passcode)",
+      "createdAt": "2026-11-09T23:12:46.019Z"
+    }
+  },
+  "categories": {},
+  "admin_security": {
+    "ip_39dfa788676bbd82d50ca416": {
+      "failedAttempts": 0,
+      "lockedUntil": null,
+      "updatedAt": "2026-11-09T23:12:46.019Z"
+    }
+  },
+  "admin_sessions": {
+    "adm_f54b288555ffb54e2527804e": {
+      "jti": "adm_f54b288555ffb54e2527804e",
+      "email": "yoyokishwar@gmail.com",
+      "mfaVerified": true,
+      "revoked": false,
+      "ipHash": "39dfa788676bbd82d50ca416",
+      "uaHash": "29ec47c7893e74c3",
+      "createdAt": "2026-11-09T22:38:15.744Z",
+      "expiresAt": "2026-11-10T06:38:15.744Z",
+      "authMethod": "owner_passcode_temp"
+    },
+    "adm_0173a8cb874a7577036110ae": {
+      "jti": "adm_0173a8cb874a7577036110ae",
+      "email": "yoyokishwar@gmail.com",
+      "mfaVerified": true,
+      "revoked": true,
+      "ipHash": "39dfa788676bbd82d50ca416",
+      "uaHash": "29ec47c7893e74c3",
+      "createdAt": "2026-11-09T22:39:16.419Z",
+      "expiresAt": "2026-11-10T06:39:16.418Z",
+      "authMethod": "owner_passcode_temp",
+      "revokedAt": "2026-11-09T22:39:21.583Z"
+    },
+    "adm_692f9bbfa07240ef217a7658": {
+      "jti": "adm_692f9bbfa07240ef217a7658",
+      "email": "yoyokishwar@gmail.com",
+      "mfaVerified": true,
+      "revoked": false,
+      "ipHash": "39dfa788676bbd82d50ca416",
+      "uaHash": "29ec47c7893e74c3",
+      "createdAt": "2026-11-09T22:39:22.454Z",
+      "expiresAt": "2026-11-10T06:39:22.454Z",
+      "authMethod": "identifier_password_temp"
+    },
+    "adm_f867423dc6dc4d1ce09d5936": {
+      "jti": "adm_f867423dc6dc4d1ce09d5936",
+      "email": "yoyokishwar@gmail.com",
+      "mfaVerified": true,
+      "revoked": false,
+      "ipHash": "39dfa788676bbd82d50ca416",
+      "uaHash": "29ec47c7893e74c3",
+      "createdAt": "2026-11-09T23:06:40.492Z",
+      "expiresAt": "2026-11-10T07:06:40.491Z",
+      "authMethod": "identifier_password_temp"
+    },
+    "adm_79c154f8a01989eeffee3254": {
+      "jti": "adm_79c154f8a01989eeffee3254",
+      "email": "yoyokishwar@gmail.com",
+      "mfaVerified": true,
+      "revoked": false,
+      "ipHash": "39dfa788676bbd82d50ca416",
+      "uaHash": "29ec47c7893e74c3",
+      "createdAt": "2026-11-09T23:07:44.761Z",
+      "expiresAt": "2026-11-10T07:07:44.760Z",
+      "authMethod": "identifier_password_temp"
+    },
+    "adm_8b89576948094500efbe0300": {
+      "jti": "adm_8b89576948094500efbe0300",
+      "email": "yoyokishwar@gmail.com",
+      "mfaVerified": true,
+      "revoked": false,
+      "ipHash": "39dfa788676bbd82d50ca416",
+      "uaHash": "29ec47c7893e74c3",
+      "createdAt": "2026-11-09T23:09:03.955Z",
+      "expiresAt": "2026-11-10T07:09:03.955Z",
+      "authMethod": "identifier_password_temp"
+    },
+    "adm_09ef0b9038e980f701e359c1": {
+      "jti": "adm_09ef0b9038e980f701e359c1",
+      "email": "yoyokishwar@gmail.com",
+      "mfaVerified": true,
+      "revoked": false,
+      "ipHash": "39dfa788676bbd82d50ca416",
+      "uaHash": "29ec47c7893e74c3",
+      "createdAt": "2026-11-09T23:10:17.304Z",
+      "expiresAt": "2026-11-10T07:10:17.303Z",
+      "authMethod": "owner_passcode_temp"
+    },
+    "adm_de1350ed436d939a364f8f42": {
+      "jti": "adm_de1350ed436d939a364f8f42",
+      "email": "yoyokishwar@gmail.com",
+      "mfaVerified": true,
+      "revoked": false,
+      "ipHash": "39dfa788676bbd82d50ca416",
+      "uaHash": "29ec47c7893e74c3",
+      "createdAt": "2026-11-09T23:11:47.783Z",
+      "expiresAt": "2026-11-10T07:11:47.783Z",
+      "authMethod": "owner_passcode_temp"
+    },
+    "adm_e2fb8a88ecb831c8ed520427": {
+      "jti": "adm_e2fb8a88ecb831c8ed520427",
+      "email": "yoyokishwar@gmail.com",
+      "mfaVerified": true,
+      "revoked": false,
+      "ipHash": "39dfa788676bbd82d50ca416",
+      "uaHash": "29ec47c7893e74c3",
+      "createdAt": "2026-11-09T23:12:46.019Z",
+      "expiresAt": "2026-11-10T07:12:46.019Z",
+      "authMethod": "owner_passcode_temp"
+    }
+  },
+  "reviews": {}
 }

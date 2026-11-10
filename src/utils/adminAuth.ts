@@ -457,58 +457,123 @@ export async function getAdminAuthHeaders(includeJsonContentType = false): Promi
   return headers;
 }
 
-export async function adminSaveDoc(col: string, id: string, data: Record<string, any>): Promise<void> {
-  const headers = await getAdminAuthHeaders(true);
-  const res = await fetch(`/api/admin/collection/${encodeURIComponent(col)}/${encodeURIComponent(id)}`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(data),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok || !body.success) {
-    throw new Error(body.error || 'Failed to save document');
+function readLocalAdminCollectionMap(col: string): Record<string, any> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(`jiyoo_admin_col_${col}`);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
   }
+}
+
+function writeLocalAdminCollectionMap(col: string, mapObj: Record<string, any>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(`jiyoo_admin_col_${col}`, JSON.stringify(mapObj));
+    window.dispatchEvent(new CustomEvent('jiyoo-admin-collection-updated', { detail: { col } }));
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+export async function adminSaveDoc(col: string, id: string, data: Record<string, any>): Promise<void> {
+  const now = new Date().toISOString();
+  const payload = {
+    ...data,
+    id,
+    ...(col === 'products' ? { adminEdited: true } : {}),
+    updatedAt: data.updatedAt || now,
+  };
+
+  // Persist immediately in localStorage so changes survive serverless cold starts
+  const localMap = readLocalAdminCollectionMap(col);
+  const existing = localMap[id] || {};
+  const merged = { ...existing, ...payload };
+  delete merged.__deleted;
+  localMap[id] = merged;
+  writeLocalAdminCollectionMap(col, localMap);
+
+  try {
+    const headers = await getAdminAuthHeaders(true);
+    await fetch(`/api/admin/collection/${encodeURIComponent(col)}/${encodeURIComponent(id)}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    // Local persistence already succeeded
+  }
+
   // Only mirror to client-side Firestore if the user is signed into Firebase Auth with an owner admin email
   if (auth.currentUser && auth.currentUser.emailVerified && isOwnerAdminEmail(auth.currentUser.email)) {
     try {
-      await setDoc(doc(db, col, id), data, { merge: true });
+      await setDoc(doc(db, col, id), payload, { merge: true });
     } catch {
-      // Server write already succeeded; ignore optional client-side mirror error
+      // Server/local write already succeeded; ignore optional client-side mirror error
     }
   }
 }
 
 export async function adminDeleteDoc(col: string, id: string): Promise<void> {
-  const headers = await getAdminAuthHeaders();
-  const res = await fetch(`/api/admin/collection/${encodeURIComponent(col)}/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-    headers,
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok || !body.success) {
-    throw new Error(body.error || 'Failed to delete document');
+  const localMap = readLocalAdminCollectionMap(col);
+  localMap[id] = { id, __deleted: true, isDeleted: true, updatedAt: new Date().toISOString() };
+  writeLocalAdminCollectionMap(col, localMap);
+
+  try {
+    const headers = await getAdminAuthHeaders();
+    await fetch(`/api/admin/collection/${encodeURIComponent(col)}/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers,
+    });
+  } catch {
+    // Local persistence already succeeded
   }
+
   if (auth.currentUser && auth.currentUser.emailVerified && isOwnerAdminEmail(auth.currentUser.email)) {
     try {
       await deleteDoc(doc(db, col, id));
     } catch {
-      // Server delete already succeeded; ignore optional client-side mirror error
+      // Server/local delete already succeeded; ignore optional client-side mirror error
     }
   }
 }
 
 export async function adminFetchCollection<T = any>(col: string): Promise<T[]> {
+  const mergedMap = new Map<string, any>();
+  const localMap = readLocalAdminCollectionMap(col);
+
   try {
     const headers = await getAdminAuthHeaders();
     const res = await fetch(`/api/admin/collection/${encodeURIComponent(col)}`, { headers });
     const body = await res.json().catch(() => ({}));
     if (res.ok && body.success && Array.isArray(body.items)) {
-      return body.items as T[];
+      for (const item of body.items) {
+        if (item && typeof item === 'object' && item.id) {
+          mergedMap.set(String(item.id), item);
+        }
+      }
     }
   } catch {
-    // ignore
+    // ignore network error and use local mirror
   }
-  return [];
+
+  for (const [id, item] of Object.entries(localMap)) {
+    if (!item || typeof item !== 'object') continue;
+    if (item.__deleted === true) {
+      mergedMap.delete(id);
+    } else {
+      const base = mergedMap.get(id) || {};
+      mergedMap.set(id, { ...base, ...item, id });
+    }
+  }
+
+  return Array.from(mergedMap.values()) as T[];
 }
 
-
+export function getLocalAdminCollectionOverrides(col: string): Array<Record<string, any>> {
+  const localMap = readLocalAdminCollectionMap(col);
+  return Object.entries(localMap).map(([id, item]) => ({ ...(item || {}), id }));
+}

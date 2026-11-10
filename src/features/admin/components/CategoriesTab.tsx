@@ -17,39 +17,41 @@ export function CategoriesTab() {
   const [newCatLabel, setNewCatLabel] = useState('');
 
   useEffect(() => {
-    adminFetchCollection<Category>('categories').then((serverCats) => {
-      if (serverCats.length > 0) {
-        const catMap = new Map<string, Category>();
-        CATEGORIES.forEach(c => catMap.set(c.id, c));
-        serverCats.forEach(c => {
-          if ((c as any).isDeleted) catMap.delete(c.id);
-          else catMap.set(c.id, { ...(catMap.get(c.id) || {}), ...c });
-        });
-        setCategories(Array.from(catMap.values()));
-      }
-      setLoading(false);
-    });
+    let firestoreCats: Category[] = [];
+    let adminCats: Category[] = [];
 
-    const unsub = onSnapshot(collection(db, 'categories'), (snap) => {
-      if (snap.empty) return;
-      const loaded: Category[] = [];
-      snap.forEach(doc => {
-        loaded.push({ id: doc.id, ...doc.data() } as Category);
-      });
-
+    const rebuildCats = () => {
       const catMap = new Map<string, Category>();
       CATEGORIES.forEach(c => catMap.set(c.id, c));
-      loaded.forEach(c => {
-        if ((c as any).isDeleted) {
+      [...firestoreCats, ...adminCats].forEach(c => {
+        if ((c as any).isDeleted || (c as any).__deleted) {
           catMap.delete(c.id);
         } else {
           catMap.set(c.id, { ...(catMap.get(c.id) || {}), ...c });
         }
       });
       setCategories(Array.from(catMap.values()));
+    };
+
+    adminFetchCollection<Category>('categories').then((serverCats) => {
+      if (serverCats.length > 0) {
+        adminCats = serverCats;
+        rebuildCats();
+      }
+      setLoading(false);
+    });
+
+    const unsub = onSnapshot(collection(db, 'categories'), (snap) => {
+      const loaded: Category[] = [];
+      snap.forEach(doc => {
+        loaded.push({ id: doc.id, ...doc.data() } as Category);
+      });
+      firestoreCats = loaded;
+      rebuildCats();
       setLoading(false);
     }, (err) => {
       console.error(err);
+      rebuildCats();
       setLoading(false);
     });
 

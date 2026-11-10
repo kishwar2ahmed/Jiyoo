@@ -528,7 +528,7 @@ export function OrdersTab() {
             <div>
               <label className="block text-[11px] font-semibold text-brand-gray-600 mb-1">Tracking Link URL</label>
               <input
-                type="url"
+                type="text"
                 value={trackingUrl}
                 onChange={e => setTrackingUrl(e.target.value)}
                 placeholder="https://..."

@@ -29,7 +29,7 @@ const ProductRow = React.memo(({ p, setEditingProduct, setIsModalOpen, handleDel
       <span className="font-medium text-brand-black">{p.name}</span>
     </td>
     <td className="px-4 py-3 text-xs font-medium text-brand-gray-600 capitalize">
-      {String(p.category || p.categoryId || 'general').replace(/-/g, ' ')}
+      {CATEGORIES.find(c => c.id === p.categoryId)?.label || (p.category && p.category !== 'General' ? p.category : '') || String(p.categoryId || 'general').replace(/-/g, ' ')}
     </td>
     <td className="px-4 py-3 font-price-luxury font-bold text-stone-900 tabular-nums">
       ₹{p.price} <span className="text-xs font-normal text-stone-500">/ {p.unit}</span>
@@ -84,34 +84,59 @@ export function ProductsTab() {
       setLoading(false);
     }, 800);
 
-    // Load from server collection API first so server-persisted edits appear immediately
+    let firestoreDocs: Array<Record<string, any>> = [];
+    let adminOverrideDocs: Array<Record<string, any>> = [];
+
+    const rebuildProducts = () => {
+      const prodMap = new Map<string, Product>();
+      PRODUCTS.forEach(p => prodMap.set(String(p.id), p));
+      const allOverrides = [...firestoreDocs, ...adminOverrideDocs];
+      allOverrides.forEach((data: any) => {
+        if (!data || typeof data !== 'object') return;
+        const id = String(data.id || '').trim();
+        if (!id) return;
+        if (data.isDeleted === true || data.__deleted === true) {
+          prodMap.delete(id);
+        } else {
+          const base = prodMap.get(id);
+          const merged = {
+            ...(base || {}),
+            ...data,
+            id,
+            name: data.name || base?.name || '',
+            categoryId: data.categoryId || base?.categoryId || 'fruits',
+            subcategoryId: data.subcategoryId ?? base?.subcategoryId,
+            subSubcategoryId: data.subSubcategoryId ?? base?.subSubcategoryId,
+            price: data.price ?? base?.price ?? 0,
+            unit: data.unit || base?.unit || '1 kg',
+            image: resolveProductImage(data.image || base?.image) || '',
+          } as Product;
+          if (merged.name) prodMap.set(id, merged);
+        }
+      });
+      setProducts(Array.from(prodMap.values()));
+    };
+
+    // Load from server + local admin collection API so edits appear immediately
     adminFetchCollection<Product>('products').then((serverProds) => {
       if (serverProds.length > 0) {
-        const prodMap = new Map<string, Product>();
-        PRODUCTS.forEach(p => prodMap.set(String(p.id), p));
-        serverProds.forEach((data: any) => {
-          if (!data || typeof data !== 'object') return;
-          const id = String(data.id);
-          if (data.isDeleted === true) {
-            prodMap.delete(id);
+        adminOverrideDocs = serverProds;
+        rebuildProducts();
+      }
+    });
+
+    adminFetchCollection<Category>('categories').then((serverCats) => {
+      if (serverCats.length > 0) {
+        const catMap = new Map<string, Category>();
+        CATEGORIES.forEach(c => catMap.set(c.id, c));
+        serverCats.forEach(c => {
+          if ((c as any).isDeleted || (c as any).__deleted) {
+            catMap.delete(c.id);
           } else {
-            const base = prodMap.get(id);
-            const merged = {
-              ...(base || {}),
-              ...data,
-              id,
-              name: data.name || base?.name || '',
-              categoryId: data.categoryId || base?.categoryId || 'fruits',
-              subcategoryId: data.subcategoryId ?? base?.subcategoryId,
-              subSubcategoryId: data.subSubcategoryId ?? base?.subSubcategoryId,
-              price: data.price ?? base?.price ?? 0,
-              unit: data.unit || base?.unit || '1 kg',
-              image: resolveProductImage(data.image || base?.image) || '',
-            } as Product;
-            if (merged.name) prodMap.set(id, merged);
+            catMap.set(c.id, { ...(catMap.get(c.id) || {}), ...c });
           }
         });
-        setProducts(Array.from(prodMap.values()));
+        setCategoriesList(Array.from(catMap.values()));
       }
     });
 
@@ -120,56 +145,36 @@ export function ProductsTab() {
       snap.forEach(d => {
         loaded.push({ id: d.id, ...d.data() } as Category);
       });
-      const catMap = new Map<string, Category>();
-      CATEGORIES.forEach(c => catMap.set(c.id, c));
-      loaded.forEach(c => {
-        if ((c as any).isDeleted) {
-          catMap.delete(c.id);
-        } else {
-          catMap.set(c.id, c);
-        }
+      adminFetchCollection<Category>('categories').then((serverCats) => {
+        const catMap = new Map<string, Category>();
+        CATEGORIES.forEach(c => catMap.set(c.id, c));
+        [...loaded, ...serverCats].forEach(c => {
+          if ((c as any).isDeleted || (c as any).__deleted) {
+            catMap.delete(c.id);
+          } else {
+            catMap.set(c.id, { ...(catMap.get(c.id) || {}), ...c });
+          }
+        });
+        setCategoriesList(Array.from(catMap.values()));
       });
-      setCategoriesList(Array.from(catMap.values()));
     }, (err) => {
       console.warn("Categories subscription error:", err);
     });
 
     const unsubProds = onSnapshot(query(collection(db, 'products'), limit(500)), (snap) => {
-      if (snap.empty) {
-        setProducts(prev => (prev.length > 0 ? prev : PRODUCTS));
-      } else {
-        const prodMap = new Map<string, Product>();
-        PRODUCTS.forEach(p => prodMap.set(String(p.id), p));
-        snap.forEach(d => {
-          const data = d.data();
-          if (!data || typeof data !== 'object') return;
-          if (data.isDeleted === true) {
-            prodMap.delete(d.id);
-          } else {
-            const base = prodMap.get(d.id);
-            const merged = {
-              ...(base || {}),
-              ...data,
-              id: d.id,
-              name: data.name || base?.name || '',
-              categoryId: data.categoryId || base?.categoryId || 'fruits',
-              subcategoryId: data.subcategoryId ?? base?.subcategoryId,
-              subSubcategoryId: data.subSubcategoryId ?? base?.subSubcategoryId,
-              price: data.price ?? base?.price ?? 0,
-              unit: data.unit || base?.unit || '1 kg',
-              image: resolveProductImage(data.image || base?.image) || '',
-            } as Product;
-            if (merged.name) {
-              prodMap.set(d.id, merged);
-            }
-          }
-        });
-        setProducts(Array.from(prodMap.values()));
-      }
+      const docs: Array<Record<string, any>> = [];
+      snap.forEach(d => {
+        const data = d.data();
+        if (data && typeof data === 'object') {
+          docs.push({ id: d.id, ...data });
+        }
+      });
+      firestoreDocs = docs;
+      rebuildProducts();
       setLoading(false);
     }, (err) => {
       console.warn("Products subscription error:", err);
-      setProducts(prev => (prev.length > 0 ? prev : PRODUCTS));
+      rebuildProducts();
       setLoading(false);
     });
 
