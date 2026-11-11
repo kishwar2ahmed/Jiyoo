@@ -28,7 +28,7 @@
           "price": 299
         }
       ],
-      "category": "Fruits",
+      "category": "General",
       "subSubcategoryId": null,
       "wholesalePrice": 299,
       "wholesaleEligible": false,
@@ -8331,13 +8331,26 @@
     "global": {
       "storeName": "JIYOO Premium Products",
       "contactEmail": "shamsjiyoo@gmail.com",
+      "contactPhone": "+91 97393 91891",
       "whatsappNumber": "919739391891",
       "upiId": "9739391891@ybl",
       "upiId2": "9739391891@paytm",
       "deliveryFee": 40,
       "freeDeliveryThreshold": 0,
       "estimatedDeliveryTime": "30 - 60 mins",
-      "minOrderAmount": 0
+      "minOrderAmount": 0,
+      "aboutUs": {
+        "introText": "JIYOO (jiyooshams) is an emerging online service provider connecting businesses and consumers with the finest fresh fruits, vegetables, meat, seafood, and other premium produce, sourced through a strong network of farmers, importers, and distributors both locally and internationally.",
+        "objectiveText": "Our objective is to build an efficient and robust online & offline platform that showcases our strengths in quality, express service, and value for money. We specialize in exotic and imported fresh produce, while continuously expanding to offer a wider range of healthy food products.",
+        "visionText": "Our vision is to consistently deliver premium quality with a wide assortment of healthy foods while enhancing customer experience through customized solutions and a pay-per-demand model.",
+        "standardsText": "With an experienced team serving hotels, retail stores, restaurants, general trade, and end-users, we are committed to maintaining the highest standards of hygiene, safety, and customer satisfaction in everything we do.",
+        "founderName": "Syed Shams",
+        "founderRole": "Founder & CEO",
+        "mdName": "Dr. Mehraj Sultana",
+        "mdRole": "Managing Director (MD)",
+        "marketedBy": "Shams",
+        "contactPhone": "+91 97393 91891"
+      }
     }
   },
   "coupons": {
@@ -8434,6 +8447,46 @@
       "actorRole": "admin",
       "details": "Administrator signed in using authorized temporary access credentials (Passcode)",
       "createdAt": "2026-11-09T23:12:46.019Z"
+    },
+    "doc_1794382883389_3ec352df4a9a": {
+      "action": "ADMIN_SIGN_IN_TEMPORARY",
+      "category": "USERS",
+      "actor": "yoyokishwar@gmail.com",
+      "actorRole": "admin",
+      "details": "Administrator signed in using authorized temporary access credentials (Passcode)",
+      "createdAt": "2026-11-11T07:41:23.388Z"
+    },
+    "doc_1794386101552_22703e058b1b": {
+      "action": "ADMIN_SIGN_IN_TEMPORARY",
+      "category": "USERS",
+      "actor": "yoyokishwar@gmail.com",
+      "actorRole": "admin",
+      "details": "Administrator signed in using authorized temporary access credentials (Passcode)",
+      "createdAt": "2026-11-11T08:35:01.551Z"
+    },
+    "doc_1794387615688_a40ef92aafcb": {
+      "action": "ADMIN_AUTH_FAILURE",
+      "category": "USERS",
+      "actor": "ownerPin",
+      "actorRole": "admin",
+      "details": "Invalid owner passcode attempt (4 attempt(s) remaining before lockout)",
+      "createdAt": "2026-11-11T09:00:15.688Z"
+    },
+    "doc_1794387650520_ab4fc762cd77": {
+      "action": "ADMIN_AUTH_FAILURE",
+      "category": "USERS",
+      "actor": "ownerPin",
+      "actorRole": "admin",
+      "details": "Invalid owner passcode attempt (3 attempt(s) remaining before lockout)",
+      "createdAt": "2026-11-11T09:00:50.520Z"
+    },
+    "doc_1794387858537_bace82a631a9": {
+      "action": "ADMIN_SIGN_IN_TEMPORARY",
+      "category": "USERS",
+      "actor": "yoyokishwar@gmail.com",
+      "actorRole": "admin",
+      "details": "Administrator signed in using authorized temporary access credentials (Passcode)",
+      "createdAt": "2026-11-11T09:04:18.537Z"
     }
   },
   "categories": {},
@@ -8441,7 +8494,14 @@
     "ip_39dfa788676bbd82d50ca416": {
       "failedAttempts": 0,
       "lockedUntil": null,
-      "updatedAt": "2026-11-09T23:12:46.019Z"
+      "updatedAt": "2026-11-11T09:04:18.536Z",
+      "firstFailedAt": "2026-11-11T09:00:15.688Z"
+    },
+    "adm_yoyokishwar_gmail_com": {
+      "failedAttempts": 2,
+      "firstFailedAt": "2026-11-11T09:00:15.688Z",
+      "lockedUntil": null,
+      "updatedAt": "2026-11-11T09:00:50.520Z"
     }
   },
   "admin_sessions": {
@@ -8543,6 +8603,39 @@
       "uaHash": "29ec47c7893e74c3",
       "createdAt": "2026-11-09T23:12:46.019Z",
       "expiresAt": "2026-11-10T07:12:46.019Z",
+      "authMethod": "owner_passcode_temp"
+    },
+    "adm_6c278d6b767570478578bedb": {
+      "jti": "adm_6c278d6b767570478578bedb",
+      "email": "yoyokishwar@gmail.com",
+      "mfaVerified": true,
+      "revoked": false,
+      "ipHash": "39dfa788676bbd82d50ca416",
+      "uaHash": "29ec47c7893e74c3",
+      "createdAt": "2026-11-11T07:41:23.388Z",
+      "expiresAt": "2026-11-11T15:41:23.387Z",
+      "authMethod": "owner_passcode_temp"
+    },
+    "adm_b6f63a5f46d13fc5ad2f6f25": {
+      "jti": "adm_b6f63a5f46d13fc5ad2f6f25",
+      "email": "yoyokishwar@gmail.com",
+      "mfaVerified": true,
+      "revoked": false,
+      "ipHash": "39dfa788676bbd82d50ca416",
+      "uaHash": "29ec47c7893e74c3",
+      "createdAt": "2026-11-11T08:35:01.551Z",
+      "expiresAt": "2026-11-11T16:35:01.551Z",
+      "authMethod": "owner_passcode_temp"
+    },
+    "adm_fa8b8b3cb1ed838e4ec2de35": {
+      "jti": "adm_fa8b8b3cb1ed838e4ec2de35",
+      "email": "yoyokishwar@gmail.com",
+      "mfaVerified": true,
+      "revoked": false,
+      "ipHash": "39dfa788676bbd82d50ca416",
+      "uaHash": "29ec47c7893e74c3",
+      "createdAt": "2026-11-11T09:04:18.537Z",
+      "expiresAt": "2026-11-11T17:04:18.536Z",
       "authMethod": "owner_passcode_temp"
     }
   },

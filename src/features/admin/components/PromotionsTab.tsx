@@ -111,7 +111,10 @@ export function PromotionsTab() {
     }
   };
 
-  const filtered = coupons.filter(c => c.code.toLowerCase().includes(search.toLowerCase()) || c.description.toLowerCase().includes(search.toLowerCase()));
+  const filtered = coupons.filter(c => {
+    const q = search.toLowerCase();
+    return (c.code || '').toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q);
+  });
 
   return (
     <div className="space-y-6">

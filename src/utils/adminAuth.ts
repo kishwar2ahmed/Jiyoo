@@ -1,5 +1,11 @@
 import { auth, db } from '../services/firebase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import {
+  isSupabaseConfigured,
+  supabaseUpsertRecord,
+  supabaseDeleteCollectionDoc,
+  supabaseFetchCollectionDocs,
+} from '../services/supabase';
 
 export const OWNER_ADMIN_EMAILS = new Set([
   'yoyokishwar@gmail.com',
@@ -507,6 +513,20 @@ export async function adminSaveDoc(col: string, id: string, data: Record<string,
     // Local persistence already succeeded
   }
 
+  // Mirror to client-side Supabase if configured and authenticated as admin
+  if (isSupabaseConfigured) {
+    supabaseUpsertRecord(
+      'jiyoo_documents',
+      {
+        collection: col,
+        doc_id: id,
+        data: payload,
+        updated_at: now,
+      },
+      'collection,doc_id'
+    ).catch(() => {});
+  }
+
   // Only mirror to client-side Firestore if the user is signed into Firebase Auth with an owner admin email
   if (auth.currentUser && auth.currentUser.emailVerified && isOwnerAdminEmail(auth.currentUser.email)) {
     try {
@@ -530,6 +550,10 @@ export async function adminDeleteDoc(col: string, id: string): Promise<void> {
     });
   } catch {
     // Local persistence already succeeded
+  }
+
+  if (isSupabaseConfigured) {
+    supabaseDeleteCollectionDoc(col, id).catch(() => {});
   }
 
   if (auth.currentUser && auth.currentUser.emailVerified && isOwnerAdminEmail(auth.currentUser.email)) {
@@ -558,6 +582,19 @@ export async function adminFetchCollection<T = any>(col: string): Promise<T[]> {
     }
   } catch {
     // ignore network error and use local mirror
+  }
+
+  if (mergedMap.size === 0 && isSupabaseConfigured) {
+    try {
+      const supaRes = await supabaseFetchCollectionDocs<any>(col);
+      for (const item of supaRes.data || []) {
+        if (item && typeof item === 'object' && item.id) {
+          mergedMap.set(String(item.id), item);
+        }
+      }
+    } catch {
+      // ignore Supabase fallback error
+    }
   }
 
   for (const [id, item] of Object.entries(localMap)) {

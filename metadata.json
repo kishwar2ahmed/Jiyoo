@@ -1,0 +1,10 @@
+{
+  "name": "JIYOO Premium Products",
+  "description": "Order fresh imported & Indian fruits, farm-fresh daily vegetables, custom-cut chicken, mutton, seafood, smoothies & fast foods online in Bengaluru with JIYOO Premium Products.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

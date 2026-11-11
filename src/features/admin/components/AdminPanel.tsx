@@ -36,6 +36,7 @@ import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
 import {
   isOwnerAdminEmail,
   getStoredAdminSignedToken,
+  getAdminAuthHeaders,
   initiateAdminPrimaryAuth,
   verifyAdmin2FAEnrollment,
   verifyAdmin2FAChallenge,
@@ -45,6 +46,10 @@ import {
   Admin2FAEnrollmentPayload,
   AdminSecurityStatus,
 } from '../../../utils/adminAuth';
+import {
+  pingSupabaseConnection,
+  SupabaseConnectionHealth,
+} from '../../../services/supabase';
 
 import { DashboardTab } from './DashboardTab';
 import { ProductsTab } from './ProductsTab';
@@ -101,6 +106,25 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [isRegeneratingCodes, setIsRegeneratingCodes] = useState(false);
   const [regenError, setRegenError] = useState('');
   const [regeneratedCodes, setRegeneratedCodes] = useState<string[] | null>(null);
+  const [dbHealth, setDbHealth] = useState<SupabaseConnectionHealth | null>(null);
+  const [isPingingDb, setIsPingingDb] = useState(false);
+
+  const checkBackendConnectivity = async () => {
+    setIsPingingDb(true);
+    try {
+      const headers = await getAdminAuthHeaders();
+      const health = await pingSupabaseConnection(headers);
+      setDbHealth(health);
+    } finally {
+      setIsPingingDb(false);
+    }
+  };
+
+  useEffect(() => {
+    if (authStep === 'AUTHENTICATED') {
+      checkBackendConnectivity();
+    }
+  }, [authStep]);
 
   // Countdown timer for brute-force lockout feedback
   useEffect(() => {
@@ -808,7 +832,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
       {/* Sidebar - Desktop */}
       <div className="w-64 bg-brand-white border-r border-brand-gray-200 flex flex-col hidden md:flex">
         <div className="p-6 border-b border-brand-gray-200 flex items-center justify-between">
-          <div>
+          <div className="w-full">
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-serif font-bold text-brand-black">JIYOO Admin</h1>
               <span
@@ -822,6 +846,43 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
             <p className="text-xs text-brand-gray-500 truncate max-w-[200px]">
               {user?.email || 'Store Owner • Administrator'}
             </p>
+            <button
+              type="button"
+              onClick={checkBackendConnectivity}
+              title={
+                dbHealth?.supabaseConnected
+                  ? `Supabase PostgreSQL connected (${dbHealth.urlHost || 'live'}) • ${dbHealth.latencyMs ?? 1}ms — Click to re-ping`
+                  : dbHealth?.backendConnected
+                  ? `Backend connected (${dbHealth.latencyMs ?? 1}ms) • Click to re-verify Supabase connectivity`
+                  : 'Click to verify backend & Supabase connectivity'
+              }
+              className={`mt-2.5 w-full inline-flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors cursor-pointer ${
+                dbHealth?.supabaseConnected || dbHealth?.backendConnected
+                  ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900 hover:bg-emerald-100/80'
+                  : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
+              }`}
+            >
+              <span className="inline-flex items-center gap-1.5 truncate">
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    dbHealth?.supabaseConnected || dbHealth?.backendConnected
+                      ? 'bg-emerald-500 animate-pulse'
+                      : 'bg-amber-500'
+                  }`}
+                />
+                <span className="truncate">
+                  {dbHealth?.supabaseConnected
+                    ? 'Supabase DB Connected'
+                    : dbHealth?.backendConnected
+                    ? 'Backend Connected'
+                    : 'Checking Backend...'}
+                </span>
+              </span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-700 shrink-0">
+                {dbHealth?.latencyMs ? `${dbHealth.latencyMs}ms` : ''}
+                <RefreshCw className={`w-3 h-3 ${isPingingDb ? 'animate-spin' : ''}`} />
+              </span>
+            </button>
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto p-4 space-y-1">
@@ -882,7 +943,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
       <div className="flex-1 flex flex-col h-full overflow-hidden w-full">
         {/* Mobile Header & Tabs */}
         <div className="md:hidden bg-brand-white border-b border-brand-gray-200 p-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-lg font-serif font-bold text-brand-black">JIYOO Admin</h2>
             <button
               type="button"
@@ -890,6 +951,28 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-800"
             >
               <ShieldCheck className="w-3 h-3 text-emerald-600" /> 2FA Protected
+            </button>
+            <button
+              type="button"
+              onClick={checkBackendConnectivity}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold ${
+                dbHealth?.supabaseConnected || dbHealth?.backendConnected
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-amber-50 border-amber-200 text-amber-800'
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  dbHealth?.supabaseConnected || dbHealth?.backendConnected
+                    ? 'bg-emerald-500'
+                    : 'bg-amber-500'
+                }`}
+              />
+              {dbHealth?.supabaseConnected
+                ? 'Supabase Connected'
+                : dbHealth?.backendConnected
+                ? 'Backend Online'
+                : 'Connecting'}
             </button>
           </div>
           <div className="flex items-center gap-1">

@@ -495,7 +495,7 @@ export function Footer() {
                     <p className="text-[11px] text-stone-500">
                       Marketed by{" "}
                       <span className="font-medium text-stone-900">
-                        {settings.aboutUs?.marketedBy || "JIYOO"}
+                        {settings.aboutUs?.marketedBy || "Shams"}
                       </span>
                     </p>
                   </li>

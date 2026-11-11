@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PRODUCTS } from '../../../constants/data';
 import { getAdminAuthHeaders } from '../../../utils/adminAuth';
-import { Users, ShoppingBag, DollarSign, Package, CheckCircle2, Clock, ShieldCheck } from 'lucide-react';
+import { pingSupabaseConnection, SupabaseConnectionHealth } from '../../../services/supabase';
+import { Users, ShoppingBag, DollarSign, Package, CheckCircle2, Clock, ShieldCheck, Database, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 
 export function DashboardTab() {
@@ -16,6 +17,19 @@ export function DashboardTab() {
   });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dbHealth, setDbHealth] = useState<SupabaseConnectionHealth | null>(null);
+  const [pinging, setPinging] = useState(false);
+
+  const runConnectivityPing = useCallback(async () => {
+    setPinging(true);
+    try {
+      const headers = await getAdminAuthHeaders();
+      const result = await pingSupabaseConnection(headers);
+      setDbHealth(result);
+    } finally {
+      setPinging(false);
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -23,7 +37,13 @@ export function DashboardTab() {
     async function fetchStats() {
       try {
         const headers = await getAdminAuthHeaders();
-        const res = await fetch('/api/admin/stats', { headers });
+        const [res, pingRes] = await Promise.all([
+          fetch('/api/admin/stats', { headers }),
+          pingSupabaseConnection(headers),
+        ]);
+        if (isMounted) {
+          setDbHealth(pingRes);
+        }
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success && isMounted) {
           setStats({
@@ -67,16 +87,53 @@ export function DashboardTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-brand-black">Dashboard Overview</h2>
           <p className="text-brand-gray-500 text-sm">Real-time control center for JIYOO Premium Products (Retail &amp; Wholesale).</p>
         </div>
-        <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-900">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>
-            Payment Gateway: {stats.razorpayConfigured ? 'Razorpay Live + UPI QR Active' : 'Direct UPI QR + COD + WhatsApp Active'}
-          </span>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={runConnectivityPing}
+            disabled={pinging}
+            title={
+              dbHealth?.supabaseConnected
+                ? `Connected to Supabase PostgreSQL (${dbHealth.urlHost || 'active'}) • Click to ping again`
+                : dbHealth?.backendConnected
+                ? 'Backend API & Store Engine Connected • Click to ping database connectivity'
+                : 'Click to retry backend connectivity ping'
+            }
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
+              dbHealth?.supabaseConnected || dbHealth?.backendConnected
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100/80'
+                : 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
+            }`}
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                dbHealth?.supabaseConnected || dbHealth?.backendConnected
+                  ? 'bg-emerald-500 animate-pulse'
+                  : 'bg-amber-500'
+              }`}
+            />
+            <Database className="w-3.5 h-3.5 text-emerald-700" />
+            <span>
+              {dbHealth?.supabaseConnected
+                ? `Supabase Connected${dbHealth.latencyMs ? ` (${dbHealth.latencyMs}ms)` : ''}`
+                : dbHealth?.backendConnected
+                ? `Backend Connected${dbHealth.latencyMs ? ` (${dbHealth.latencyMs}ms)` : ''} • Hybrid Store Active`
+                : 'Backend Offline'}
+            </span>
+            <RefreshCw className={`w-3.5 h-3.5 text-emerald-700 ${pinging ? 'animate-spin' : ''}`} />
+          </button>
+
+          <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-900">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>
+              Payment Gateway: {stats.razorpayConfigured ? 'Razorpay Live + UPI QR Active' : 'Direct UPI QR + COD + WhatsApp Active'}
+            </span>
+          </div>
         </div>
       </div>
 

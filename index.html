@@ -2,269 +2,32 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="JIYOO" />
-    <meta name="application-name" content="JIYOO" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="format-detection" content="telephone=no" />
-    <script>
-      window.process = window.process || { env: { NODE_ENV: 'production' } };
-      window.addEventListener('unhandledrejection', function(event) {
-        var reason = event && (event.reason || event);
-        var reasonStr = String((reason && reason.message) || reason || '');
-        if (
-          reasonStr.indexOf('WebSocket') !== -1 ||
-          reasonStr.indexOf('websocket') !== -1 ||
-          reasonStr.indexOf('Firestore') !== -1 ||
-          reasonStr.indexOf('Failed to fetch') !== -1 ||
-          reasonStr.indexOf('unavailable') !== -1
-        ) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-      }, true);
-      window.addEventListener('error', function(event) {
-        var errStr = String((event && event.message) || '');
-        if (errStr.indexOf('WebSocket') !== -1 || errStr.indexOf('websocket') !== -1) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-      }, true);
-    </script>
-    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
-    <link rel="icon" type="image/jpeg" href="/jiyoo.logo.jpeg" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#1C1917" />
-    <title>JIYOO – Fresh Fruits, Vegetables, Meat &amp; Wholesale Boxes</title>
-
-    <!-- Primary SEO & Crawler Directives -->
-    <meta name="description" content="Order fresh imported &amp; Indian fruits, farm vegetables, RO-cleaned chicken, mutton, fish &amp; wholesale product boxes at JIYOO. Fast delivery in Bengaluru &amp; India." />
-    <meta name="keywords" content="JIYOO, Jiyoo Fresh, Jiyoo Bangalore, Jiyoo Wholesale, fresh fruits delivery Bangalore, imported fruits online Bengaluru, daily farm vegetables delivery Bangalore, fresh chicken mutton fish delivery Bangalore, RO water cleaned meat, wholesale fruit boxes India, wholesale product boxes Bangalore, Indiranagar, Whitefield, Frazer Town, Cooke Town, KR Puram, Kammanahalli, Kalyan Nagar, Hoodi" />
-    <meta name="author" content="JIYOO" />
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
-    <meta name="geo.region" content="IN-KA" />
-    <meta name="geo.placename" content="Bengaluru, Karnataka, India" />
-    <meta name="geo.position" content="13.0068;77.6152" />
-    <meta name="ICBM" content="13.0068, 77.6152" />
-    <link rel="canonical" href="https://jiyoo.com/" />
-
-    <!-- OpenGraph Social Cards (WhatsApp, Instagram, Facebook, LinkedIn) -->
-    <meta property="og:site_name" content="JIYOO" />
-    <meta property="og:locale" content="en_IN" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <title>Fruits Online Delivery in Bengaluru | JIYOO</title>
+    <meta
+      name="description"
+      content="Order fresh imported & Indian fruits, farm-fresh daily vegetables, custom-cut chicken, mutton, seafood, smoothies & fast foods online in Bengaluru with JIYOO Premium Products."
+    />
+    <meta property="og:title" content="Fruits Online Delivery in Bengaluru | JIYOO" />
+    <meta
+      property="og:description"
+      content="Fresh imported fruits, farm-fresh daily vegetables, and clean custom-cut meats delivered fast across Bengaluru & pan-India wholesale."
+    />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="JIYOO – Fresh Fruits, Vegetables, Meat &amp; Wholesale Boxes" />
-    <meta property="og:description" content="Order fresh imported &amp; Indian fruits, farm vegetables, RO-cleaned chicken, mutton, fish &amp; wholesale product boxes at JIYOO. Fast delivery in Bengaluru &amp; India." />
-    <meta property="og:url" content="https://jiyoo.com/" />
-    <meta property="og:image" content="/og-image.png" />
-    <meta property="og:image:alt" content="JIYOO – Fresh Fruits, Daily Vegetables, Custom-Cut Meats &amp; Wholesale Product Boxes" />
-
-    <!-- Twitter / X Large Summary Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="JIYOO – Fresh Fruits, Vegetables, Meat &amp; Wholesale Boxes" />
-    <meta name="twitter:description" content="Order fresh imported &amp; Indian fruits, farm vegetables, RO-cleaned chicken, mutton, fish &amp; wholesale product boxes at JIYOO. Fast delivery in Bengaluru &amp; India." />
-    <meta name="twitter:image" content="/og-image.png" />
-
-    <!-- Rich Schema.org Structured Data (GroceryStore + Wholesale + WebSite + FAQPage) -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@graph": [
-        {
-          "@type": ["GroceryStore", "LocalBusiness", "Store"],
-          "@id": "https://jiyoo.com/#store",
-          "name": "JIYOO",
-          "alternateName": ["JIYOO Fresh", "JIYOO Wholesale"],
-          "legalName": "JIYOO",
-          "description": "Order fresh imported & Indian fruits, daily farm vegetables, RO-water cleaned chicken, mutton, fish, seafood, and wholesale product boxes. Express home delivery in Bengaluru and wholesale box delivery across India.",
-          "url": "https://jiyoo.com/",
-          "logo": "https://jiyoo.com/jiyoo.logo.jpeg",
-          "image": "https://jiyoo.com/og-image.png",
-          "telephone": "+91-9739391891",
-          "email": "shamsjiyoo@gmail.com",
-          "priceRange": "₹₹",
-          "currenciesAccepted": "INR",
-          "paymentAccepted": "UPI, Google Pay, PhonePe, Paytm, Credit Card, Debit Card, Cash on Delivery",
-          "openingHoursSpecification": [
-            {
-              "@type": "OpeningHoursSpecification",
-              "dayOfWeek": [
-                "Monday",
-                "Tuesday",
-                "Wednesday",
-                "Thursday",
-                "Friday",
-                "Saturday",
-                "Sunday"
-              ],
-              "opens": "07:00",
-              "closes": "22:00"
-            }
-          ],
-          "address": {
-            "@type": "PostalAddress",
-            "addressLocality": "Bengaluru",
-            "addressRegion": "Karnataka",
-            "postalCode": "560005",
-            "addressCountry": "IN"
-          },
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": 13.0068,
-            "longitude": 77.6152
-          },
-          "areaServed": [
-            { "@type": "City", "name": "Bengaluru" },
-            { "@type": "Place", "name": "Frazer Town, Bengaluru" },
-            { "@type": "Place", "name": "Cooke Town, Bengaluru" },
-            { "@type": "Place", "name": "Indiranagar, Bengaluru" },
-            { "@type": "Place", "name": "Whitefield, Bengaluru" },
-            { "@type": "Place", "name": "KR Puram, Bengaluru" },
-            { "@type": "Place", "name": "Kammanahalli, Bengaluru" },
-            { "@type": "Place", "name": "Kalyan Nagar, Bengaluru" },
-            { "@type": "Place", "name": "Banaswadi, Bengaluru" },
-            { "@type": "Place", "name": "Hoodi, Bengaluru" },
-            { "@type": "Country", "name": "India" }
-          ],
-          "founder": [
-            { "@type": "Person", "name": "Dr. Mehraj Sultana", "jobTitle": "Founder, CEO & CFO" }
-          ],
-          "sameAs": [
-            "https://www.instagram.com/shamsjiyoo2026"
-          ]
-        },
-        {
-          "@type": "WebSite",
-          "@id": "https://jiyoo.com/#website",
-          "url": "https://jiyoo.com/",
-          "name": "JIYOO",
-          "publisher": { "@id": "https://jiyoo.com/#store" },
-          "inLanguage": "en-IN"
-        },
-        {
-          "@type": "FAQPage",
-          "@id": "https://jiyoo.com/#faq",
-          "mainEntity": [
-            {
-              "@type": "Question",
-              "name": "What does JIYOO deliver in Bengaluru?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "JIYOO delivers handpicked imported and Indian fruits, daily farm-fresh vegetables, custom-cut chicken, tender mutton, fish, and sea prawns cleaned with pure RO water across Bengaluru from 7:00 AM to 10:00 PM daily."
-              }
-            },
-            {
-              "@type": "Question",
-              "name": "Does JIYOO supply wholesale fruit and product boxes across India?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "Yes, JIYOO Wholesale supplies full master cartons and wholesale product boxes at direct wholesale rates with a minimum order of just 1 box and pan-India delivery."
-              }
-            },
-            {
-              "@type": "Question",
-              "name": "How can I place an order on JIYOO?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "You can order directly on the JIYOO website using UPI, Cards, or Cash on Delivery, or use instant 1-tap WhatsApp Checkout (+91 97393 91891)."
-              }
-            }
-          ]
-        }
-      ]
-    }
-    </script>
-    <!-- Preconnect to image CDNs -->
-    <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
-    <link rel="preconnect" href="https://upload.wikimedia.org" crossorigin />
-    <!-- Preload critical brand, hero banner, and above-the-fold product assets -->
-    <link rel="preload" as="image" href="/jiyoo.logo.jpeg" fetchpriority="high" />
-    <link rel="preload" as="image" href="/banners/diwali_special_sale.webp" type="image/webp" fetchpriority="high" />
-    <link rel="preload" as="image" href="/assets/aistudio/velvet_butterfly_pill_final.webp" type="image/webp" fetchpriority="high" />
-    <link rel="preload" as="image" href="/assets/aistudio/velvet_whatsapp_pill_final.webp" type="image/webp" />
-    <link rel="preload" as="image" href="/products/f_apple_royal_gala.jpg" fetchpriority="high" />
-    <link rel="preload" as="image" href="/products/washington-apple.jfif" fetchpriority="high" />
-    <link rel="preload" as="image" href="/products/f_apple_pink_lady.jpg" fetchpriority="high" />
-    <link rel="preload" as="image" href="/products/apple-fuji.jfif" fetchpriority="high" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
-
-    <style>
-      /* Base body styles */
-      body { 
-        margin: 0; 
-        background-color: #f8f6f0; 
-        color: #1C1917;
-        font-family: 'Plus Jakarta Sans', sans-serif;
-      }
-      .jiyoo-boot-loader {
-        position: fixed;
-        inset: 0;
-        z-index: 100;
-        background: radial-gradient(ellipse at top, #FAF8F5, #F3EFE6, #E8E2D5);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 1.5rem;
-        text-align: center;
-        user-select: none;
-      }
-      .jiyoo-boot-logo-box {
-        padding: 0.375rem;
-        border-radius: 1rem;
-        background: rgba(255, 255, 255, 0.75);
-        border: 1px solid #E7E3DA;
-        box-shadow: 0 20px 50px -12px rgba(28, 25, 23, 0.14);
-        margin-bottom: 2rem;
-      }
-      .jiyoo-boot-logo-box img {
-        height: 7rem;
-        width: auto;
-        border-radius: 0.75rem;
-        display: block;
-      }
-      .jiyoo-boot-kicker {
-        font-size: 10px;
-        letter-spacing: 0.35em;
-        text-transform: uppercase;
-        color: #78716C;
-        font-weight: 500;
-        margin-bottom: 0.5rem;
-      }
-      .jiyoo-boot-title {
-        font-family: 'Cormorant Garamond', Georgia, serif;
-        font-size: 2rem;
-        letter-spacing: 0.1em;
-        color: #1C1917;
-        font-weight: 600;
-        margin: 0;
-      }
-      .jiyoo-boot-sub {
-        font-size: 12px;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: #78716C;
-        margin-top: 0.25rem;
-      }
-    </style>
+    <meta property="og:image" content="/jiyoo.logo.jpeg" />
+    <meta name="theme-color" content="#FAF9F5" />
+    <link rel="icon" type="image/jpeg" href="/jiyoo.logo.jpeg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=IBM+Plex+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
   </head>
-  <body>
-    <div id="root">
-      <div class="jiyoo-boot-loader" aria-hidden="true">
-        <div class="jiyoo-boot-logo-box">
-          <img src="/jiyoo.logo.jpeg" alt="JIYOO Logo" />
-        </div>
-        <div class="jiyoo-boot-kicker">Curated &amp; Handpicked</div>
-        <h1 class="jiyoo-boot-title">JIYOO</h1>
-        <p class="jiyoo-boot-sub">Fine Living &amp; Artisanal Pantry</p>
-      </div>
-    </div>
+  <body class="bg-paper-texture text-brand-black antialiased selection:bg-brand-black selection:text-brand-white">
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
-

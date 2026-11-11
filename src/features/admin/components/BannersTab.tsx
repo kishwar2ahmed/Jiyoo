@@ -40,18 +40,17 @@ interface BannerFormData {
 }
 
 const BADGE_SUGGESTIONS = [
-  'Festive Special',
-  'Diwali Special',
   'Farm Fresh',
-  'Global Fresh',
+  'Imported Fresh',
+  'All India Delivery',
+  'WhatsApp Order',
+  'Hot & Fresh',
   'Daily Harvest',
   'Artisanal Cuts',
   'Fresh Catch',
   'Pure Wellness',
   'Ready to Cook',
   'Pantry Picks',
-  'Clean Energy',
-  'Vitality Bowls',
   'Special Offer',
 ];
 
@@ -81,14 +80,6 @@ export function BannersTab() {
     return [...raw].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }, [settings.heroBanners]);
 
-  const hasDiwaliBanner = useMemo(() => {
-    return banners.some((b) => 
-      b.id?.includes('diwali') || 
-      b.image?.includes('diwali') || 
-      b.image?.includes('file_000000002410821198a81a83a16d503f')
-    );
-  }, [banners]);
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
@@ -97,11 +88,12 @@ export function BannersTab() {
   };
 
   const filteredBanners = useMemo(() => {
+    const q = searchQuery.toLowerCase();
     return banners.filter((b) => {
       const matchesSearch =
-        b.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.badge.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        b.subtitle.toLowerCase().includes(searchQuery.toLowerCase());
+        String(b.title || '').toLowerCase().includes(q) ||
+        String(b.badge || '').toLowerCase().includes(q) ||
+        String(b.subtitle || '').toLowerCase().includes(q);
       
       if (!matchesSearch) return false;
       if (filterMode === 'active') return b.isActive !== false;
@@ -183,7 +175,7 @@ export function BannersTab() {
   const handleResetDefaults = async () => {
     const confirmed = await confirm({
       title: 'Reset to Default Banners?',
-      message: 'This will replace current banners with the 10 curated original JIYOO hero banners. Any custom edits will be reset.',
+      message: `This will replace current banners with the ${DEFAULT_HERO_BANNERS.length} curated original JIYOO hero banners. Any custom edits will be reset.`,
       confirmLabel: 'Reset to Defaults',
       danger: false,
     });
@@ -198,36 +190,12 @@ export function BannersTab() {
     }
   };
 
-  // Quick Add Diwali Special Sale Banner
-  const handleAddDiwaliBanner = async () => {
-    const diwaliSlide: BannerSlide = {
-      id: `diwali-special-${Date.now()}`,
-      image: '/banners/diwali_special_sale.png',
-      alt: 'Special Diwali Sale - Exclusive Festive Offers',
-      badge: 'Festive Special',
-      title: 'Special Diwali Sale',
-      subtitle: 'Exclusive Festive Offer & Fresh Gourmet Selection',
-      isActive: true,
-      isFeatured: true,
-      highlightTone: 'amber',
-      order: 0,
-    };
-    const updated = [diwaliSlide, ...banners.map((b, idx) => ({ ...b, order: idx + 1 }))];
-    try {
-      await updateBanners(updated);
-      showToast('✨ Special Diwali Sale banner added with luminous amber spotlight');
-    } catch (err) {
-      console.error(err);
-      showToast('Failed to add banner');
-    }
-  };
-
   // Open Add Modal
   const handleOpenAddModal = () => {
     setEditingBanner({
-      image: '/banners/02_Indian_Fruits_Original.png',
+      image: '/banners/02_Indian_Fruits_Original.webp',
       alt: 'Fresh harvest banner',
-      badge: 'Seasonal Harvest',
+      badge: 'Farm Fresh',
       title: 'New Featured Showcase',
       subtitle: 'Premium hand-selected produce delivered straight to your door',
       isActive: true,
@@ -302,7 +270,6 @@ export function BannersTab() {
   // Handle Preset Select
   const handleSelectPreset = (preset: PresetBannerOption) => {
     if (!editingBanner) return;
-    const isDiwaliPreset = preset.id.includes('diwali') || preset.url.includes('diwali');
     setEditingBanner({
       ...editingBanner,
       image: preset.url,
@@ -310,8 +277,8 @@ export function BannersTab() {
       title: editingBanner.title === 'New Featured Showcase' ? preset.defaultTitle : editingBanner.title,
       subtitle: editingBanner.subtitle === 'Premium hand-selected produce delivered straight to your door' ? preset.defaultSubtitle : editingBanner.subtitle,
       alt: preset.defaultTitle,
-      isFeatured: isDiwaliPreset ? true : editingBanner.isFeatured,
-      highlightTone: isDiwaliPreset ? 'amber' : editingBanner.highlightTone,
+      isFeatured: editingBanner.isFeatured,
+      highlightTone: editingBanner.highlightTone,
     });
   };
 
@@ -370,17 +337,6 @@ export function BannersTab() {
         </div>
 
         <div className="flex items-center flex-wrap gap-2.5">
-          {!hasDiwaliBanner && (
-            <button
-              type="button"
-              onClick={handleAddDiwaliBanner}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-400 hover:bg-amber-500 text-stone-950 transition-colors shadow-sm cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-stone-950" />
-              <span>+ Add Diwali Special</span>
-            </button>
-          )}
-
           <button
             type="button"
             onClick={() => setShowLivePreview(!showLivePreview)}
@@ -398,7 +354,7 @@ export function BannersTab() {
             type="button"
             onClick={handleResetDefaults}
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium bg-brand-white text-brand-gray-700 border border-brand-gray-300 hover:bg-brand-gray-50 transition-colors cursor-pointer"
-            title="Reset to 10 original curated JIYOO banners"
+            title="Reset to original curated JIYOO banners"
           >
             <RotateCcw className="w-4 h-4 text-brand-gray-500" />
             <span>Reset Defaults</span>
@@ -439,11 +395,7 @@ export function BannersTab() {
                 (() => {
                   const activeBanners = banners.filter((b) => b.isActive !== false);
                   const currentSim = activeBanners[previewIndex % activeBanners.length];
-                  const isSimDiwali = Boolean(
-                    currentSim.id?.includes('diwali') || 
-                    currentSim.image?.includes('diwali') ||
-                    currentSim.image?.includes('file_000000002410821198a81a83a16d503f')
-                  );
+                  const isSimFeatured = Boolean(currentSim.isFeatured);
                   const isSimWhatsApp = Boolean(
                     currentSim.id?.includes('whatsapp') ||
                     currentSim.image?.includes('whatsapp') ||
@@ -452,7 +404,7 @@ export function BannersTab() {
                   return (
                     <div
                       className={`relative aspect-[2048/768] max-h-[260px] rounded-xl overflow-hidden transition-all duration-500 ${
-                        isSimDiwali
+                        isSimFeatured
                           ? 'border-2 border-amber-400 ring-2 ring-amber-400/80 shadow-[0_0_30px_rgba(245,158,11,0.5)] bg-black'
                           : isSimWhatsApp
                           ? 'border-2 border-emerald-700/60 ring-1.5 ring-emerald-600/40 shadow-[0_0_30px_rgba(16,185,129,0.3)] bg-[#F6EFE6]'
@@ -470,7 +422,7 @@ export function BannersTab() {
                       <div
                         aria-hidden="true"
                         className={`pointer-events-none absolute inset-0 transition-all duration-500 z-10 ${
-                          isSimDiwali ? 'ring-1 ring-inset ring-amber-400/40' : isSimWhatsApp ? 'ring-1 ring-inset ring-emerald-400/35' : 'ring-1 ring-inset ring-white/10'
+                          isSimFeatured ? 'ring-1 ring-inset ring-amber-400/40' : isSimWhatsApp ? 'ring-1 ring-inset ring-emerald-400/35' : 'ring-1 ring-inset ring-white/10'
                         }`}
                       />
 
@@ -479,7 +431,7 @@ export function BannersTab() {
                         <div className="absolute inset-x-0 bottom-0 pt-8 pb-2.5 px-3 bg-gradient-to-t from-black/85 via-black/40 to-transparent pointer-events-none z-20">
                           <h4
                             className={`font-serif text-xs sm:text-sm font-medium tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)] ${
-                              isSimDiwali ? 'text-amber-200' : isSimWhatsApp ? 'text-emerald-200' : 'text-white'
+                              isSimFeatured ? 'text-amber-200' : isSimWhatsApp ? 'text-emerald-200' : 'text-white'
                             }`}
                           >
                             {currentSim.title}
@@ -608,12 +560,7 @@ export function BannersTab() {
             const actualIndex = banners.findIndex(b => b.id === banner.id);
             const isFirst = actualIndex <= 0;
             const isLast = actualIndex === -1 || actualIndex === banners.length - 1;
-            const isBannerFeatured = Boolean(
-              banner.isFeatured || 
-              banner.id?.includes('diwali') || 
-              banner.image?.includes('diwali') || 
-              banner.image?.includes('file_000000002410821198a81a83a16d503f')
-            );
+            const isBannerFeatured = Boolean(banner.isFeatured);
 
             return (
               <motion.div
@@ -807,11 +754,11 @@ export function BannersTab() {
                   </label>
                   <div className="relative aspect-[16/9] sm:aspect-[21/9] max-h-[200px] rounded-xl overflow-hidden bg-stone-900 border border-brand-gray-300 shadow-sm">
                     <img
-                      src={editingBanner.image || '/banners/02_Indian_Fruits_Original.png'}
+                      src={editingBanner.image || '/banners/02_Indian_Fruits_Original.webp'}
                       alt={editingBanner.alt || 'Preview banner'}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = '/banners/02_Indian_Fruits_Original.png';
+                        (e.currentTarget as HTMLImageElement).src = '/banners/02_Indian_Fruits_Original.webp';
                       }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
@@ -846,7 +793,7 @@ export function BannersTab() {
                           : 'text-brand-gray-600 hover:text-brand-black'
                       }`}
                     >
-                      Curated Library (10 Presets)
+                      Curated Library ({PRESET_BANNER_IMAGES.length} Presets)
                     </button>
                     <button
                       type="button"
@@ -1082,18 +1029,18 @@ export function BannersTab() {
                   </label>
                 </div>
 
-                {/* Featured Festive Highlight Switch */}
+                {/* Featured Spotlight Switch */}
                 <div className="flex items-center justify-between p-3.5 bg-amber-500/10 rounded-xl border border-amber-400/40">
                   <div className="pr-4">
                     <div className="flex items-center gap-1.5">
                       <Sparkles className="w-4 h-4 text-amber-600" />
-                      <p className="text-xs font-semibold text-amber-950">Featured Festive Highlight</p>
+                      <p className="text-xs font-semibold text-amber-950">Featured Spotlight Highlight</p>
                       <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-500/20 text-amber-800 border border-amber-400/40">
                         Luminous Amber
                       </span>
                     </div>
                     <p className="text-[11px] text-amber-900/80 mt-0.5">
-                      Highlights with a glowing amber frame, festive badge, and repeats cyclically every 2-3 slides in the hero showcase.
+                      Highlights with a glowing amber frame and extended display duration in the hero showcase.
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">

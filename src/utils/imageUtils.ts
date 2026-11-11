@@ -14,17 +14,13 @@ const BUNDLED_BANNER_WEBP_MAP: Record<string, string> = {
   '/banners/08_Everyday_Fresh_Preparation_Original.png': '/banners/08_Everyday_Fresh_Preparation_Original.webp',
   '/banners/09_Grocery_Basket_Original.png': '/banners/09_Grocery_Basket_Original.webp',
   '/banners/10_Fruit_Bowl_Lifestyle_Original.png': '/banners/10_Fruit_Bowl_Lifestyle_Original.webp',
-  '/banners/diwali-special.png': '/banners/diwali-special.webp',
-  '/banners/diwali_special_sale.png': '/banners/diwali_special_sale.webp',
-  '/banners/featured_spotlight.png': '/banners/featured_spotlight.webp',
-  '/banners/file_000000002410821198a81a83a16d503f-1.png': '/banners/file_000000002410821198a81a83a16d503f-1.webp',
   '/banners/file_00000000e7e48211898141e9b8e21f64.png': '/banners/file_00000000e7e48211898141e9b8e21f64.webp',
   '/banners/whatsapp_order_banner.png': '/banners/whatsapp_order_banner.webp',
   '/file_00000000e7e48211898141e9b8e21f64.png': '/banners/whatsapp_order_banner.webp',
 };
 
 export function getOptimizedBannerUrl(url: string | undefined | null): string {
-  if (!url) return '/banners/diwali_special_sale.webp';
+  if (!url) return '/banners/03_Imported_Fruits_Original.webp';
   const cleanUrl = url.split('?')[0];
   if (BUNDLED_BANNER_WEBP_MAP[cleanUrl]) {
     return BUNDLED_BANNER_WEBP_MAP[cleanUrl];

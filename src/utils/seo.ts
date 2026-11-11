@@ -1,210 +1,49 @@
-import { Category, Product } from "../types";
+import { Category, Product } from '../types';
 
-const DEFAULT_TITLE = "JIYOO – Fresh Fruits, Vegetables, Meat & Wholesale Boxes";
-const DEFAULT_DESCRIPTION =
-  "Order fresh imported & Indian fruits, farm vegetables, RO-cleaned chicken, mutton, fish & wholesale product boxes at JIYOO. Fast delivery in Bengaluru & India.";
-
-function setMetaContent(selector: string, attrName: string, attrValue: string, content: string) {
-  if (typeof document === "undefined") return;
-  let el = document.querySelector<HTMLMetaElement>(selector);
+function setMetaTag(attrName: 'name' | 'property', attrValue: string, content: string) {
+  if (typeof document === 'undefined') return;
+  let el = document.head.querySelector(`meta[${attrName}="${attrValue}"]`) as HTMLMetaElement | null;
   if (!el) {
-    el = document.createElement("meta");
+    el = document.createElement('meta');
     el.setAttribute(attrName, attrValue);
     document.head.appendChild(el);
   }
-  el.setAttribute("content", content);
-}
-
-function setCanonicalUrl(url: string) {
-  if (typeof document === "undefined") return;
-  let link = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
-  if (!link) {
-    link = document.createElement("link");
-    link.setAttribute("rel", "canonical");
-    document.head.appendChild(link);
-  }
-  link.setAttribute("href", url);
-}
-
-function setDynamicJsonLd(data: Record<string, unknown> | null) {
-  if (typeof document === "undefined") return;
-  const existing = document.getElementById("jiyoo-dynamic-jsonld");
-  if (!data) {
-    if (existing) existing.remove();
-    return;
-  }
-  let script = existing as HTMLScriptElement | null;
-  if (!script) {
-    script = document.createElement("script");
-    script.id = "jiyoo-dynamic-jsonld";
-    script.type = "application/ld+json";
-    document.head.appendChild(script);
-  }
-  script.textContent = JSON.stringify(data);
-}
-
-export function updateDocumentSeo({
-  title,
-  description,
-  canonicalPath = "/",
-  image,
-  jsonLd = null,
-}: {
-  title?: string;
-  description?: string;
-  canonicalPath?: string;
-  image?: string;
-  jsonLd?: Record<string, unknown> | null;
-}) {
-  if (typeof window === "undefined" || typeof document === "undefined") return;
-
-  const finalTitle = title ? title.slice(0, 70) : DEFAULT_TITLE;
-  const finalDescription = description ? description.slice(0, 165) : DEFAULT_DESCRIPTION;
-  const origin = window.location.origin;
-  const canonicalUrl = `${origin}${canonicalPath.startsWith("/") ? canonicalPath : `/${canonicalPath}`}`;
-  const ogImage = image
-    ? image.startsWith("http")
-      ? image
-      : `${origin}${image.startsWith("/") ? image : `/${image}`}`
-    : `${origin}/og-image.png`;
-
-  document.title = finalTitle;
-  setMetaContent('meta[name="description"]', "name", "description", finalDescription);
-  setMetaContent('meta[property="og:title"]', "property", "og:title", finalTitle);
-  setMetaContent('meta[property="og:description"]', "property", "og:description", finalDescription);
-  setMetaContent('meta[property="og:url"]', "property", "og:url", canonicalUrl);
-  setMetaContent('meta[property="og:image"]', "property", "og:image", ogImage);
-  setMetaContent('meta[name="twitter:title"]', "name", "twitter:title", finalTitle);
-  setMetaContent('meta[name="twitter:description"]', "name", "twitter:description", finalDescription);
-  setMetaContent('meta[name="twitter:image"]', "name", "twitter:image", ogImage);
-  setCanonicalUrl(canonicalUrl);
-  setDynamicJsonLd(jsonLd);
-}
-
-export function applyWholesaleSeo(boxCount: number) {
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://jiyoo.com";
-  updateDocumentSeo({
-    title: "Wholesale Product Boxes – Bulk Fruits & Produce India | JIYOO",
-    description: `Buy ${boxCount || "fresh"} wholesale product boxes & master cartons at direct import rates from JIYOO. Start with just 1 box. Fast delivery across Bengaluru & all over India.`,
-    canonicalPath: "/?view=wholesale",
-    image: "/banners/wholesale_india_banner.jpg",
-    jsonLd: {
-      "@context": "https://schema.org",
-      "@type": "CollectionPage",
-      name: "JIYOO Wholesale Product Boxes",
-      description:
-        "Direct wholesale boxes and master cartons of fresh imported fruits and produce with pan-India delivery.",
-      url: `${origin}/?view=wholesale`,
-      isPartOf: {
-        "@type": "WebSite",
-        name: "JIYOO",
-        url: origin,
-      },
-    },
-  });
+  el.setAttribute('content', content);
 }
 
 export function applyCategorySeo(category?: Category | null, products?: Product[]) {
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://jiyoo.com";
-  if (!category || category.id === "all") {
-    updateDocumentSeo({
-      title: DEFAULT_TITLE,
-      description: DEFAULT_DESCRIPTION,
-      canonicalPath: "/",
-      jsonLd: null,
-    });
-    return;
-  }
+  if (typeof document === 'undefined') return;
+  const label = category?.label || 'Fresh Fruits, Vegetables & Meat';
+  const count = Array.isArray(products) ? products.length : 0;
+  const title = `${label} Online Delivery in Bengaluru | JIYOO`;
+  const description = `Order fresh ${label.toLowerCase()} online in Bengaluru (${count > 0 ? `${count}+ selections` : 'daily harvest'}). Cleaned with pure RO water and delivered cold & fresh by JIYOO Premium Products.`;
 
-  const label = category.label || "Fresh Products";
-  const topItems = (products || []).slice(0, 10);
-
-  updateDocumentSeo({
-    title: `${label} Online Delivery in Bengaluru | JIYOO`,
-    description: `Order fresh ${label.toLowerCase()} online in Bengaluru from JIYOO. Handpicked daily, hygienically packed & delivered fast to your doorstep.`,
-    canonicalPath: `/?category=${encodeURIComponent(category.id)}`,
-    image: topItems[0]?.image || "/og-image.png",
-    jsonLd:
-      topItems.length > 0
-        ? {
-            "@context": "https://schema.org",
-            "@type": "ItemList",
-            name: `${label} at JIYOO`,
-            numberOfItems: topItems.length,
-            itemListElement: topItems.map((p, idx) => ({
-              "@type": "ListItem",
-              position: idx + 1,
-              item: {
-                "@type": "Product",
-                name: p.name,
-                image: p.image?.startsWith("http") ? p.image : `${origin}${p.image || "/og-image.png"}`,
-                description: p.description || `Fresh ${p.name} (${p.unit || "1 kg"}) delivered by JIYOO.`,
-                brand: {
-                  "@type": "Brand",
-                  name: p.brand || "JIYOO",
-                },
-                offers: {
-                  "@type": "Offer",
-                  priceCurrency: "INR",
-                  price: String(p.numericPrice ?? p.price ?? 0).replace(/[^0-9.]/g, "") || "0",
-                  availability:
-                    p.stockStatus === "out_of_stock"
-                      ? "https://schema.org/OutOfStock"
-                      : "https://schema.org/InStock",
-                },
-              },
-            })),
-          }
-        : null,
-  });
+  document.title = title;
+  setMetaTag('name', 'description', description);
+  setMetaTag('property', 'og:title', title);
+  setMetaTag('property', 'og:description', description);
 }
 
-export function applyProductModalSeo(product: Product | null) {
-  if (!product) return;
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://jiyoo.com";
-  const priceNum =
-    typeof product.numericPrice === "number" && product.numericPrice > 0
-      ? product.numericPrice
-      : parseFloat(String(product.price).replace(/[^0-9.]/g, "")) || 0;
-  const unitText = product.unit ? ` (${product.unit})` : "";
-  const productImage = product.image?.startsWith("http")
-    ? product.image
-    : `${origin}${product.image || "/og-image.png"}`;
+export function applyWholesaleSeo(productCount = 0) {
+  if (typeof document === 'undefined') return;
+  const title = `Wholesale Fruit & Produce Boxes Pan-India | JIYOO Wholesale`;
+  const description = `Order full wholesale master cartons (${productCount > 0 ? `${productCount} curated bulk lots` : 'imported & Indian fruits'}) at direct wholesale pricing with pan-India delivery from JIYOO.`;
 
-  updateDocumentSeo({
-    title: `${product.name}${unitText} – ₹${priceNum} | JIYOO`,
-    description:
-      product.description ||
-      `Buy fresh ${product.name}${unitText} online at ₹${priceNum} from JIYOO. Hygienically packed with express delivery in Bengaluru.`,
-    canonicalPath: `/?product=${encodeURIComponent(String(product.id))}`,
-    image: product.image || "/og-image.png",
-    jsonLd: {
-      "@context": "https://schema.org",
-      "@type": "Product",
-      name: product.name,
-      image: [productImage],
-      description:
-        product.description ||
-        `Fresh ${product.name}${unitText} curated and delivered by JIYOO.`,
-      sku: String(product.id),
-      brand: {
-        "@type": "Brand",
-        name: product.brand || "JIYOO",
-      },
-      offers: {
-        "@type": "Offer",
-        url: `${origin}/?product=${encodeURIComponent(String(product.id))}`,
-        priceCurrency: "INR",
-        price: String(priceNum),
-        availability:
-          product.stockStatus === "out_of_stock"
-            ? "https://schema.org/OutOfStock"
-            : "https://schema.org/InStock",
-        seller: {
-          "@type": "Organization",
-          name: "JIYOO",
-        },
-      },
-    },
-  });
+  document.title = title;
+  setMetaTag('name', 'description', description);
+  setMetaTag('property', 'og:title', title);
+  setMetaTag('property', 'og:description', description);
+}
+
+export function applyProductModalSeo(product?: Product | null) {
+  if (typeof document === 'undefined' || !product) return;
+  const title = `${product.name} – Fresh Delivery in Bengaluru | JIYOO`;
+  const description =
+    product.description ||
+    `Buy fresh ${product.name} online from JIYOO Premium Products. Fast doorstep delivery across Bengaluru.`;
+
+  document.title = title;
+  setMetaTag('name', 'description', description);
+  setMetaTag('property', 'og:title', title);
+  setMetaTag('property', 'og:description', description);
 }

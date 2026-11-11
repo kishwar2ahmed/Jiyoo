@@ -34,11 +34,28 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 import { getFirestore as getFirebaseAdminFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
-import appletConfig from './firebase-applet-config.json';
 import { serverFallbackDb, getFallbackStoreSnapshot } from './src/services/serverFallbackDb';
+
+const appletConfig: Record<string, any> = (() => {
+  try {
+    const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+    if (fs.existsSync(configPath)) {
+      return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    }
+  } catch {
+    // ignore missing or malformed firebase-applet-config.json
+  }
+  return {
+    projectId: 'jiyoo-7',
+    firestoreDatabaseId: '(default)',
+  };
+})();
 import {
   getSupabaseConfig,
   bulkSyncStoreToSupabase,
+  verifySupabaseAccessToken,
+  uploadBufferToSupabaseStorage,
+  pingSupabaseDatabase,
 } from './src/services/supabaseBridge';
 import { PRODUCTS as BUNDLED_PRODUCTS, CATEGORIES as BUNDLED_CATEGORIES } from './src/constants/data';
 import {
@@ -73,6 +90,7 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_STORAGE_BUCKET: z.string().optional(),
 });
 
 let env: z.infer<typeof envSchema>;
@@ -1223,6 +1241,18 @@ async function verifyRequestAuth(req: express.Request): Promise<any | null> {
       decoded.admin = isAdmin;
       decoded.mfaVerified = false;
       return decoded;
+    }
+
+    const supaUser = await verifySupabaseAccessToken(bearer);
+    if (supaUser) {
+      const emailLower = String(supaUser.email || '').trim().toLowerCase();
+      const isVerifiedOwnerAdmin = supaUser.email_verified === true && OWNER_ADMIN_EMAILS.has(emailLower);
+      const isAdmin = supaUser.role === 'admin' || isVerifiedOwnerAdmin;
+      return {
+        ...supaUser,
+        admin: isAdmin,
+        mfaVerified: false,
+      };
     }
   }
 
@@ -3377,7 +3407,7 @@ app.use(compression() as unknown as express.RequestHandler);
       if (users.length === 0) {
         users.push({
           id: 'jiyoo_store_owner',
-          name: 'Dr. Mehraj Sultana',
+          name: 'Syed Shams',
           email: 'shamsjiyoo@gmail.com',
           role: 'admin',
           admin: true,
@@ -3390,7 +3420,7 @@ app.use(compression() as unknown as express.RequestHandler);
         users: [
           {
             id: 'jiyoo_store_owner',
-            name: 'Dr. Mehraj Sultana',
+            name: 'Syed Shams',
             email: 'shamsjiyoo@gmail.com',
             role: 'admin',
             admin: true,
@@ -4181,11 +4211,18 @@ app.use(compression() as unknown as express.RequestHandler);
         }
       }
 
-      if (!wroteToLocalDisk && !savedToFirestore) {
+      // If Supabase Storage is configured on the server, upload to the Supabase Storage bucket
+      const supaUpload = await uploadBufferToSupabaseStorage(buffer, filename, mimeType);
+      const supabasePublicUrl = supaUpload?.url || null;
+
+      if (!wroteToLocalDisk && !savedToFirestore && !supabasePublicUrl) {
         return res.json({ success: true, url: `data:${mimeType};base64,${cleanBase64}` });
       }
 
-      return res.json({ success: true, url: `/api/uploads/${filename}` });
+      return res.json({
+        success: true,
+        url: supabasePublicUrl || `/api/uploads/${filename}`,
+      });
     } catch (err: any) {
       console.error('Admin upload failed:', err);
       return res.status(500).json({ success: false, error: 'Failed to save uploaded image' });
@@ -7753,24 +7790,15 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
 
   // Admin Supabase Status & Manual Full Sync Endpoints
   app.get('/api/admin/supabase/status', requireAuth, requireAdmin, async (_req, res) => {
-    const cfg = getSupabaseConfig();
-    let urlHost: string | null = null;
-    if (cfg.enabled) {
-      try {
-        urlHost = new URL(cfg.url).host;
-      } catch {
-        urlHost = null;
-      }
-    }
+    const ping = await pingSupabaseDatabase();
     res.json({
       success: true,
-      configured: cfg.enabled,
-      urlHost,
-      mode: cfg.enabled
-        ? process.env.SUPABASE_SERVICE_ROLE_KEY
-          ? 'service_role'
-          : 'anon'
-        : 'unconfigured',
+      connected: ping.connected,
+      configured: ping.configured,
+      latencyMs: ping.latencyMs,
+      urlHost: ping.urlHost,
+      mode: ping.mode,
+      ...(ping.error ? { error: ping.error } : {}),
     });
   });
 

@@ -120,6 +120,7 @@ export interface Category {
 
 export interface CartItem {
   id: string | number;
+  baseId?: string | number;
   name: string;
   price: string | number;
   numericPrice: number;

@@ -293,9 +293,10 @@ export function ProductsTab() {
 
   
   const filteredProducts = useMemo(() => {
+    const q = searchTerm.toLowerCase();
     return products.filter(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.categoryId && p.categoryId.toLowerCase().includes(searchTerm.toLowerCase()))
+      String(p.name || '').toLowerCase().includes(q) ||
+      (p.categoryId && String(p.categoryId).toLowerCase().includes(q))
     );
   }, [products, searchTerm]);
 

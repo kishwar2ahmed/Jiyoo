@@ -1,7 +1,6 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
-import { Product, Category } from '../../../types';
+import { Category, Product } from '../../../types';
 import { ImageUpload } from './ImageUpload';
 import { MultiImageUpload } from './MultiImageUpload';
 
@@ -11,7 +10,7 @@ interface ProductFormModalProps {
   editingProduct: Partial<Product> | null;
   setEditingProduct: React.Dispatch<React.SetStateAction<Partial<Product> | null>>;
   categoriesList: Category[];
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (e: React.FormEvent) => Promise<void> | void;
 }
 
 export function ProductFormModal({
@@ -22,239 +21,220 @@ export function ProductFormModal({
   categoriesList,
   onSubmit,
 }: ProductFormModalProps) {
-  const [isSaving, setIsSaving] = React.useState(false);
-  
-  const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    try {
-      await onSubmit(e);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   if (!isOpen || !editingProduct) return null;
 
+  const updateField = (key: keyof Product, value: any) => {
+    setEditingProduct((prev) => (prev ? { ...prev, [key]: value } : prev));
+  };
+
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-6 my-8"
-        >
-          <div className="flex items-center justify-between border-b pb-4 border-brand-gray-100">
-            <h3 className="text-xl font-bold text-brand-black">
-              {editingProduct.id ? 'Edit Product' : 'Add New Product'}
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-brand-gray-400 hover:text-brand-black p-2 rounded-full transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+      <div className="bg-white rounded-2xl shadow-xl border border-brand-gray-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="p-5 border-b border-brand-gray-200 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-brand-black">
+            {editingProduct.id ? `Edit Product: ${editingProduct.name}` : 'Add New Product'}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-lg text-brand-gray-500 hover:text-brand-black hover:bg-brand-gray-100"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-          <form id="productForm" onSubmit={handleFormSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-brand-gray-700 mb-1">Product Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={editingProduct.name || ''}
-                  onChange={(e) => setEditingProduct((prev) => ({ ...prev, name: e.target.value }))}
-                  className="w-full bg-brand-gray-50 border border-brand-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-600"
-                  placeholder="Fresh Tiger Prawns"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-brand-gray-700 mb-1">Category *</label>
-                <select
-                  required
-                  value={editingProduct.categoryId || ''}
-                  onChange={(e) =>
-                    setEditingProduct((prev) => ({
-                      ...prev,
-                      categoryId: e.target.value,
-                      category: categoriesList.find((c) => c.id === e.target.value)?.label || e.target.value,
-                    }))
-                  }
-                  className="w-full bg-brand-gray-50 border border-brand-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-600"
-                >
-                  <option value="">Select Category</option>
-                  {categoriesList.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-brand-gray-700 mb-1">Price (₹) *</label>
-                <input
-                  type="number"
-                  required
-                  value={editingProduct.price ?? ''}
-                  onChange={(e) =>
-                    setEditingProduct((prev) => ({
-                      ...prev,
-                      price: Number(e.target.value),
-                      numericPrice: Number(e.target.value),
-                    }))
-                  }
-                  className="w-full bg-brand-gray-50 border border-brand-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-600"
-                  placeholder="299"
-                />
-              </div>
-
-              <div className="sm:col-span-2 border border-amber-200 bg-amber-50/50 rounded-lg p-3 space-y-3">
-                <label className="flex items-center gap-2 text-sm font-semibold text-amber-900">
-                  <input
-                    type="checkbox"
-                    checked={!!editingProduct.wholesaleEligible}
-                    onChange={(e) => setEditingProduct((prev) => ({ ...prev, wholesaleEligible: e.target.checked }))}
-                    className="rounded border-amber-300"
-                  />
-                  Eligible for wholesale (bulk, pan-India shipping)
-                </label>
-                {editingProduct.wholesaleEligible && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-amber-800 mb-1">Wholesale Price (₹)</label>
-                      <input
-                        type="number"
-                        value={editingProduct.wholesalePrice ?? ''}
-                        onChange={(e) => setEditingProduct((prev) => ({ ...prev, wholesalePrice: Number(e.target.value) }))}
-                        className="w-full bg-white border border-amber-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-amber-600"
-                        placeholder="e.g. 45"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-amber-800 mb-1">Wholesale Unit</label>
-                      <input
-                        type="text"
-                        value={editingProduct.wholesaleUnit || ''}
-                        onChange={(e) => setEditingProduct((prev) => ({ ...prev, wholesaleUnit: e.target.value }))}
-                        className="w-full bg-white border border-amber-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-amber-600"
-                        placeholder="per kg, per crate"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-amber-800 mb-1">Min. Wholesale Qty</label>
-                      <input
-                        type="number"
-                        value={editingProduct.wholesaleMinQty ?? ''}
-                        onChange={(e) => setEditingProduct((prev) => ({ ...prev, wholesaleMinQty: Number(e.target.value) }))}
-                        className="w-full bg-white border border-amber-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-amber-600"
-                        placeholder="e.g. 10"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-brand-gray-700 mb-1">Unit / Weight Badge</label>
-                <input
-                  type="text"
-                  value={editingProduct.unit || ''}
-                  onChange={(e) => setEditingProduct((prev) => ({ ...prev, unit: e.target.value }))}
-                  className="w-full bg-brand-gray-50 border border-brand-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-600"
-                  placeholder="500g or 1 kg"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-brand-gray-700 mb-1">Freshness Badge</label>
-                <input
-                  type="text"
-                  value={editingProduct.freshnessBadge || ''}
-                  onChange={(e) => setEditingProduct((prev) => ({ ...prev, freshnessBadge: e.target.value }))}
-                  className="w-full bg-brand-gray-50 border border-brand-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-600"
-                  placeholder="Daily Catch, Organic, etc."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-brand-gray-700 mb-1">Stock Quantity</label>
-                <input
-                  type="number"
-                  value={editingProduct.stock ?? 100}
-                  onChange={(e) => setEditingProduct((prev) => ({ ...prev, stock: Number(e.target.value) }))}
-                  className="w-full bg-brand-gray-50 border border-brand-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-600"
-                />
-              </div>
-            </div>
-
+        <form onSubmit={onSubmit} className="p-6 overflow-y-auto space-y-5 flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-brand-gray-700 mb-1">Description</label>
-              <textarea
-                rows={3}
-                value={editingProduct.description || ''}
-                onChange={(e) => setEditingProduct((prev) => ({ ...prev, description: e.target.value }))}
-                className="w-full bg-brand-gray-50 border border-brand-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-600"
-                placeholder="Product description and details..."
+              <label className="block text-xs font-semibold text-brand-gray-700 mb-1">
+                Product Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={editingProduct.name || ''}
+                onChange={(e) => updateField('name', e.target.value)}
+                className="w-full px-3.5 py-2 border border-brand-gray-300 rounded-lg text-sm"
+                placeholder="e.g. Apple Royal Gala Premium"
               />
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-brand-gray-700 mb-1">Image URL (Optional Direct Link)</label>
-                <input
-                  type="text"
-                  value={editingProduct.image && !editingProduct.image.startsWith('data:') && !editingProduct.image.startsWith('/api/images/') ? editingProduct.image : ''}
-                  onChange={(e) => setEditingProduct((prev) => ({ ...prev, image: e.target.value }))}
-                  className="w-full bg-brand-gray-50 border border-brand-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-600"
-                  placeholder="https://images.unsplash.com/... or /products/..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-brand-gray-700 mb-1">Or Upload Image File</label>
-                <ImageUpload
-                  label="Product Image Upload"
-                  value={editingProduct.image || null}
-                  onChange={(url) => setEditingProduct((prev) => ({ ...prev, image: url || '' }))}
-                  storagePath="product_images"
-                />
-              </div>
-
-              <div className="pt-2 border-t border-brand-gray-100">
-                <MultiImageUpload
-                  label="Additional Gallery Photos (optional)"
-                  value={editingProduct.images || []}
-                  onChange={(urls) => setEditingProduct((prev) => ({ ...prev, images: urls }))}
-                  storagePath="product_gallery"
-                  max={6}
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-semibold text-brand-gray-700 mb-1">
+                Category *
+              </label>
+              <select
+                value={editingProduct.categoryId || editingProduct.category || 'fruits'}
+                onChange={(e) => {
+                  updateField('categoryId', e.target.value);
+                  updateField('category', e.target.value);
+                }}
+                className="w-full px-3.5 py-2 border border-brand-gray-300 rounded-lg text-sm bg-white"
+              >
+                {categoriesList.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-brand-gray-100">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isSaving}
-                className="px-4 py-2 text-sm font-medium text-brand-gray-600 hover:bg-brand-gray-100 rounded-lg transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="px-4 py-2 text-sm font-medium bg-brand-black text-white rounded-lg hover:bg-brand-gray-900 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSaving ? 'Saving…' : 'Save Product'}
-              </button>
+            <div>
+              <label className="block text-xs font-semibold text-brand-gray-700 mb-1">
+                Selling Price (₹) *
+              </label>
+              <input
+                type="number"
+                required
+                min="0"
+                value={
+                  editingProduct.numericPrice ??
+                  (typeof editingProduct.price === 'number'
+                    ? editingProduct.price
+                    : parseFloat(String(editingProduct.price || '0').replace(/[^0-9.]/g, '')) || 0)
+                }
+                onChange={(e) => {
+                  const val = Number(e.target.value) || 0;
+                  updateField('price', val);
+                  updateField('numericPrice', val);
+                }}
+                className="w-full px-3.5 py-2 border border-brand-gray-300 rounded-lg text-sm"
+              />
             </div>
-          </form>
-        </motion.div>
+
+            <div>
+              <label className="block text-xs font-semibold text-brand-gray-700 mb-1">
+                Unit / Weight Label
+              </label>
+              <input
+                type="text"
+                value={editingProduct.unit || ''}
+                onChange={(e) => updateField('unit', e.target.value)}
+                className="w-full px-3.5 py-2 border border-brand-gray-300 rounded-lg text-sm"
+                placeholder="e.g. 1 kg or 4 Pack"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-brand-gray-700 mb-1">
+                Stock Quantity
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={editingProduct.stock ?? 100}
+                onChange={(e) => updateField('stock', Number(e.target.value))}
+                className="w-full px-3.5 py-2 border border-brand-gray-300 rounded-lg text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-brand-gray-700 mb-1">
+                Stock Status
+              </label>
+              <select
+                value={editingProduct.stockStatus || 'in_stock'}
+                onChange={(e) =>
+                  updateField('stockStatus', e.target.value as 'in_stock' | 'out_of_stock')
+                }
+                className="w-full px-3.5 py-2 border border-brand-gray-300 rounded-lg text-sm bg-white"
+              >
+                <option value="in_stock">In Stock</option>
+                <option value="out_of_stock">Out of Stock</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-brand-gray-700 mb-1">
+              Description
+            </label>
+            <textarea
+              rows={3}
+              value={editingProduct.description || ''}
+              onChange={(e) => updateField('description', e.target.value)}
+              className="w-full px-3.5 py-2 border border-brand-gray-300 rounded-lg text-sm"
+            />
+          </div>
+
+          <ImageUpload
+            label="Primary Product Image"
+            value={editingProduct.image || ''}
+            onChange={(url) => updateField('image', url)}
+            storagePathPrefix="product_primary"
+          />
+
+          <MultiImageUpload
+            label="Additional Gallery Images"
+            value={editingProduct.images || []}
+            onChange={(urls) => updateField('images', urls)}
+            storagePath="product_gallery"
+          />
+
+          <div className="border-t border-brand-gray-200 pt-4">
+            <label className="flex items-center gap-2 text-sm font-medium text-brand-black">
+              <input
+                type="checkbox"
+                checked={Boolean(editingProduct.wholesaleEligible)}
+                onChange={(e) => updateField('wholesaleEligible', e.target.checked)}
+                className="rounded border-brand-gray-300"
+              />
+              Enable for Wholesale Pan-India Box Catalog
+            </label>
+            {editingProduct.wholesaleEligible && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                <div>
+                  <label className="block text-xs text-brand-gray-600 mb-1">
+                    Wholesale Box Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editingProduct.wholesalePrice || ''}
+                    onChange={(e) => updateField('wholesalePrice', Number(e.target.value) || 0)}
+                    className="w-full px-3 py-1.5 border border-brand-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-brand-gray-600 mb-1">Wholesale Unit</label>
+                  <input
+                    type="text"
+                    value={editingProduct.wholesaleUnit || '1 Box (10 kg)'}
+                    onChange={(e) => updateField('wholesaleUnit', e.target.value)}
+                    className="w-full px-3 py-1.5 border border-brand-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-brand-gray-600 mb-1">Min Order Boxes</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editingProduct.wholesaleMinQty || 1}
+                    onChange={(e) => updateField('wholesaleMinQty', Number(e.target.value) || 1)}
+                    className="w-full px-3 py-1.5 border border-brand-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-brand-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl border border-brand-gray-300 text-sm font-medium text-brand-gray-700 hover:bg-brand-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-xl bg-brand-black text-white text-sm font-semibold hover:bg-brand-gray-900"
+            >
+              Save Product
+            </button>
+          </div>
+        </form>
       </div>
-    </AnimatePresence>
+    </div>
   );
 }

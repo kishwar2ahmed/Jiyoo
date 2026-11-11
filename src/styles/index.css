@@ -78,10 +78,17 @@
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-serif: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
   --font-mono: 'IBM Plex Mono', monospace;
+  --color-brand-primary: #047857;
+  --color-brand-gold: #D4AF37;
+  --color-brand-gold-dark: #B5952F;
   --color-brand-black: #1C1917;
   --color-brand-gray-900: #292524;
   --color-brand-gray-800: #44403C;
+  --color-brand-gray-700: #57534E;
+  --color-brand-gray-600: #65605B;
   --color-brand-gray-500: #78716C;
+  --color-brand-gray-400: #A8A29E;
+  --color-brand-gray-300: #D6D3CD;
   --color-brand-gray-200: #E7E3DA;
   --color-brand-gray-100: #F4F1EA;
   --color-brand-gray-50: #FAF9F5;

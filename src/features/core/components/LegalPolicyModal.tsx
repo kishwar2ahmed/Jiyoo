@@ -41,7 +41,7 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({
   }, [isOpen, initialTab]);
 
   const storeName = settings.storeName || "JIYOO Premium Products";
-  const marketedBy = settings.aboutUs?.marketedBy || "JIYOO";
+  const marketedBy = settings.aboutUs?.marketedBy || "Shams";
 
   const tabs: { id: LegalPolicyTab; label: string; subtitle: string; icon: React.FC<{ className?: string }> }[] = [
     {
@@ -425,7 +425,7 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-[#57534E]">
-                    <strong>{settings.aboutUs?.founderName || "Dr. Mehraj Sultana"}</strong> ({marketedBy}) · Bengaluru, Karnataka, India
+                    <strong>{settings.aboutUs?.founderName || "Syed Shams"}</strong> ({marketedBy}) · Bengaluru, Karnataka, India
                   </p>
                   <div className="flex flex-wrap items-center gap-4 pt-1 text-xs font-mono text-[#1C1917]">
                     <a

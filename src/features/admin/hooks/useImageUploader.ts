@@ -1,6 +1,7 @@
 import { storage, auth } from '../../../services/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { getAdminAuthHeaders } from '../../../utils/adminAuth';
+import { isSupabaseConfigured, uploadToSupabaseStorage } from '../../../services/supabase';
 
 export async function validateAndProcessFile(file: File, circular: boolean): Promise<{ blob: Blob; dataUrl: string }> {
   const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
@@ -87,7 +88,7 @@ export async function uploadImageFile(
   const { blob, dataUrl } = await validateAndProcessFile(file, circular);
   onProgress(35);
 
-  // 1. Primary: Upload to server's /api/admin/upload (which writes to /public/uploads and works without Firebase Storage CORS/rules issues)
+  // 1. Primary: Upload to server's /api/admin/upload (which writes to Supabase Storage / /public/uploads)
   try {
     const headers = await getAdminAuthHeaders(true);
     onProgress(65);
@@ -109,7 +110,20 @@ export async function uploadImageFile(
     console.warn('Server upload fallback triggered:', serverErr);
   }
 
-  // 2. Secondary: Try Firebase Storage if signed in
+  // 2. Direct Supabase Storage fallback when configured on client
+  if (isSupabaseConfigured) {
+    try {
+      const supaRes = await uploadToSupabaseStorage(blob, storagePath, blob.type || 'image/jpeg');
+      if (supaRes.url) {
+        onProgress(100);
+        return supaRes.url;
+      }
+    } catch (supaErr) {
+      console.warn('Supabase Storage upload fallback triggered:', supaErr);
+    }
+  }
+
+  // 3. Tertiary: Try Firebase Storage if signed in
   if (auth.currentUser) {
     try {
       const fileExt = 'jpg';

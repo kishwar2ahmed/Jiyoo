@@ -26,6 +26,13 @@ import { useToast } from "../../core/contexts/ToastContext";
 import { getOptimizedImageUrl, createSvgPlaceholder } from "../../../utils/imageUtils";
 import { useStorefrontProducts } from "../../storefront/hooks/useStorefrontProducts";
 import { auth, googleProvider, db } from "../../../services/firebase";
+import {
+  isSupabaseConfigured,
+  supabaseFetchTable,
+  supabaseSignInWithEmail,
+  supabaseSignUpWithEmail,
+  supabaseSendPasswordReset,
+} from "../../../services/supabase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import {
   signInWithEmailAndPassword,
@@ -97,6 +104,18 @@ export function AuthModal({
             );
             const orderMap = new Map();
             loaded.forEach((o) => orderMap.set(o.id, o));
+            if (isSupabaseConfigured) {
+              const supaOrdersRes = await supabaseFetchTable<any>("orders", {
+                column: "user_id",
+                value: user.id,
+              });
+              (supaOrdersRes.data || []).forEach((so: any) => {
+                const payload = so?.raw_data && typeof so.raw_data === "object" ? { ...so.raw_data, id: so.id } : so;
+                if (payload?.id && !orderMap.has(payload.id)) {
+                  orderMap.set(payload.id, payload);
+                }
+              });
+            }
             local.forEach((lo: any) => {
               if (
                 lo &&
@@ -159,6 +178,9 @@ export function AuthModal({
     setInfoMessage(null);
     try {
       await sendPasswordResetEmail(auth, email.trim());
+      if (isSupabaseConfigured) {
+        supabaseSendPasswordReset(email.trim()).catch(() => {});
+      }
       setInfoMessage("Password reset email sent! Check your inbox.");
       setTimeout(() => {
         setMode("signin");
@@ -178,11 +200,24 @@ export function AuthModal({
     try {
       await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
       await signInWithEmailAndPassword(auth, email, password);
+      if (isSupabaseConfigured) {
+        supabaseSignInWithEmail(email, password).catch(() => {});
+      }
       setStep("success");
       setTimeout(() => {
         onClose();
       }, 1500);
     } catch (err: any) {
+      if (isSupabaseConfigured) {
+        const supaLogin = await supabaseSignInWithEmail(email, password);
+        if (supaLogin.user && !supaLogin.error) {
+          setStep("success");
+          setTimeout(() => {
+            onClose();
+          }, 1500);
+          return;
+        }
+      }
       if (
         err.code === "auth/user-not-found" ||
         err.code === "auth/wrong-password" ||
@@ -218,6 +253,9 @@ export function AuthModal({
       await updateProfile(userCredential.user, {
         displayName: fullName,
       });
+      if (isSupabaseConfigured) {
+        supabaseSignUpWithEmail(email, password, fullName).catch(() => {});
+      }
       setStep("success");
       setTimeout(() => {
         onClose();

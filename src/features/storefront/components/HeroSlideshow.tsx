@@ -7,7 +7,7 @@ import { useSettings } from '../../../contexts/SettingsContext';
 import { getOptimizedBannerUrl } from '../../../utils/imageUtils';
 
 const FAST_AUTOPLAY_INTERVAL = 3600; // 3.6s for general category slides
-const SLOW_AUTOPLAY_INTERVAL = 4500; // 4.5s for Diwali & featured highlight slides
+const SLOW_AUTOPLAY_INTERVAL = 4500; // 4.5s for featured highlight slides
 
 interface PosterTypographySpec {
   side: 'left' | 'right';
@@ -17,23 +17,19 @@ interface PosterTypographySpec {
   subTitle: string;
   targetCategory?: string;
   openWholesale?: boolean;
-  tone?: 'diwali-royal' | 'warm-forest' | 'coastal-navy' | 'sage-emerald' | 'espresso-gold';
+  tone?: 'warm-forest' | 'coastal-navy' | 'sage-emerald' | 'espresso-gold';
 }
 
 /**
- * Maps each studio banner photograph to the exact sunlit wall negative-space side
- * ('left' or 'right') and bespoke print-grade poster typography matching the
- * Special Diwali Sale poster layout.
+ * Maps each studio banner photograph to the sunlit wall negative-space side
+ * ('left' or 'right') and bespoke print-grade poster typography.
  */
 function resolvePosterTypography(slide: BannerSlide): PosterTypographySpec | null {
   const id = (slide.id || '').toLowerCase();
   const img = (slide.image || '').toLowerCase();
 
-  // Only classic diwali_special_sale and whatsapp_order_banner have baked-in graphic text inside the image
+  // WhatsApp order banner has baked-in graphic text inside the image
   if (
-    id.startsWith('diwali-special') ||
-    img.includes('diwali_special_sale') ||
-    img.includes('file_000000002410821198a81a83a16d503f') ||
     id.includes('whatsapp') ||
     img.includes('whatsapp') ||
     img.includes('file_00000000e7e48211898141e9b8e21f64')
@@ -41,46 +37,7 @@ function resolvePosterTypography(slide: BannerSlide): PosterTypographySpec | nul
     return null;
   }
 
-  // 1. JIYOO Exclusive Diwali Fruit Hampers & Gift Boxes
-  if (id.includes('jiyoo-diwali-hampers') || img.includes('jiyoo_diwali_hampers')) {
-    return {
-      side: 'left',
-      brandSeal: 'JIYOO EXCLUSIVE',
-      eyebrow: 'S P E C I A L   F E S T I V E',
-      mainTitle: 'Diwali',
-      subTitle: 'F R U I T   G I F T   B O X E S',
-      targetCategory: 'fruits',
-      tone: 'diwali-royal',
-    };
-  }
-
-  // 2. JIYOO Exclusive Diwali Wholesale Box Sale (All Over India)
-  if (id.includes('jiyoo-diwali-wholesale') || img.includes('jiyoo_diwali_wholesale')) {
-    return {
-      side: 'left',
-      brandSeal: 'JIYOO WHOLESALE',
-      eyebrow: 'A L L   I N D I A   D E L I V E R Y',
-      mainTitle: 'Diwali',
-      subTitle: 'W H O L E S A L E   B O X E S',
-      openWholesale: true,
-      tone: 'diwali-royal',
-    };
-  }
-
-  // 3. JIYOO Exclusive Diwali Feast (Fresh Meat, Kebabs & Biryani)
-  if (id.includes('jiyoo-diwali-feast') || img.includes('jiyoo_diwali_feast')) {
-    return {
-      side: 'left',
-      brandSeal: 'JIYOO ROYAL FEAST',
-      eyebrow: 'F R E S H   M E A T   &   B I R Y A N I',
-      mainTitle: 'Diwali',
-      subTitle: 'F E S T I V E   S A L E',
-      targetCategory: 'meat',
-      tone: 'diwali-royal',
-    };
-  }
-
-  // 4. Wholesale All Over India Delivery
+  // Wholesale All Over India Delivery
   if (id.includes('wholesale') || img.includes('wholesale_india_banner')) {
     return {
       side: 'left',
@@ -93,7 +50,7 @@ function resolvePosterTypography(slide: BannerSlide): PosterTypographySpec | nul
     };
   }
 
-  // 5. Hot & Fresh Fast Food
+  // Hot & Fresh Fast Food
   if (id.includes('fast-foods') || img.includes('fast_foods_banner')) {
     return {
       side: 'left',
@@ -227,6 +184,18 @@ function resolvePosterTypography(slide: BannerSlide): PosterTypographySpec | nul
   };
 }
 
+const isLegacyDiwaliBanner = (b: Partial<BannerSlide>): boolean => {
+  const id = (b.id || '').toLowerCase();
+  const img = (b.image || '').toLowerCase();
+  const title = (b.title || '').toLowerCase();
+  return (
+    id.includes('diwali') ||
+    img.includes('diwali') ||
+    img.includes('file_000000002410821198a81a83a16d503f') ||
+    title.includes('diwali')
+  );
+};
+
 export function HeroSlideshow() {
   const { settings } = useSettings();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -242,7 +211,7 @@ export function HeroSlideshow() {
         ? settings.heroBanners
         : DEFAULT_HERO_BANNERS;
     const active = raw
-      .filter((b) => b.isActive !== false)
+      .filter((b) => b.isActive !== false && !isLegacyDiwaliBanner(b))
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       .map((b) => ({
         ...b,
@@ -267,50 +236,6 @@ export function HeroSlideshow() {
       }
     });
 
-    // 1. Collect all 4 Diwali Sale banners (prioritizing the 3 clean JIYOO studio banners without diyas)
-    const diwaliOrderedIds = [
-      'jiyoo-diwali-hampers',
-      'jiyoo-diwali-feast',
-      'jiyoo-diwali-wholesale',
-      'diwali-special',
-    ];
-
-    const diwaliBanners: BannerSlide[] = [];
-    diwaliOrderedIds.forEach((pid) => {
-      const found = mergedBase.find(
-        (b) =>
-          b.id === pid ||
-          (pid === 'jiyoo-diwali-hampers' && b.image?.includes('jiyoo_diwali_hampers')) ||
-          (pid === 'diwali-special' && b.image?.includes('diwali_special_sale')) ||
-          (pid === 'jiyoo-diwali-feast' && b.image?.includes('jiyoo_diwali_feast')) ||
-          (pid === 'jiyoo-diwali-wholesale' && b.image?.includes('jiyoo_diwali_wholesale'))
-      );
-      if (found) {
-        diwaliBanners.push({
-          ...found,
-          durationMs: SLOW_AUTOPLAY_INTERVAL,
-          isFeatured: true,
-        });
-      }
-    });
-
-    // Any additional custom Diwali banners added by admin
-    mergedBase.forEach((b) => {
-      const isDiwali =
-        b.id?.toLowerCase().includes('diwali') ||
-        b.image?.toLowerCase().includes('diwali');
-      if (isDiwali && !diwaliBanners.some((d) => d.id === b.id)) {
-        diwaliBanners.push({
-          ...b,
-          durationMs: SLOW_AUTOPLAY_INTERVAL,
-          isFeatured: true,
-        });
-      }
-    });
-
-    const diwaliIdSet = new Set(diwaliBanners.map((d) => d.id));
-
-    // 2. Collect all General / Category / Storefront banners in a balanced order
     const preferredGeneralOrder = [
       'imported-fruits',
       'fresh-meats',
@@ -323,61 +248,36 @@ export function HeroSlideshow() {
       'whatsapp-order',
       'fresh-preparation',
       'grocery-basket',
-      'fruit-bowl',
+      'fruit-bowls',
+      'fruit-bowl-original',
     ];
 
-    const generalPool = mergedBase.filter((b) => !diwaliIdSet.has(b.id));
     const generalBanners: BannerSlide[] = [];
 
     preferredGeneralOrder.forEach((gid) => {
-      const found = generalPool.find((b) => b.id === gid);
+      const found = mergedBase.find((b) => b.id === gid);
       if (found && !generalBanners.some((g) => g.id === found.id)) {
         generalBanners.push({
           ...found,
           durationMs:
-            found.id === 'wholesale-india' || found.id === 'whatsapp-order'
+            found.durationMs ||
+            (found.id === 'wholesale-india' || found.id === 'whatsapp-order'
               ? SLOW_AUTOPLAY_INTERVAL
-              : FAST_AUTOPLAY_INTERVAL,
+              : FAST_AUTOPLAY_INTERVAL),
         });
       }
     });
 
-    generalPool.forEach((b) => {
+    mergedBase.forEach((b) => {
       if (!generalBanners.some((g) => g.id === b.id)) {
         generalBanners.push({
           ...b,
-          durationMs: FAST_AUTOPLAY_INTERVAL,
+          durationMs: b.durationMs || FAST_AUTOPLAY_INTERVAL,
         });
       }
     });
 
-    // 3. Weave Diwali banners "beech-beech mein" (1 Diwali banner after every 2 General banners)
-    // Pattern: Diwali #1 -> General #1 -> General #2 -> Diwali #2 -> General #3 -> General #4 -> Diwali #3...
-    if (diwaliBanners.length > 0 && generalBanners.length > 0) {
-      const interleaved: BannerSlide[] = [];
-      let diwaliCursor = 0;
-
-      generalBanners.forEach((genSlide, gIdx) => {
-        // Insert a Diwali banner at the start and after every 2 general banners
-        if (gIdx % 2 === 0) {
-          const dSlide = diwaliBanners[diwaliCursor % diwaliBanners.length];
-          interleaved.push({
-            ...dSlide,
-            id: `${dSlide.id}-interleaved-${diwaliCursor}`,
-          });
-          diwaliCursor++;
-        }
-
-        interleaved.push({
-          ...genSlide,
-          id: `${genSlide.id}-general-${gIdx}`,
-        });
-      });
-
-      return interleaved;
-    }
-
-    return mergedBase;
+    return generalBanners.length > 0 ? generalBanners : DEFAULT_HERO_BANNERS;
   }, [settings.heroBanners]);
 
   const total = slides.length;
@@ -402,12 +302,6 @@ export function HeroSlideshow() {
     [currentSlide]
   );
 
-  const isDiwaliSlide = Boolean(
-    currentSlide?.id?.includes('diwali') ||
-      currentSlide?.image?.includes('diwali') ||
-      currentSlide?.image?.includes('file_000000002410821198a81a83a16d503f')
-  );
-
   const isWhatsAppSlide = Boolean(
     currentSlide?.id?.includes('whatsapp') ||
       currentSlide?.image?.includes('whatsapp') ||
@@ -419,7 +313,7 @@ export function HeroSlideshow() {
       currentSlide?.image?.includes('wholesale_india_banner')
   );
 
-  const isSlowSlide = isDiwaliSlide || isWhatsAppSlide || isWholesaleSlide || currentSlide?.isFeatured;
+  const isSlowSlide = isWhatsAppSlide || isWholesaleSlide || currentSlide?.isFeatured;
   const currentDuration =
     currentSlide?.durationMs || (isSlowSlide ? SLOW_AUTOPLAY_INTERVAL : FAST_AUTOPLAY_INTERVAL);
 
@@ -527,14 +421,6 @@ export function HeroSlideshow() {
           main: '#0F2619',
           sub: '#7D441B',
         }
-      : posterSpec?.tone === 'diwali-royal'
-      ? {
-          crest: '#9A4B1A',
-          seal: '#8B4519',
-          eyebrow: '#142319',
-          main: '#0D2115',
-          sub: '#9A4B1A',
-        }
       : {
           crest: '#8B4519',
           seal: '#8B4519',
@@ -557,7 +443,7 @@ export function HeroSlideshow() {
       onTouchEnd={handleTouchEnd}
       onClick={handleBannerAction}
       className={`group relative w-full overflow-hidden rounded-xl sm:rounded-2xl border transition-all duration-700 select-none cursor-pointer ${
-        isDiwaliSlide || isWholesaleSlide
+        isWholesaleSlide
           ? 'border-[#C5A880] shadow-[0_14px_38px_-10px_rgba(138,90,54,0.34)] ring-1.5 ring-[#C5A880]/75 bg-[#F3E9D8]'
           : isWhatsAppSlide
           ? 'border-emerald-700/50 shadow-[0_6px_25px_-4px_rgba(5,150,105,0.25)] ring-1.5 ring-emerald-600/30 bg-[#F6EFE6]'
@@ -592,8 +478,8 @@ export function HeroSlideshow() {
               decoding="async"
               onError={(e) => {
                 const target = e.currentTarget;
-                if (!target.src.endsWith('/banners/diwali_special_sale.webp')) {
-                  target.src = '/banners/diwali_special_sale.webp';
+                if (!target.src.endsWith('/banners/03_Imported_Fruits_Original.webp')) {
+                  target.src = '/banners/03_Imported_Fruits_Original.webp';
                 }
               }}
               initial={
@@ -624,7 +510,7 @@ export function HeroSlideshow() {
                   posterSpec.side === 'left' ? 'left-0' : 'right-0'
                 }`}
               >
-                {/* Clean Modern Luxury Botanical Leaf & Crown Crest (Zero Diya/Pooja Motif) */}
+                {/* Clean Modern Luxury Botanical Leaf & Crown Crest */}
                 <svg
                   viewBox="0 0 72 28"
                   fill="none"
@@ -675,11 +561,7 @@ export function HeroSlideshow() {
                 {/* Monumental High-Contrast Serif Display Word */}
                 <h3
                   style={{ color: tonePalette.main }}
-                  className={`font-serif-luxury font-bold tracking-tight leading-[0.95] ${
-                    posterSpec.tone === 'diwali-royal'
-                      ? 'text-2xl sm:text-5xl lg:text-[54px]'
-                      : 'text-xl sm:text-4xl lg:text-[44px]'
-                  }`}
+                  className="font-serif-luxury font-bold tracking-tight leading-[0.95] text-xl sm:text-4xl lg:text-[44px]"
                 >
                   {posterSpec.mainTitle}
                 </h3>
@@ -719,7 +601,7 @@ export function HeroSlideshow() {
         <div
           aria-hidden="true"
           className={`pointer-events-none absolute inset-0 rounded-xl sm:rounded-2xl transition-all duration-500 z-10 ${
-            isDiwaliSlide || isWholesaleSlide
+            isWholesaleSlide
               ? 'ring-1 ring-inset ring-[#C5A880]/55'
               : isWhatsAppSlide
               ? 'ring-1 ring-inset ring-emerald-600/20'

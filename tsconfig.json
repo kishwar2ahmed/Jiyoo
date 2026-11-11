@@ -22,14 +22,11 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true,
-    "types": [
-      "vite/client",
-      "node"
-    ]
+    "resolveJsonModule": true
   },
   "include": [
-    "src/**/*",
+    "src",
     "server.ts",
-    "api/**/*"
+    "vite.config.ts"
   ]
 }

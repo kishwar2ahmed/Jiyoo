@@ -11,8 +11,24 @@ try {
   // ignore
 }
 
-import appletConfig from '../../firebase-applet-config.json';
 import { doc, getDocFromServer } from 'firebase/firestore';
+
+const appletConfigModules =
+  typeof import.meta !== 'undefined' && typeof (import.meta as any).glob === 'function'
+    ? (import.meta as any).glob('../../firebase-applet-config.json', { eager: true })
+    : {};
+const appletConfig: Record<string, any> =
+  (Object.values(appletConfigModules)[0] as any)?.default ||
+  (Object.values(appletConfigModules)[0] as any) || {
+    projectId: 'jiyoo-7',
+    apiKey: '',
+    authDomain: 'jiyoo-7.firebaseapp.com',
+    storageBucket: 'jiyoo-7.firebasestorage.app',
+    messagingSenderId: '646981074808',
+    appId: '1:646981074808:web:0000000000000000000000',
+    measurementId: '',
+    firestoreDatabaseId: '(default)',
+  };
 
 const REQUIRED_FIREBASE_ENV_VARS = [
   'VITE_FIREBASE_API_KEY',

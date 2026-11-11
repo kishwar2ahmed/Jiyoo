@@ -219,6 +219,7 @@ function ensureInitialized() {
     store.settings.global = {
       storeName: 'JIYOO Premium Products',
       contactEmail: 'shamsjiyoo@gmail.com',
+      contactPhone: '+91 97393 91891',
       whatsappNumber: '919739391891',
       upiId: '9739391891@ybl',
       upiId2: '9739391891@paytm',
@@ -226,6 +227,22 @@ function ensureInitialized() {
       freeDeliveryThreshold: 0,
       estimatedDeliveryTime: '30 - 60 mins',
       minOrderAmount: 0,
+      aboutUs: {
+        introText:
+          'JIYOO (jiyooshams) is an emerging online service provider connecting businesses and consumers with the finest fresh fruits, vegetables, meat, seafood, and other premium produce, sourced through a strong network of farmers, importers, and distributors both locally and internationally.',
+        objectiveText:
+          'Our objective is to build an efficient and robust online & offline platform that showcases our strengths in quality, express service, and value for money. We specialize in exotic and imported fresh produce, while continuously expanding to offer a wider range of healthy food products.',
+        visionText:
+          'Our vision is to consistently deliver premium quality with a wide assortment of healthy foods while enhancing customer experience through customized solutions and a pay-per-demand model.',
+        standardsText:
+          'With an experienced team serving hotels, retail stores, restaurants, general trade, and end-users, we are committed to maintaining the highest standards of hygiene, safety, and customer satisfaction in everything we do.',
+        founderName: 'Syed Shams',
+        founderRole: 'Founder & CEO',
+        mdName: 'Dr. Mehraj Sultana',
+        mdRole: 'Managing Director (MD)',
+        marketedBy: 'Shams',
+        contactPhone: '+91 97393 91891',
+      },
     };
   }
 

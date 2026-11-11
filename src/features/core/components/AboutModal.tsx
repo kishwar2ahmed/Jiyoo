@@ -66,7 +66,7 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
             {/* Intro */}
             <section>
               <p className="text-brand-gray-600 leading-relaxed text-sm sm:text-base whitespace-pre-line">
-                {settings.aboutUs?.introText || "JIYOO is an emerging online service provider connecting businesses and consumers with the finest fresh fruits, vegetables, meat, seafood, and other premium produce."}
+                {settings.aboutUs?.introText || "JIYOO (jiyooshams) is an emerging online service provider connecting businesses and consumers with the finest fresh fruits, vegetables, meat, seafood, and other premium produce."}
               </p>
               {settings.aboutUs?.objectiveText && (
                 <p className="text-brand-gray-600 leading-relaxed text-sm sm:text-base mt-4 whitespace-pre-line">
@@ -94,23 +94,20 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
                 <div className="space-y-4">
                   <div>
                     <p className="font-medium text-brand-black">
-                      {settings.aboutUs?.founderName || "Dr. Mehraj Sultana"}
+                      {settings.aboutUs?.founderName || "Syed Shams"}
                     </p>
                     <p className="text-xs text-brand-gray-500 uppercase tracking-wider">
-                      {settings.aboutUs?.founderRole || "Founder, CEO & CFO"}
+                      {settings.aboutUs?.founderRole || "Founder & CEO"}
                     </p>
                   </div>
-                  {settings.aboutUs?.mdName &&
-                    settings.aboutUs.mdName !== (settings.aboutUs?.founderName || "Dr. Mehraj Sultana") && (
-                      <div>
-                        <p className="font-medium text-brand-black">
-                          {settings.aboutUs.mdName}
-                        </p>
-                        <p className="text-xs text-brand-gray-500 uppercase tracking-wider">
-                          {settings.aboutUs.mdRole || "Managing Director"}
-                        </p>
-                      </div>
-                    )}
+                  <div>
+                    <p className="font-medium text-brand-black">
+                      {settings.aboutUs?.mdName || "Dr. Mehraj Sultana"}
+                    </p>
+                    <p className="text-xs text-brand-gray-500 uppercase tracking-wider">
+                      {settings.aboutUs?.mdRole || "Managing Director (MD)"}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -119,17 +116,17 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
                   <h3 className="text-lg font-bold text-brand-black mb-2">
                     Marketed By
                   </h3>
-                  <p className="text-brand-gray-600 font-medium">{settings.aboutUs?.marketedBy || "JIYOO"}</p>
+                  <p className="text-brand-gray-600 font-medium">{settings.aboutUs?.marketedBy || "Shams"}</p>
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-brand-black mb-2">
                     Contact &amp; Official Socials
                   </h3>
                   <a
-                    href={`tel:${(settings.aboutUs?.contactPhone || "+919611468986").replace(/\s+/g, "")}`}
+                    href={`tel:${(settings.aboutUs?.contactPhone || "+919739391891").replace(/\s+/g, "")}`}
                     className="inline-block text-brand-gray-600 hover:text-brand-black font-medium text-base font-mono mb-3 tabular-nums transition-colors"
                   >
-                    {settings.aboutUs?.contactPhone || "+91 96114 68986"}
+                    {settings.aboutUs?.contactPhone || "+91 97393 91891"}
                   </a>
                   <div className="flex items-center gap-2.5">
                     {SOCIAL_LINKS.map((link) => (

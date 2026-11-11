@@ -46,12 +46,12 @@ export function AuditLogTab() {
     const matchesCategory = filterCategory === 'ALL' || log.category === filterCategory;
     const q = searchQuery.toLowerCase();
     const matchesSearch =
-      log.action.toLowerCase().includes(q) ||
-      log.actor.toLowerCase().includes(q) ||
-      log.details.toLowerCase().includes(q) ||
-      (log.orderId && log.orderId.toLowerCase().includes(q)) ||
-      (log.eventType && log.eventType.toLowerCase().includes(q)) ||
-      (log.integrityHash && log.integrityHash.toLowerCase().includes(q));
+      String(log.action || '').toLowerCase().includes(q) ||
+      String(log.actor || '').toLowerCase().includes(q) ||
+      String(log.details || '').toLowerCase().includes(q) ||
+      (log.orderId && String(log.orderId).toLowerCase().includes(q)) ||
+      (log.eventType && String(log.eventType).toLowerCase().includes(q)) ||
+      (log.integrityHash && String(log.integrityHash).toLowerCase().includes(q));
     return matchesCategory && matchesSearch;
   });
 
