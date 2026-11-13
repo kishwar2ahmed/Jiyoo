@@ -541,11 +541,14 @@ export function buildOrderStatusEmailHtml(params: {
         <div>
           Daily Morning Harvest &amp; Temperature-Controlled Cold-Chain Logistics · Bengaluru, Karnataka, India
         </div>
+        <div style="margin-top:4px;font-size:11px;color:#57534E;">
+          Postal Address: JIYOO Premium Products, Cold-Chain Dispatch Hub, Bengaluru – 560022, Karnataka, India
+        </div>
         <div style="margin-top:8px;">
           Direct Support: <a href="tel:+919739391891" style="color:#047857;text-decoration:none;">+91 97393 91891</a> · <a href="mailto:shamsjiyoo@gmail.com" style="color:#047857;text-decoration:none;">shamsjiyoo@gmail.com</a>
         </div>
         <div style="margin-top:12px;font-size:10px;color:#A8A29E;">
-          You received this transactional update because you placed order #${safeOrderId} on ${safeStoreName}.
+          You received this transactional update because you placed order #${safeOrderId} on ${safeStoreName}. Marketing emails are strictly opt-in and separated from transactional order receipts. To opt out of non-essential email notifications at any time, <a href="${sanitizeEmailHtml(appUrl)}/api/email/unsubscribe" style="color:#57534E;text-decoration:underline;">unsubscribe here</a>.
         </div>
       </div>
 
@@ -579,6 +582,8 @@ Payment Method: ${paymentMethod}
 
 Track online: ${trackOrderUrl}
 WhatsApp Support: https://wa.me/919739391891
+Postal Address: JIYOO Premium Products, Cold-Chain Dispatch Hub, Bengaluru – 560022, Karnataka, India
+Unsubscribe from optional emails: ${appUrl}/api/email/unsubscribe
 
 ${storeName} · FSSAI 21226112000732 · MSME UDYAM-KR-19-0005999
   `.trim();
@@ -748,6 +753,8 @@ export async function sendOrderStatusUpdateEmail(params: StatusEmailParams): Pro
     headers: {
       'X-Entity-Ref-ID': orderId,
       'X-JIYOO-Order-Status': newStatus,
+      'List-Unsubscribe': `<${appUrl}/api/email/unsubscribe?email=${encodeURIComponent(recipientEmail)}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     },
   };
 
@@ -835,3 +842,63 @@ export async function sendOrderStatusUpdateEmail(params: StatusEmailParams): Pro
     };
   }
 }
+
+/**
+ * Sends a confirmation email when a user exercises their Right to Erasure ("Delete My Account").
+ */
+export async function sendAccountDeletionConfirmationEmail(params: {
+  email: string;
+  name?: string;
+  uid: string;
+  smtpConfig: SmtpConfig;
+  storeName?: string;
+}): Promise<{ success: boolean; messageId?: string }> {
+  const { email, name, uid, smtpConfig, storeName = 'JIYOO' } = params;
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { success: false };
+  const transporter = createMailTransporter(smtpConfig);
+  if (!transporter) return { success: false };
+
+  const safeName = sanitizeEmailHtml(name || 'Customer');
+  const safeStore = sanitizeEmailHtml(storeName);
+  const deletedAt = new Date().toUTCString();
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Account Deletion Confirmation | ${safeStore}</title></head>
+<body style="margin:0;padding:24px;background:#FAF8F5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1C1917;">
+  <div style="max-width:560px;margin:0 auto;background:#FFFFFF;border:1px solid #E7E5E4;border-radius:16px;padding:28px;">
+    <h2 style="margin:0 0 12px;font-size:20px;color:#1C1917;">Your ${safeStore} Account Has Been Deleted</h2>
+    <p style="font-size:14px;line-height:1.6;color:#44403C;">Hello ${safeName},</p>
+    <p style="font-size:14px;line-height:1.6;color:#44403C;">
+      This email confirms that your ${safeStore} account and associated personal profile data, saved addresses, coupon redemptions, and product reviews were permanently deleted on <strong>${sanitizeEmailHtml(deletedAt)}</strong> (Reference ID: <code>${sanitizeEmailHtml(uid.slice(0, 10))}</code>).
+    </p>
+    <p style="font-size:13px;line-height:1.6;color:#57534E;">
+      Past tax invoices and accounting totals are anonymized (stripped of your name, phone number, email, and street address) and retained solely as required by Indian GST &amp; tax accounting regulations.
+    </p>
+    <hr style="border:none;border-top:1px solid #E7E5E4;margin:20px 0;" />
+    <p style="font-size:11px;color:#78716C;margin:0;">
+      ${safeStore} Premium Products · Cold-Chain Dispatch Hub, Bengaluru – 560022, Karnataka, India · Privacy &amp; Grievance Officer: shamsjiyoo@gmail.com
+    </p>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  const text = `Your ${storeName} account and personal profile data were permanently deleted on ${deletedAt}. Past accounting records have been anonymized. Contact shamsjiyoo@gmail.com if you have any questions.`;
+
+  try {
+    const info = await transporter.sendMail({
+      from: smtpConfig.from || `"${storeName} Privacy" <${smtpConfig.user}>`,
+      to: email,
+      subject: `Account Deletion Confirmation | ${storeName}`,
+      text,
+      html,
+    });
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.warn('[Order Email Service] Account deletion confirmation email could not be sent:', err);
+    return { success: false };
+  }
+}
+

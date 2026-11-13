@@ -178,79 +178,150 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                  className="space-y-6"
+                  className="space-y-5"
                 >
                   <div className="bg-white rounded-xl border border-[#E7E3DA] p-5 sm:p-6">
                     <div className="flex flex-wrap items-center justify-between gap-2 pb-4 mb-4 border-b border-stone-100">
                       <div className="flex items-center gap-2">
                         <Lock className="w-4 h-4 text-emerald-700" />
                         <span className="text-xs font-mono uppercase tracking-wider font-semibold text-emerald-800">
-                          Digital Personal Data Protection Act (DPDP), 2023 Compliant
+                          India DPDP Act 2023 · EU/UK GDPR · US CCPA/CPRA Privacy Notice
                         </span>
                       </div>
                       <span className="text-xs text-stone-500 font-mono">
-                        Effective Date: January 1, 2025 · Last Updated: October 2026
+                        Last Updated: November 2026
                       </span>
                     </div>
                     <p className="text-sm text-[#57534E] leading-relaxed">
                       <strong>{storeName}</strong> (marketed by <strong>{marketedBy}</strong>, FSSAI Reg. No.{" "}
                       <span className="font-mono font-semibold text-[#1C1917]">{settings.aboutUs?.fssaiNumber || "21226112000732"}</span>, MSME Udyam{" "}
-                      <span className="font-mono font-semibold text-[#1C1917]">{settings.aboutUs?.udyamNumber || "UDYAM-KR-19-0005999"}</span>) respects your privacy and is committed to protecting the personal data you share with us when ordering fresh fruits, vegetables, meat, seafood, and wholesale produce.
+                      <span className="font-mono font-semibold text-[#1C1917]">{settings.aboutUs?.udyamNumber || "UDYAM-KR-19-0005999"}</span>) respects your privacy. This plain-language policy explains what personal data we collect, why we collect it, who we share it with, how long we keep it, and how you can exercise your privacy rights at any time.
                     </p>
                   </div>
 
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="bg-white rounded-xl border border-[#E7E3DA] p-5 space-y-2">
                       <h3 className="text-sm font-serif font-bold text-[#1C1917]">
-                        1. Information We Collect
+                        1. What Personal Data We Collect
                       </h3>
                       <ul className="text-xs sm:text-sm text-[#57534E] space-y-1.5 leading-relaxed list-disc pl-4">
                         <li>
-                          <strong>Identity &amp; Contact Data:</strong> Full name, mobile phone number, WhatsApp number, and email address (when signing in via Google, Apple, or Email).
+                          <strong>Account &amp; Contact Details:</strong> Full name, email address, mobile phone number, optional profile photo, and encrypted password credentials (`scrypt` / Firebase Auth) when you create an account or sign in with Google.
                         </li>
                         <li>
-                          <strong>Delivery &amp; Pin-Drop Coordinates:</strong> House/building number, street, Bangalore locality or pan-India wholesale destination, landmark, 6-digit PIN code, and optional GPS map coordinates solely for accurate cold-chain dispatch.
+                          <strong>Delivery &amp; Location Details:</strong> Street address, building/flat number, landmark, 6-digit PIN code, and (only if you click &ldquo;Use Current GPS Location&rdquo; or &ldquo;Search&rdquo;) GPS coordinates for doorstep delivery.
                         </li>
                         <li>
-                          <strong>Transaction Metadata:</strong> Order history, itemized invoices, Razorpay payment IDs, or 12-digit UPI UTR reference numbers. We <strong>never</strong> store your raw debit/credit card numbers or UPI PINs on our servers.
+                          <strong>Order &amp; Payment References:</strong> Items ordered, invoice totals, Razorpay order/payment IDs, or 12-digit UPI UTR numbers. <strong>We never collect or store raw debit/credit card numbers, CVVs, or UPI PINs.</strong>
+                        </li>
+                        <li>
+                          <strong>User Content &amp; Preferences:</strong> Verified-purchase product reviews, saved wishlist items, and your cookie/notification consent choices.
                         </li>
                       </ul>
                     </div>
 
                     <div className="bg-white rounded-xl border border-[#E7E3DA] p-5 space-y-2">
                       <h3 className="text-sm font-serif font-bold text-[#1C1917]">
-                        2. How We Use Your Data
+                        2. Why We Collect It (Purposes &amp; Legal Basis)
                       </h3>
                       <ul className="text-xs sm:text-sm text-[#57534E] space-y-1.5 leading-relaxed list-disc pl-4">
                         <li>
-                          <strong>Order Fulfillment:</strong> Routing fresh morning harvest, custom meat/seafood cuts, and wholesale crates to your doorstep within the promised delivery window.
+                          <strong>Fulfilling Your Orders (Contract):</strong> Packing and delivering fresh fruits, vegetables, custom meat/seafood cuts, and wholesale crates to your address.
                         </li>
                         <li>
-                          <strong>Payment Verification &amp; Refunds:</strong> Reconciling Razorpay webhooks, verifying UPI QR UTR references, and processing instant refunds to your original payment source.
+                          <strong>Payments, Refunds &amp; Tax Compliance (Legal Obligation):</strong> Verifying online payments, issuing GST/tax invoices, and processing instant replacements or refunds.
                         </li>
                         <li>
-                          <strong>Order Status Alerts:</strong> Sending transactional updates via WhatsApp, push notifications (FCM), or email regarding order confirmation, packing, and rider dispatch.
+                          <strong>Transactional Order Updates (Contract):</strong> Sending order status receipts and dispatch tracking links via email, push notification, or WhatsApp.
+                        </li>
+                        <li>
+                          <strong>Optional Promotional Offers (Consent Only):</strong> Sending seasonal harvest discounts only if you explicitly tick the optional marketing box at sign-up or in Notification Settings.
                         </li>
                       </ul>
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-xl border border-[#E7E3DA] p-5 space-y-4">
-                    <div>
-                      <h3 className="text-sm font-serif font-bold text-[#1C1917] mb-1.5">
-                        3. Payment Security &amp; Zero Third-Party Data Selling
+                  <div className="bg-white rounded-xl border border-[#E7E3DA] p-5 space-y-3">
+                    <h3 className="text-sm font-serif font-bold text-[#1C1917]">
+                      3. Who We Share Your Data With (Service Providers &amp; Third Parties)
+                    </h3>
+                    <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
+                      <strong>We never sell your personal data or share it with behavioral ad networks.</strong> We share only the minimum necessary data with the following infrastructure processors to run the store:
+                    </p>
+                    <ul className="text-xs text-[#57534E] space-y-1.5 leading-relaxed list-disc pl-4">
+                      <li>
+                        <strong>Google Cloud / Firebase (Google LLC):</strong> Hosts our primary database (Firestore), user authentication (Firebase Auth / Google Sign-In), and push notifications (FCM).
+                      </li>
+                      <li>
+                        <strong>Razorpay Software Pvt. Ltd.:</strong> PCI-DSS Level 1 payment processor that handles online card, UPI, and net-banking checkout. Loaded only when you initiate online payment.
+                      </li>
+                      <li>
+                        <strong>OpenStreetMap (Nominatim) &amp; Google Maps Embeds:</strong> Used only when you consent to load the interactive map or click &ldquo;Search&rdquo; / &ldquo;Use Current GPS Location&rdquo; in the Location Picker.
+                      </li>
+                      <li>
+                        <strong>Google Gemini API (with Google Maps Grounding):</strong> When you click the optional <em>&ldquo;Verify Locality with Google Maps (AI Summary)&rdquo;</em> button, the searched locality name and coordinates (no name, phone, or email) are sent to Google Gemini to generate an AI-assisted landmark summary.
+                      </li>
+                      <li>
+                        <strong>SMTP Email Provider &amp; Optional Supabase Backup:</strong> Delivers transactional order status emails and encrypted database backups (when configured).
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="bg-white rounded-xl border border-[#E7E3DA] p-5 space-y-2">
+                      <h3 className="text-sm font-serif font-bold text-[#1C1917]">
+                        4. How Long We Keep Your Data (Retention Schedule)
                       </h3>
-                      <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
-                        All online payments are processed through PCI-DSS Level 1 certified gateways (Razorpay Software Pvt. Ltd.) and NPCI-regulated UPI rails. We do not sell, rent, or trade customer personal data or phone numbers to third-party advertisers or data brokers under any circumstances.
+                      <ul className="text-xs text-[#57534E] space-y-1.5 leading-relaxed list-disc pl-4">
+                        <li>
+                          <strong>Account Profile, Saved Addresses &amp; Reviews:</strong> Kept while your account is active; permanently deleted immediately when you click <strong>Delete My Account</strong>.
+                        </li>
+                        <li>
+                          <strong>Order &amp; Tax Invoices:</strong> When you delete your account, your name, phone number, email, and street address are scrubbed immediately; anonymized invoice totals are retained for up to <strong>8 years</strong> as required under Indian GST &amp; Income Tax law.
+                        </li>
+                        <li>
+                          <strong>Temporary Checkout Reservations &amp; Unverified WhatsApp Orders:</strong> Automatically purged within <strong>15–30 minutes</strong> of expiry.
+                        </li>
+                        <li>
+                          <strong>Idempotency Keys &amp; Expired Admin Sessions:</strong> Automatically purged after <strong>7 days</strong> via scheduled reconciliation.
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-[#E7E3DA] p-5 space-y-2">
+                      <h3 className="text-sm font-serif font-bold text-[#1C1917]">
+                        5. Your Privacy Rights &amp; How to Use Them
+                      </h3>
+                      <ul className="text-xs text-[#57534E] space-y-1.5 leading-relaxed list-disc pl-4">
+                        <li>
+                          <strong>Download Your Data (Portability):</strong> Go to <strong>Account Center &rarr; Privacy Center</strong> (or Edit Profile) and click <strong>Download My Data</strong> to get an instant JSON copy of your profile, addresses, orders, and reviews.
+                        </li>
+                        <li>
+                          <strong>Delete Your Account (Right to Erasure):</strong> Click <strong>Delete My Account</strong> in Account Center to permanently erase your profile, addresses, reviews, and login credentials and anonymize past orders.
+                        </li>
+                        <li>
+                          <strong>Withdraw Consent / US Opt-Out:</strong> Click <strong>Cookie &amp; Privacy Settings</strong> or <strong>Do Not Sell or Share My Info</strong> in the website footer at any time, or use the one-click <strong>Unsubscribe</strong> link in any email.
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="bg-white rounded-xl border border-[#E7E3DA] p-5 space-y-2">
+                      <h3 className="text-sm font-serif font-bold text-[#1C1917]">
+                        6. Children&rsquo;s Privacy (Under 18 / COPPA Under 13)
+                      </h3>
+                      <p className="text-xs text-[#57534E] leading-relaxed">
+                        Our storefront is intended for adults aged <strong>18 and older</strong> (in compliance with India&rsquo;s DPDP Act, 2023) and we never knowingly collect personal data from children under 13 (US COPPA) or under 18 without verifiable parental consent. We do not run behavioral tracking or targeted ads on any user. If a parent or guardian believes a minor has created an account without consent, contact us at <span className="font-mono">shamsjiyoo@gmail.com</span> for immediate deletion.
                       </p>
                     </div>
 
-                    <div className="pt-3 border-t border-stone-100">
-                      <h3 className="text-sm font-serif font-bold text-[#1C1917] mb-1.5">
-                        4. Your Rights Under the DPDP Act 2023 (Access, Correction &amp; Erasure)
+                    <div className="bg-white rounded-xl border border-[#E7E3DA] p-5 space-y-2">
+                      <h3 className="text-sm font-serif font-bold text-[#1C1917]">
+                        7. Data Breach Response &amp; Notification Plan
                       </h3>
-                      <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
-                        You have the right to view, update, or request complete deletion of your account profile, saved delivery addresses, and order history at any time from your <strong>Account Center &rarr; Privacy Center</strong> or by contacting our Data Protection &amp; Grievance Officer below.
+                      <p className="text-xs text-[#57534E] leading-relaxed">
+                        In the event of a confirmed personal data breach, our designated Incident Response Lead &amp; Grievance Officer (<strong>{settings.aboutUs?.founderName || "Syed Shams"}</strong>) immediately revokes affected credentials, contains the incident, and notifies the <strong>Data Protection Board of India</strong> and affected users without undue delay (and relevant EU/UK supervisory authorities within <strong>72 hours</strong> under GDPR Art. 33).
                       </p>
                     </div>
                   </div>
@@ -278,7 +349,7 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({
                       </span>
                     </div>
                     <p className="text-sm text-[#57534E] leading-relaxed">
-                      These Terms of Service govern your use of the <strong>{storeName}</strong> retail storefront and B2B Wholesale Trade Desk operated by <strong>{marketedBy}</strong>. By placing an order via Online Checkout, Cash on Delivery (COD), or WhatsApp Express, you agree to the terms below.
+                      These Terms of Service govern your use of the <strong>{storeName}</strong> retail storefront and B2B Wholesale Trade Desk operated by <strong>{marketedBy}</strong>. By placing an order via Online Checkout, Cash on Delivery (COD), or WhatsApp Express, you confirm that you are at least 18 years old (or ordering under verified parental supervision) and agree to the terms below.
                     </p>
                   </div>
 
@@ -311,7 +382,16 @@ export const LegalPolicyModal: React.FC<LegalPolicyModalProps> = ({
                         3. Pricing, Promotions &amp; Authentic Payment Channels
                       </h3>
                       <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
-                        All prices are listed in Indian Rupees (INR ₹) and are verified server-side at checkout. Promotional coupons are subject to minimum order values and per-user redemption limits. Customers may pay via Razorpay (UPI, Cards, NetBanking), Official Store UPI QR (verified via 12-digit UTR), Cash on Delivery (COD), or confirmed WhatsApp Trade Order.
+                        All prices are listed in Indian Rupees (INR ₹) and are verified server-side at checkout. Promotional coupons are subject to minimum order values and per-user redemption limits. Customers may pay via Razorpay (UPI, Cards, NetBanking), Official Store UPI QR (verified via 12-digit UTR), Cash on Delivery (COD), or confirmed WhatsApp Trade Order. All purchases are one-time orders; we do not charge recurring subscriptions or auto-renewals.
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-[#E7E3DA] p-5 space-y-2">
+                      <h3 className="text-sm font-serif font-bold text-[#1C1917]">
+                        4. User Reviews, Acceptable Use &amp; Copyright Takedown Process
+                      </h3>
+                      <p className="text-xs sm:text-sm text-[#57534E] leading-relaxed">
+                        Verified customers may post honest product reviews and upload profile avatars (JPG, PNG, or WebP only). You must not upload unlawful, defamatory, or copyright-infringing content. Any user can flag a review using the <strong>Report</strong> button next to each review, or submit a copyright/content takedown notice with proof of ownership to <span className="font-mono">shamsjiyoo@gmail.com</span>. Validated takedown requests are acted upon within 36 hours in accordance with the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021 and the DMCA.
                       </p>
                     </div>
                   </div>

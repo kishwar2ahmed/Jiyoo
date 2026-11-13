@@ -100,7 +100,7 @@ export function DeveloperPresentation({
               className="absolute inset-0 opacity-20 mix-blend-overlay pointer-events-none"
               style={{
                 backgroundImage:
-                  'url("https://www.transparenttextures.com/patterns/stardust.png")',
+                  'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'120\' height=\'120\' viewBox=\'0 0 120 120\'%3E%3Ccircle cx=\'14\' cy=\'18\' r=\'1\' fill=\'%23ffffff\' fill-opacity=\'0.35\'/%3E%3Ccircle cx=\'64\' cy=\'42\' r=\'1.2\' fill=\'%23ffffff\' fill-opacity=\'0.25\'/%3E%3Ccircle cx=\'98\' cy=\'22\' r=\'0.9\' fill=\'%23ffffff\' fill-opacity=\'0.3\'/%3E%3Ccircle cx=\'36\' cy=\'88\' r=\'1.1\' fill=\'%23ffffff\' fill-opacity=\'0.3\'/%3E%3Ccircle cx=\'84\' cy=\'96\' r=\'1\' fill=\'%23ffffff\' fill-opacity=\'0.25\'/%3E%3C/svg%3E")',
               }}
             ></div>
           </motion.div>

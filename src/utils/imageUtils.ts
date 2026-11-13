@@ -123,3 +123,24 @@ export function resolveProductImage(url: string | undefined | null): string | un
   if (migrated) return migrated;
   return url;
 }
+
+/**
+ * Returns true ONLY when an image URL represents an intentional administrator
+ * upload (local `/uploads/...`, base64 data URI, or Firebase/Supabase storage URL).
+ * This guarantees that the 181 baseline product images from jiyoo.co.in are never
+ * accidentally replaced by stale, mismatched, or broken database URLs.
+ */
+export function isCustomAdminUploadedImage(url: string | undefined | null): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith('/uploads/') || trimmed.startsWith('uploads/')) return true;
+  if (trimmed.startsWith('data:image/jpeg') || trimmed.startsWith('data:image/png') || trimmed.startsWith('data:image/webp')) {
+    return true;
+  }
+  if (trimmed.includes('firebasestorage.googleapis.com') || trimmed.includes('supabase.co/storage')) {
+    return true;
+  }
+  return false;
+}
+

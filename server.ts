@@ -19,7 +19,6 @@ dotenv.config();
 import compression from 'compression';
 import fs from 'fs';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import cookieParser from 'cookie-parser';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
@@ -64,7 +63,10 @@ import {
   DEFAULT_PAN_INDIA_WHOLESALE_ZONE,
   isValidIndianPincode,
 } from './src/constants/deliveryAreas';
-import { sendOrderStatusUpdateEmail } from './src/services/orderEmailService';
+import {
+  sendOrderStatusUpdateEmail,
+  sendAccountDeletionConfirmationEmail,
+} from './src/services/orderEmailService';
 
 
 const envSchema = z.object({
@@ -1222,6 +1224,58 @@ async function verifyFirebaseIdTokenWithFallback(bearer: string): Promise<any | 
   }
 }
 
+function createSignedCustomerToken(userObj: { id: string; email: string; name: string }) {
+  const iat = Date.now();
+  const exp = iat + 30 * 24 * 60 * 60 * 1000; // 30 days
+  const payloadStr = JSON.stringify({
+    uid: userObj.id,
+    email: userObj.email.toLowerCase(),
+    name: userObj.name,
+    iat,
+    exp,
+  });
+  const payloadB64 = Buffer.from(payloadStr, 'utf8').toString('base64url');
+  const sig = crypto
+    .createHmac('sha256', ADMIN_SESSION_HMAC_SECRET)
+    .update(`cust:${payloadB64}`)
+    .digest('hex');
+  return {
+    token: `jiyoo_cust_sig.${payloadB64}.${sig}`,
+    expiresAt: new Date(exp).toISOString(),
+  };
+}
+
+function verifySignedCustomerToken(token: string): any | null {
+  if (!token || !token.startsWith('jiyoo_cust_sig.')) return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [, payloadB64, providedSig] = parts;
+  if (!payloadB64 || !providedSig) return null;
+  try {
+    const expectedSig = crypto
+      .createHmac('sha256', ADMIN_SESSION_HMAC_SECRET)
+      .update(`cust:${payloadB64}`)
+      .digest('hex');
+    const a = Buffer.from(providedSig, 'utf8');
+    const b = Buffer.from(expectedSig, 'utf8');
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+    const parsed = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+    if (!parsed?.uid || !parsed?.email || Date.now() > Number(parsed.exp || 0)) return null;
+    const emailLower = String(parsed.email).trim().toLowerCase();
+    const isAdmin = OWNER_ADMIN_EMAILS.has(emailLower);
+    return {
+      uid: String(parsed.uid),
+      email: emailLower,
+      name: String(parsed.name || emailLower.split('@')[0]),
+      email_verified: true,
+      admin: isAdmin,
+      mfaVerified: false,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function verifyRequestAuth(req: express.Request): Promise<any | null> {
   const authHeader = req.headers.authorization || '';
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
@@ -1229,6 +1283,12 @@ async function verifyRequestAuth(req: express.Request): Promise<any | null> {
   if (bearer && bearer.startsWith('jiyoo_admin_sig.')) {
     const verifiedAdmin = verifySignedAdminToken(bearer, req);
     if (verifiedAdmin) return verifiedAdmin;
+    return null;
+  }
+
+  if (bearer && bearer.startsWith('jiyoo_cust_sig.')) {
+    const verifiedCustomer = verifySignedCustomerToken(bearer);
+    if (verifiedCustomer) return verifiedCustomer;
     return null;
   }
 
@@ -3114,8 +3174,8 @@ app.use(compression() as unknown as express.RequestHandler);
             ? ["'self'", "'unsafe-inline'", "https://checkout.razorpay.com", "https://apis.google.com", "https://www.gstatic.com", "blob:"]
             : ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:", "http:", "blob:"],
           scriptSrcAttr: ["'unsafe-inline'"],
-          styleSrc: isProd ? ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"] : ["'self'", "'unsafe-inline'", "https:", "http:"],
-          fontSrc: isProd ? ["'self'", "https://fonts.gstatic.com", "data:"] : ["'self'", "https:", "http:", "data:"],
+          styleSrc: isProd ? ["'self'", "'unsafe-inline'"] : ["'self'", "'unsafe-inline'", "https:", "http:"],
+          fontSrc: isProd ? ["'self'", "data:"] : ["'self'", "https:", "http:", "data:"],
           imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
           connectSrc: isProd ? ["'self'", "https:", "wss:"] : ["'self'", "https:", "http:", "wss:", "ws:"],
           frameSrc: isProd ? ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com", "https://*.firebaseapp.com", "https://accounts.google.com"] : ["'self'", "https:", "http:"],
@@ -3991,6 +4051,10 @@ app.use(compression() as unknown as express.RequestHandler);
       const authUser = (req as any).authUser;
       const jti = String(authUser?.jti || '');
       const email = String(authUser?.email || 'admin');
+      const decodedClaims = { sub: String(authUser?.uid || '') };
+      if (decodedClaims.sub && hasServiceAccountCredentials) {
+        await getAuth().revokeRefreshTokens(decodedClaims.sub).catch(() => {});
+      }
       if (jti) {
         revokedAdminSessionJtis.add(jti);
         await getFirestore().collection('admin_sessions').doc(jti).set(
@@ -4009,6 +4073,188 @@ app.use(compression() as unknown as express.RequestHandler);
       return res.json({ success: true });
     } catch {
       return res.json({ success: true });
+    }
+  });
+
+  // ============================================================================
+  // BUILT-IN ZERO-BILLING CUSTOMER AUTHENTICATION FALLBACK ROUTES
+  // Guarantees Sign-Up, Sign-In, and Order History work 100% out-of-the-box
+  // even when Firebase Email/Password auth is not enabled or no external DB is used.
+  // ============================================================================
+  const customerSignupSchema = z.object({
+    name: z.string().trim().min(1, 'Please enter your full name.').max(120),
+    email: z.string().trim().toLowerCase().email('Please enter a valid email address.').max(254),
+    password: z.string().min(6, 'Password must be at least 6 characters.').max(256),
+  });
+
+  const customerSigninSchema = z.object({
+    email: z.string().trim().toLowerCase().email('Please enter a valid email address.').max(254),
+    password: z.string().min(1, 'Please enter your email and password.').max(256),
+  });
+
+  app.post('/api/customer-auth/signup', strictApiLimiter, async (req: express.Request, res: express.Response) => {
+    try {
+      const parsed = customerSignupSchema.safeParse({
+        name: String(req.body?.name || '').replace(/[<>]/g, ''),
+        email: String(req.body?.email || ''),
+        password: String(req.body?.password || ''),
+      });
+      if (!parsed.success) {
+        return res.status(400).json({
+          success: false,
+          error: parsed.error.issues[0]?.message || 'Invalid registration details.',
+        });
+      }
+      const { name: rawName, email: rawEmail, password: rawPassword } = parsed.data;
+
+      const uid = `usr_${crypto.createHash('sha256').update(rawEmail).digest('hex').slice(0, 20)}`;
+      const userDocRef = getFirestore().collection('users').doc(uid);
+      const existingSnap = await userDocRef.get();
+      if (existingSnap.exists && existingSnap.data()?.passwordHash) {
+        return res.status(409).json({
+          success: false,
+          error: 'An account with this email already exists. Please sign in instead.',
+        });
+      }
+
+      const salt = crypto.randomBytes(16).toString('hex');
+      const passwordHash = crypto.scryptSync(rawPassword, salt, 64).toString('hex');
+      const isAdmin = OWNER_ADMIN_EMAILS.has(rawEmail);
+      const nowIso = new Date().toISOString();
+
+      const userProfile = {
+        id: uid,
+        email: rawEmail,
+        name: rawName,
+        role: isAdmin ? 'admin' : 'customer',
+        admin: isAdmin,
+        passwordSalt: salt,
+        passwordHash,
+        createdAt: existingSnap.exists ? existingSnap.data()?.createdAt || nowIso : nowIso,
+        updatedAt: nowIso,
+      };
+      await userDocRef.set(userProfile, { merge: true });
+
+      const sessionObj = createSignedCustomerToken({ id: uid, email: rawEmail, name: rawName });
+      return res.json({
+        success: true,
+        token: sessionObj.token,
+        expiresAt: sessionObj.expiresAt,
+        user: {
+          id: uid,
+          email: rawEmail,
+          name: rawName,
+          role: userProfile.role,
+          admin: isAdmin,
+        },
+      });
+    } catch (err) {
+      console.error('Customer signup error:', err);
+      return res.status(500).json({ success: false, error: 'Could not create account. Please try again.' });
+    }
+  });
+
+  app.post('/api/customer-auth/signin', strictApiLimiter, async (req: express.Request, res: express.Response) => {
+    try {
+      const parsed = customerSigninSchema.safeParse({
+        email: String(req.body?.email || ''),
+        password: String(req.body?.password || ''),
+      });
+      if (!parsed.success) {
+        return res.status(400).json({
+          success: false,
+          error: parsed.error.issues[0]?.message || 'Please enter your email and password.',
+        });
+      }
+      const { email: rawEmail, password: rawPassword } = parsed.data;
+
+      const uid = `usr_${crypto.createHash('sha256').update(rawEmail).digest('hex').slice(0, 20)}`;
+      const userDocRef = getFirestore().collection('users').doc(uid);
+      const snap = await userDocRef.get();
+
+      if (!snap.exists || !snap.data()?.passwordHash || !snap.data()?.passwordSalt) {
+        // Also search by email field in case user was created with a different doc ID
+        const querySnap = await getFirestore().collection('users').where('email', '==', rawEmail).limit(1).get();
+        const foundDoc = querySnap.docs[0];
+        const data = foundDoc?.data();
+        if (!foundDoc || !data?.passwordHash || !data?.passwordSalt) {
+          return res.status(401).json({
+            success: false,
+            error: "Invalid email or password. Don't have an account? Click 'Create Account' above.",
+          });
+        }
+        const computed = crypto.scryptSync(rawPassword, String(data.passwordSalt), 64);
+        const stored = Buffer.from(String(data.passwordHash), 'hex');
+        if (computed.length !== stored.length || !crypto.timingSafeEqual(computed, stored)) {
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid email or password.',
+          });
+        }
+        const isAdmin = Boolean(data.admin || OWNER_ADMIN_EMAILS.has(rawEmail));
+        const sessionObj = createSignedCustomerToken({
+          id: foundDoc.id,
+          email: rawEmail,
+          name: String(data.name || rawEmail.split('@')[0]),
+        });
+        return res.json({
+          success: true,
+          token: sessionObj.token,
+          expiresAt: sessionObj.expiresAt,
+          user: {
+            id: foundDoc.id,
+            email: rawEmail,
+            name: String(data.name || rawEmail.split('@')[0]),
+            role: isAdmin ? 'admin' : 'customer',
+            admin: isAdmin,
+          },
+        });
+      }
+
+      const data = snap.data()!;
+      const computed = crypto.scryptSync(rawPassword, String(data.passwordSalt), 64);
+      const stored = Buffer.from(String(data.passwordHash), 'hex');
+      if (computed.length !== stored.length || !crypto.timingSafeEqual(computed, stored)) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid email or password.',
+        });
+      }
+
+      const isAdmin = Boolean(data.admin || OWNER_ADMIN_EMAILS.has(rawEmail));
+      const sessionObj = createSignedCustomerToken({
+        id: uid,
+        email: rawEmail,
+        name: String(data.name || rawEmail.split('@')[0]),
+      });
+      return res.json({
+        success: true,
+        token: sessionObj.token,
+        expiresAt: sessionObj.expiresAt,
+        user: {
+          id: uid,
+          email: rawEmail,
+          name: String(data.name || rawEmail.split('@')[0]),
+          role: isAdmin ? 'admin' : 'customer',
+          admin: isAdmin,
+        },
+      });
+    } catch (err) {
+      console.error('Customer signin error:', err);
+      return res.status(500).json({ success: false, error: 'Could not sign in. Please try again.' });
+    }
+  });
+
+  app.get('/api/customer-auth/orders', requireAuth, async (req: express.Request, res: express.Response) => {
+    try {
+      const authUser = (req as any).authUser;
+      const uid = String(authUser?.uid || '');
+      if (!uid) return res.json({ success: true, orders: [] });
+      const snap = await getFirestore().collection('orders').where('userId', '==', uid).get();
+      const orders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      return res.json({ success: true, orders });
+    } catch {
+      return res.json({ success: true, orders: [] });
     }
   });
 
@@ -5131,7 +5377,7 @@ app.use(compression() as unknown as express.RequestHandler);
   // Public, read-only: checkout calls this to validate one address at a
   // time. Never returns the full list, so the set of serviceable localities
   // is never exposed to the client (per the brief's explicit requirement).
-  app.get('/api/delivery/check-pincode', pincodeCheckLimiter, async (req, res) => {
+  app.get('/api/delivery/check-pincode', trackOrderLimiter, async (req, res) => {
     try {
       const pincode = normalizePincode(req.query.pincode);
       const mode = req.query.mode === 'wholesale' ? 'wholesale' : 'retail';
@@ -6210,6 +6456,36 @@ app.post('/api/reviews', strictApiLimiter, requireAuth, async (req: express.Requ
   }
 });
 
+// User-content reporting & copyright takedown endpoint (Item I.25)
+app.post('/api/reviews/:id/report', strictApiLimiter, optionalAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const reviewId = String(req.params.id || '').trim().slice(0, 120);
+    const reasonSchema = z.object({
+      reason: z.string().trim().min(1).max(500).default('inappropriate_or_copyright_infringement'),
+      details: z.string().trim().max(1000).optional(),
+    });
+    const parsed = reasonSchema.safeParse(req.body || {});
+    if (!reviewId || !parsed.success) {
+      return res.status(400).json({ success: false, error: 'Invalid report payload' });
+    }
+    const authUser = (req as any).authUser;
+    const db = getFirestore();
+    await db.collection('audit_logs').add({
+      category: 'CONTENT_MODERATION',
+      action: 'REVIEW_REPORTED',
+      reviewId,
+      reason: parsed.data.reason,
+      details: parsed.data.details || 'User reported review for moderation / copyright takedown review.',
+      reporterUid: authUser?.uid || 'anonymous',
+      createdAt: new Date().toISOString(),
+    });
+    return res.json({ success: true, message: 'Report logged for moderation and copyright takedown review.' });
+  } catch (err) {
+    console.error('Failed to report review:', err);
+    return res.status(500).json({ success: false, error: 'Failed to submit report' });
+  }
+});
+
 // ENTERPRISE LOGIC: Securely update WhatsApp pending orders
 app.post('/api/orders/:id/whatsapp-status', trackOrderLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
   try {
@@ -6309,16 +6585,49 @@ async function commitInBatches(
 }
 
 // Deletes a user account server-side with the Admin SDK: anonymizes their
-// orders, removes their reviews and profile doc, then deletes the Auth user
-// record. Shared by the self-service delete-my-account flow and the
-// admin-triggered user removal flow below.
-async function deleteUserAccount(db: FirebaseFirestore.Firestore, uid: string) {
-  // 1. Anonymize (don't delete) this user's orders -- order records are typically
-  // kept for accounting/audit purposes, but we remove the link to their account.
+// orders (scrubbing personal identifiers while retaining statutory tax totals),
+// removes their coupon redemptions, reviews, and profile doc + subcollections,
+// dispatches a deletion confirmation email, and deletes the Auth user record.
+async function deleteUserAccount(db: FirebaseFirestore.Firestore, uid: string, fallbackEmail?: string, fallbackName?: string) {
+  let userEmail = fallbackEmail || '';
+  let userName = fallbackName || 'Customer';
+
+  try {
+    const profileSnap = await db.collection('users').doc(uid).get();
+    if (profileSnap.exists) {
+      const pData = profileSnap.data() as any;
+      if (pData?.email) userEmail = String(pData.email);
+      if (pData?.name) userName = String(pData.name);
+    }
+  } catch {
+    // non-blocking
+  }
+
+  // 1. Anonymize (don't delete) this user's orders -- statutory GST/tax totals
+  // are retained for accounting audit, while all personal identifiers (name,
+  // phone, street address, email) are scrubbed.
   const ordersSnap = await db.collection('orders').where('userId', '==', uid).get();
   if (!ordersSnap.empty) {
+    const nowIso = new Date().toISOString();
     await commitInBatches(db, ordersSnap.docs, (batch, docSnap) => {
-      batch.update(docSnap.ref, { userId: 'deleted_user', accountDeleted: true });
+      const existingOrder = (docSnap.data() || {}) as any;
+      const existingPin = existingOrder?.shippingDetails?.pincode || '';
+      batch.update(docSnap.ref, {
+        userId: 'deleted_user',
+        accountDeleted: true,
+        anonymizedAt: nowIso,
+        customerEmail: null,
+        email: null,
+        phone: null,
+        customerName: 'Redacted Customer',
+        customerPhone: null,
+        shippingDetails: {
+          name: 'Redacted (Account Deleted)',
+          phone: 'Redacted',
+          address: 'Redacted under DPDP / GDPR Right to Erasure',
+          pincode: existingPin,
+        },
+      });
     });
     for (const docSnap of ordersSnap.docs) {
       await recordOrderAuditLog(db, {
@@ -6327,43 +6636,151 @@ async function deleteUserAccount(db: FirebaseFirestore.Firestore, uid: string) {
         action: 'ANONYMIZE_ORDER_USER',
         category: 'ORDERS',
         actor: 'system:account-deletion',
-        actorUid: uid,
+        actorUid: 'deleted_user',
         actorRole: 'system',
         source: 'deleteUserAccount',
         changes: {
-          userId: { from: uid, to: 'deleted_user' },
+          userId: { from: 'redacted', to: 'deleted_user' },
           accountDeleted: { from: false, to: true },
         },
-        details: `Order ${docSnap.id} user association anonymized following account deletion`,
+        details: `Order ${docSnap.id} user association and shipping PII scrubbed following account deletion`,
       });
     }
   }
 
-  // 2. Delete reviews written by this user. Use sub-500-write batches because
+  // 2. Delete couponRedemptions tied to this user.
+  try {
+    const redemptionsSnap = await db.collection('couponRedemptions').where('userId', '==', uid).get();
+    if (!redemptionsSnap.empty) {
+      await commitInBatches(db, redemptionsSnap.docs, (batch, docSnap) => batch.delete(docSnap.ref));
+    }
+  } catch (redemptionErr) {
+    console.warn(`Failed to clean up couponRedemptions for user ${uid}:`, redemptionErr);
+  }
+
+  // 3. Delete reviews written by this user. Use sub-500-write batches because
   // Firestore rejects a write batch containing more than 500 operations.
   const reviewsSnap = await db.collection('reviews').where('userId', '==', uid).get();
   if (!reviewsSnap.empty) {
     await commitInBatches(db, reviewsSnap.docs, (batch, docSnap) => batch.delete(docSnap.ref));
   }
 
-  // 3. Delete the user's profile document and any subcollections (e.g. saved addresses).
+  // 4. Delete the user's profile document and any subcollections (e.g. saved addresses).
   try {
     await db.recursiveDelete(db.collection('users').doc(uid));
   } catch (cleanupErr) {
     console.warn(`Failed to fully clean up Firestore data for user ${uid}:`, cleanupErr);
   }
 
-  // 4. Finally, delete the Firebase Auth user record itself. Without this step,
-  // the account can simply sign back in -- Firebase Auth is untouched by
-  // deleting only the Firestore profile doc, and CartContext re-creates that
-  // doc on every login via an unconditional setDoc(..., { merge: true }).
-  await getAuth().deleteUser(uid);
+  // 5. Send Account Deletion Confirmation Email (non-blocking) if email & SMTP are available.
+  if (userEmail) {
+    try {
+      const settingsSnap = await db.collection('settings').doc('global').get().catch(() => null);
+      const storeName = settingsSnap?.exists ? String((settingsSnap.data() as any)?.storeName || 'JIYOO') : 'JIYOO';
+      await sendAccountDeletionConfirmationEmail({
+        email: userEmail,
+        name: userName,
+        uid,
+        smtpConfig: {
+          host: env.SMTP_HOST,
+          port: env.SMTP_PORT,
+          user: env.SMTP_USER,
+          pass: env.SMTP_PASS,
+          from: env.SMTP_FROM,
+        },
+        storeName,
+      });
+    } catch {
+      // non-blocking if SMTP is not configured
+    }
+  }
+
+  // 6. Finally, delete the Firebase Auth user record itself (wrapped in try/catch
+  // so accounts created via fallback customer auth without a Firebase Auth record
+  // also succeed cleanly).
+  try {
+    await getAuth().deleteUser(uid);
+  } catch (authDelErr: any) {
+    if (authDelErr?.code !== 'auth/user-not-found') {
+      console.warn(`Firebase Auth deleteUser warning for ${uid}:`, authDelErr?.message || authDelErr);
+    }
+  }
 }
+
+// Data Portability Endpoint ("Download My Data" — DPDP / GDPR Art. 20 / CCPA)
+app.get('/api/account/export', strictApiLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const authUser = (req as any).authUser;
+    const uid = String(authUser?.uid || '');
+    if (!uid) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
+    const db = getFirestore();
+    const [profileSnap, addressesSnap, ordersSnap, reviewsSnap, couponsSnap] = await Promise.all([
+      db.collection('users').doc(uid).get().catch(() => null),
+      db.collection('users').doc(uid).collection('addresses').get().catch(() => ({ docs: [] as any[] })),
+      db.collection('orders').where('userId', '==', uid).get().catch(() => ({ docs: [] as any[] })),
+      db.collection('reviews').where('userId', '==', uid).get().catch(() => ({ docs: [] as any[] })),
+      db.collection('couponRedemptions').where('userId', '==', uid).get().catch(() => ({ docs: [] as any[] })),
+    ]);
+
+    const rawProfile = profileSnap && profileSnap.exists ? { id: profileSnap.id, ...(profileSnap.data() as any) } : { id: uid, email: authUser.email };
+    // Never include password hashes or salts in data exports
+    delete rawProfile.passwordHash;
+    delete rawProfile.passwordSalt;
+
+    const exportPackage = {
+      exportedAt: new Date().toISOString(),
+      controller: 'JIYOO Premium Products (Bengaluru, Karnataka, India)',
+      dataSubjectUid: uid,
+      profile: rawProfile,
+      savedAddresses: addressesSnap.docs.map((d: any) => ({ id: d.id, ...d.data() })),
+      orders: ordersSnap.docs.map((d: any) => ({ id: d.id, ...d.data() })),
+      reviews: reviewsSnap.docs.map((d: any) => ({ id: d.id, ...d.data() })),
+      couponRedemptions: couponsSnap.docs.map((d: any) => ({ id: d.id, ...d.data() })),
+    };
+
+    return res.json({ success: true, exportPackage });
+  } catch (err) {
+    console.error('Failed to export account data:', err);
+    return res.status(500).json({ success: false, error: 'Failed to export personal data' });
+  }
+});
+
+// One-Click Email Unsubscribe Endpoint (CAN-SPAM / GDPR / DPDP compliance)
+const handleEmailUnsubscribe = async (req: express.Request, res: express.Response) => {
+  try {
+    const rawEmail = String(req.query?.email || req.body?.email || '').trim().toLowerCase().slice(0, 254);
+    const db = getFirestore();
+    if (rawEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+      const usersSnap = await db.collection('users').where('email', '==', rawEmail).limit(5).get().catch(() => ({ docs: [] as any[] }));
+      for (const docSnap of usersSnap.docs) {
+        await docSnap.ref.set(
+          {
+            marketingOptIn: false,
+            emailUnsubscribedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      }
+    }
+    if (req.method === 'POST') {
+      return res.status(200).json({ success: true, message: 'You have been unsubscribed from non-essential emails.' });
+    }
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.status(200).send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribed | JIYOO</title></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#FAF9F5;color:#1C1917;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;"><div style="max-width:460px;background:#fff;border:1px solid #E7E5E4;border-radius:16px;padding:28px;text-align:center;"><h1 style="font-size:20px;margin:0 0 10px;">Email Preferences Updated</h1><p style="font-size:14px;color:#57534E;line-height:1.6;">You have been immediately unsubscribed from all promotional and marketing emails. You will only receive strictly necessary transactional receipts if you place an order.</p><a href="/" style="display:inline-block;margin-top:16px;padding:10px 20px;background:#1C1917;color:#fff;text-decoration:none;border-radius:999px;font-size:12px;font-weight:600;">Return to JIYOO</a></div></body></html>`);
+  } catch (err) {
+    console.error('Unsubscribe error:', err);
+    return res.status(500).json({ success: false, error: 'Failed to process unsubscribe request' });
+  }
+};
+app.get('/api/email/unsubscribe', strictApiLimiter, handleEmailUnsubscribe);
+app.post('/api/email/unsubscribe', strictApiLimiter, handleEmailUnsubscribe);
 
 app.post('/api/account/delete', strictApiLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
   try {
     const authUser = (req as any).authUser;
-    await deleteUserAccount(getFirestore(), authUser.uid);
+    await deleteUserAccount(getFirestore(), authUser.uid, authUser.email, authUser.name);
     res.status(200).json({ success: true });
   } catch (err: any) {
     console.error('Account deletion failed:', err);
@@ -6502,10 +6919,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
 
       // SECURITY: Never allow unverified client-submitted UTR / manual UPI claims to create orders or decrement stock.
       // Online payments MUST go through /api/razorpay/order + cryptographic HMAC verification in /api/razorpay/verify.
-      const allowedPaymentMethods = new Set([
-        'Cash on Delivery',
-        'WhatsApp Express',
-      ]);
+      const allowedPaymentMethods = new Set(['Cash on Delivery', 'WhatsApp Express']);
       if (!allowedPaymentMethods.has(paymentMethod)) {
         return res.status(400).json({
           success: false,
@@ -6694,6 +7108,13 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
           await releaseInventoryReservation(getFirestore(), stockReservationId, 'order_create_failed').catch(() => {});
         } else {
           await restoreInventory(safeItems).catch(() => {});
+        }
+        if (idempotencyKey && userId && err.message !== 'IDEMPOTENCY_KEY_REUSED') {
+          await getFirestore()
+            .collection('idempotencyKeys')
+            .doc(hashIdempotencyKey('order-create', userId, idempotencyKey))
+            .delete()
+            .catch((cleanupErr: any) => console.error('Failed to remove stale order idempotency record:', cleanupErr));
         }
         if (err.message === 'COUPON_LIMIT_REACHED') {
           return res.status(400).json({ success: false, error: 'This coupon has just reached its usage limit. Please remove it and try again.' });
@@ -7588,9 +8009,35 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
     })
   );
 
+  // Public read-only alias for storefront settings (/api/catalog/settings)
+  app.get('/api/catalog/settings', async (_req, res) => {
+    try {
+      const snap = await getFirestore().collection('settings').doc('global').get();
+      return res.json({ success: true, settings: snap.exists ? snap.data() : {} });
+    } catch {
+      return res.json({ success: true, settings: {} });
+    }
+  });
+
+  // Dynamic UPI QR code generator endpoint (/api/upi/qr)
+  app.get('/api/upi/qr', async (req, res) => {
+    try {
+      const amountNum = Number(req.query.amount || 0);
+      const snap = await getFirestore().collection('settings').doc('global').get();
+      const data = snap.exists ? (snap.data() || {}) : {};
+      const upiId = String(data.upiId || 'jiyoo@upi').trim();
+      const storeName = String(data.storeName || 'Jiyoo Fresh').trim();
+      const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(storeName)}${amountNum > 0 ? `&am=${amountNum.toFixed(2)}` : ''}&cu=INR`;
+      const qrDataUrl = await QRCode.toDataURL(upiUri, { width: 280, margin: 1 });
+      return res.json({ success: true, qrDataUrl, upiId });
+    } catch {
+      return res.status(500).json({ success: false, error: 'Failed to generate UPI QR code' });
+    }
+  });
+
   // Durable scheduled reconciliation for inventory reservations and failed
   // Razorpay webhook work. Vercel cron supplies Authorization: Bearer $CRON_SECRET.
-  app.get('/api/cron/reconcile', adminApiLimiter, async (req, res) => {
+  app.get('/api/cron/reconcile', strictApiLimiter, async (req, res) => {
     try {
       if (!env.CRON_SECRET) return res.status(503).json({ success:false, error:'Cron reconciliation is not configured.' });
       const authorization = String(req.headers.authorization || '');
@@ -7604,6 +8051,24 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
       const db = getFirestore();
       await releaseExpiredInventoryReservations(db);
       await cleanupExpiredWhatsAppOrders(db);
+
+      // Data-Retention Lifecycle Cleanup (Item G.21):
+      // Purge expired idempotency keys (>7 days) and expired admin sessions
+      const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const nowMs = Date.now();
+      try {
+        const oldIdem = await db.collection('idempotencyKeys').where('createdAt', '<', sevenDaysAgoIso).limit(100).get();
+        if (!oldIdem.empty) {
+          await commitInBatches(db, oldIdem.docs, (batch, d) => batch.delete(d.ref));
+        }
+        const oldAdminSessions = await db.collection('admin_sessions').where('expiresAt', '<', nowMs).limit(100).get();
+        if (!oldAdminSessions.empty) {
+          await commitInBatches(db, oldAdminSessions.docs, (batch, d) => batch.delete(d.ref));
+        }
+      } catch (retentionErr) {
+        console.warn('[Cron] Retention cleanup warning:', retentionErr);
+      }
+
       const failed = await db.collection('razorpayWebhookEvents').where('status', '==', 'failed').limit(25).get();
       let retried = 0;
       for (const eventDoc of failed.docs) {
@@ -7833,13 +8298,15 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
   });
 
   // Vite Middleware in Dev vs Static Serving in Production
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+    const vitePkg = 'vite';
+    const { createServer: createViteServer } = await import(vitePkg);
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (!process.env.VERCEL) {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(
       express.static(distPath, {

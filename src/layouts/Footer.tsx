@@ -564,6 +564,28 @@ export function Footer() {
                   Refund Policy
                 </button>
                 <span aria-hidden="true" className="text-stone-300">·</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    window.dispatchEvent(new CustomEvent("open-cookie-settings"))
+                  }
+                  className="hover:text-stone-900 transition-colors cursor-pointer"
+                >
+                  Cookie &amp; Privacy Settings
+                </button>
+                <span aria-hidden="true" className="text-stone-300">·</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new CustomEvent("open-cookie-settings", { detail: { doNotSell: true } })
+                    )
+                  }
+                  className="hover:text-stone-900 transition-colors cursor-pointer"
+                >
+                  Do Not Sell or Share My Info
+                </button>
+                <span aria-hidden="true" className="text-stone-300">·</span>
                 <span>FSSAI Checked</span>
               </div>
             </div>

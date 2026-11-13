@@ -10,6 +10,7 @@ import { useCart } from '../../../contexts/CartContext';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { useOrderActions } from '../hooks/useOrderActions';
 import { auth, db, storage } from '../../../services/firebase';
+import { getStoredCustomerSession } from '../../../utils/customerAuthFallback';
 import { doc, setDoc, updateDoc, collection, query, where, getDocs, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
@@ -316,6 +317,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
   }, [orders]);
   
   const [isUploading, setIsUploading] = useState(false);
+  const [isExportingData, setIsExportingData] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Let the device/browser back button close this panel one step at a time
@@ -338,7 +340,9 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
 
     // 1. Try server-side authenticated order history endpoint
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const fbToken = await auth.currentUser?.getIdToken().catch(() => null);
+      const custSession = getStoredCustomerSession();
+      const token = fbToken || custSession?.token || '';
       if (token) {
         const params = new URLSearchParams({ status: 'all', pageSize: '50' });
         const res = await fetch(`/api/orders/history?${params.toString()}`, {
@@ -411,7 +415,8 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
     setLookupError(null);
     setTrackedLookupOrder(null);
     try {
-      const token = await auth.currentUser?.getIdToken().catch(() => null);
+      const fbToken = await auth.currentUser?.getIdToken().catch(() => null);
+      const token = fbToken || getStoredCustomerSession()?.token || null;
       const res = await fetch('/api/orders/track', {
         method: 'POST',
         headers: {
@@ -466,7 +471,8 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
           const q = query(collection(db, "reviews"), where("userId", "==", user.id));
           const snap = await getDocs(q);
           const loaded = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          loaded.sort((a: any, b: any) => (((b.createdAt as any)?.seconds || 0) || 0) - (((a.createdAt as any)?.seconds || 0) || 0));
+          const toMs = (val: any) => val?.seconds ? val.seconds * 1000 : (val ? new Date(val).getTime() || 0 : 0);
+          loaded.sort((a: any, b: any) => toMs(b.createdAt) - toMs(a.createdAt));
           setReviews(loaded);
         } catch (err) {
           console.error("Failed to fetch reviews:", err);
@@ -557,31 +563,81 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const handleDownloadMyData = async () => {
+    setIsExportingData(true);
+    try {
+      const token = (await auth.currentUser?.getIdToken().catch(() => null)) || getStoredCustomerSession()?.token;
+      if (!token) {
+        showToast("Please sign in again to download your personal data.", "error");
+        return;
+      }
+      const res = await fetch('/api/account/export', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || 'Could not export your account data.');
+      }
+      const blob = new Blob([JSON.stringify(data.exportPackage, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `jiyoo-personal-data-${user.id.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("Your personal data package has been downloaded.", "success");
+    } catch (err: any) {
+      showToast(err?.message || "Failed to download personal data.", "error");
+    } finally {
+      setIsExportingData(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
-    if (await confirm({ title: "Delete account?", message: "Are you sure you want to delete your account? This action cannot be undone." })) {
+    if (
+      await confirm({
+        title: "Permanently delete your account?",
+        message:
+          "This will permanently delete your profile, saved addresses, product reviews, coupon redemptions, and login credentials, and anonymize your past order receipts for tax compliance. A confirmation email will be sent to your address. This action cannot be undone.",
+      })
+    ) {
       try {
-        if (auth.currentUser) {
-          const token = await auth.currentUser.getIdToken();
-          const res = await fetch('/api/account/delete', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          const data = await res.json();
-          if (!res.ok || !data.success) {
-            throw new Error(data.error || 'Failed to delete account data');
-          }
-          // Server has already cleaned up Firestore data and the Auth user.
-          logoutUser();
-          onClose();
+        const token = (await auth.currentUser?.getIdToken().catch(() => null)) || getStoredCustomerSession()?.token;
+        if (!token) {
+          throw new Error("Please sign in again to confirm account deletion.");
         }
+        const res = await fetch('/api/account/delete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Failed to delete account data');
+        }
+        try {
+          localStorage.removeItem(`jiyoo_orders_history_v2:${user.id}`);
+          localStorage.removeItem('jiyoo_notification_prefs');
+        } catch {
+          // ignore storage cleanup errors
+        }
+        showToast("Your account and personal data have been permanently deleted.", "success");
+        logoutUser();
+        onClose();
       } catch (err: any) {
         if (err?.code === 'auth/requires-recent-login') {
           showToast("Please log out and log back in to delete your account.", "error");
         } else {
-          showToast(err.message || "Failed to delete account.", "error");
+          showToast(err?.message || "Failed to delete account.", "error");
         }
       }
     }
@@ -1458,10 +1514,25 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                         Save Changes
                       </button>
 
-                      <div className="pt-6 mt-6 border-t border-stone-100 flex flex-col gap-3">
-                        <button onClick={() => { logoutUser(); onClose(); }} className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors font-medium">
+                      <div className="pt-6 mt-6 border-t border-stone-100 flex flex-wrap items-center gap-3">
+                        <button onClick={() => { logoutUser(); onClose(); }} className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors font-medium cursor-pointer">
                           <LogOut className="w-4 h-4" />
                           <span>Sign Out</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDownloadMyData}
+                          disabled={isExportingData}
+                          className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-stone-800 bg-white border border-stone-300 hover:bg-stone-50 rounded-lg transition-colors text-xs font-semibold cursor-pointer disabled:opacity-50"
+                        >
+                          <span>{isExportingData ? 'Preparing Data Export...' : 'Download My Data (JSON)'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDeleteAccount}
+                          className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 rounded-lg transition-colors text-xs font-semibold cursor-pointer"
+                        >
+                          <span>Delete My Account</span>
                         </button>
                       </div>
                     </div>
@@ -1889,18 +1960,28 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
 
                       <div className="pt-4 border-t border-stone-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
-                          <h4 className="text-sm font-semibold text-stone-900">Account Data &amp; Right to Erasure</h4>
+                          <h4 className="text-sm font-semibold text-stone-900">Data Portability &amp; Right to Erasure (DPDP / GDPR / CCPA)</h4>
                           <p className="text-xs text-stone-500 mt-0.5">
-                            You can permanently delete your account and personal profile data at any time.
+                            Download a machine-readable JSON copy of all personal data we hold on your account, or permanently delete your account and scrub personal identifiers.
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={handleDeleteAccount}
-                          className="px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-xs font-semibold transition-colors cursor-pointer"
-                        >
-                          Delete My Account
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={handleDownloadMyData}
+                            disabled={isExportingData}
+                            className="px-4 py-2 rounded-xl border border-stone-300 bg-white text-stone-800 hover:bg-stone-50 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            {isExportingData ? 'Exporting...' : 'Download My Data'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDeleteAccount}
+                            className="px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 text-xs font-semibold transition-colors cursor-pointer"
+                          >
+                            Delete My Account
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

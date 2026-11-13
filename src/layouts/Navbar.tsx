@@ -79,7 +79,7 @@ export function Navbar({
   const searchContainerMobileRef = useRef<HTMLDivElement>(null);
 
   const { categoriesList: navCategories } = useStorefrontCategories();
-  const { currentProducts } = useStorefrontProducts();
+  const { currentProducts, dbProducts } = useStorefrontProducts();
 
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
@@ -197,31 +197,35 @@ export function Navbar({
   const liveSearchResults = useMemo(() => {
     const q = searchQuery.trim();
     if (!q) return [];
+    if (activePage === "wholesale") {
+      const wholesalePool = dbProducts.filter((p) => p.wholesaleEligible);
+      const wholesaleMatches = searchCatalogProducts(wholesalePool, q);
+      if (wholesaleMatches.length > 0) return wholesaleMatches;
+    }
     const searchable = currentProducts.filter((p) => !frozenCategoryIds.has(p.categoryId));
     return searchCatalogProducts(searchable, q);
-  }, [searchQuery, currentProducts, frozenCategoryIds]);
+  }, [searchQuery, activePage, dbProducts, currentProducts, frozenCategoryIds]);
 
   const scrollToProductsSection = () => {
-    const scrollTarget = () => {
-      const el = document.getElementById("products");
-      if (el) {
-        const y = el.getBoundingClientRect().top + window.scrollY - 96;
-        window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
-      }
-    };
     if (activePage === "wholesale") {
-      onRetailClick?.();
-      setTimeout(scrollTarget, 100);
-    } else {
-      scrollTarget();
+      const wEl = document.getElementById("wholesale-catalog-grid");
+      if (wEl) {
+        wEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      return;
+    }
+    const el = document.getElementById("products");
+    if (el) {
+      const y = el.getBoundingClientRect().top + window.scrollY - 96;
+      window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
     }
   };
 
   const handleRealTimeSearchChange = (value: string) => {
     setSearchQuery(value);
     setDropdownFocused(true);
-    if (value.trim() && activePage === "wholesale") {
-      onRetailClick?.();
+    if (activePage === "wholesale") {
+      window.dispatchEvent(new CustomEvent("wholesale-search-query", { detail: value }));
     }
   };
 
@@ -254,19 +258,31 @@ export function Navbar({
     setDropdownFocused(false);
     setSearchOpen(false);
     setMobileMenuOpen(false);
-    const dispatchOpen = () => {
-      window.dispatchEvent(new CustomEvent("select-product", { detail: { product } }));
-      const el = document.getElementById("products");
-      if (el) {
-        const y = el.getBoundingClientRect().top + window.scrollY - 96;
-        window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
-      }
-    };
     if (activePage === "wholesale") {
+      if (product.wholesaleEligible) {
+        window.dispatchEvent(new CustomEvent("select-wholesale-product", { detail: { product } }));
+        const wEl = document.getElementById("wholesale-catalog-grid");
+        if (wEl) {
+          wEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        return;
+      }
       onRetailClick?.();
-      setTimeout(dispatchOpen, 120);
-    } else {
-      dispatchOpen();
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("select-product", { detail: { product } }));
+        const el = document.getElementById("products");
+        if (el) {
+          const y = el.getBoundingClientRect().top + window.scrollY - 96;
+          window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+        }
+      }, 120);
+      return;
+    }
+    window.dispatchEvent(new CustomEvent("select-product", { detail: { product } }));
+    const el = document.getElementById("products");
+    if (el) {
+      const y = el.getBoundingClientRect().top + window.scrollY - 96;
+      window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
     }
   };
 
@@ -538,20 +554,12 @@ export function Navbar({
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
                   setMobileMenuOpen(false);
-                  if (activePage === "wholesale") {
-                    onRetailClick?.();
-                  } else {
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }
+                  window.scrollTo({ top: 0, behavior: "smooth" });
                 }
               }}
               onClick={() => {
                 setMobileMenuOpen(false);
-                if (activePage === "wholesale") {
-                  onRetailClick?.();
-                } else {
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }
+                window.scrollTo({ top: 0, behavior: "smooth" });
               }}
             >
               <img
@@ -603,21 +611,45 @@ export function Navbar({
                 </button>
               </div>
 
-              {activePage === "retail" &&
-                navCategories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => handleMobileNavCategory(cat.id)}
-                    className="group relative py-1 text-[13px] xl:text-sm font-medium text-[#57534E] hover:text-[#1C1917] transition-colors cursor-pointer capitalize whitespace-nowrap shrink-0"
-                  >
-                    <span>{cat.label}</span>
-                    <span
-                      aria-hidden="true"
-                      className="pointer-events-none absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#1C1917] origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
-                    />
-                  </button>
-                ))}
+              {activePage === "retail"
+                ? navCategories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => handleMobileNavCategory(cat.id)}
+                      className="group relative py-1 text-[13px] xl:text-sm font-medium text-[#57534E] hover:text-[#1C1917] transition-colors cursor-pointer capitalize whitespace-nowrap shrink-0"
+                    >
+                      <span>{cat.label}</span>
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#1C1917] origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                      />
+                    </button>
+                  ))
+                : (["All Boxes", "Oranges", "Apples & Pears", "Dragon Fruit & Berries", "Grapes"] as const).map(
+                    (wFilter) => (
+                      <button
+                        key={wFilter}
+                        type="button"
+                        onClick={() => {
+                          window.dispatchEvent(
+                            new CustomEvent("select-wholesale-filter", { detail: wFilter })
+                          );
+                          const el = document.getElementById("wholesale-catalog-grid");
+                          if (el) {
+                            el.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }
+                        }}
+                        className="group relative py-1 text-[13px] xl:text-sm font-medium text-[#57534E] hover:text-[#1C1917] transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                      >
+                        <span>{wFilter}</span>
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#1C1917] origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                        />
+                      </button>
+                    )
+                  )}
               <button
                 type="button"
                 onClick={onAboutClick}
@@ -882,20 +914,12 @@ export function Navbar({
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       setMobileMenuOpen(false);
-                      if (activePage === "wholesale") {
-                        onRetailClick?.();
-                      } else {
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }
+                      window.scrollTo({ top: 0, behavior: "smooth" });
                     }
                   }}
                   onClick={() => {
                     setMobileMenuOpen(false);
-                    if (activePage === "wholesale") {
-                      onRetailClick?.();
-                    } else {
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }
+                    window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
                 >
                   <img

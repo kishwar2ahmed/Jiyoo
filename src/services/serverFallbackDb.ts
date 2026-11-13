@@ -157,11 +157,24 @@ function ensureInitialized() {
       0;
     const existing = store.products[id];
     const isAdminEdited = existing?.adminEdited === true;
+    const existingImg = typeof existing?.image === 'string' ? existing.image.trim() : '';
+    const isCustomUpload =
+      isAdminEdited &&
+      (existingImg.startsWith('/uploads/') ||
+        existingImg.startsWith('uploads/') ||
+        existingImg.startsWith('data:image/') ||
+        existingImg.includes('firebasestorage.googleapis.com') ||
+        existingImg.includes('supabase.co/storage'));
     store.products[id] = {
       ...(existing || {}),
       ...p,
       id,
       name: isAdminEdited ? (existing?.name || p.name) : p.name,
+      image: isCustomUpload ? existingImg : p.image,
+      images:
+        isCustomUpload && Array.isArray(existing?.images) && existing.images.length > 0
+          ? existing.images
+          : (p as any).images || [isCustomUpload ? existingImg : p.image].filter(Boolean),
       category: p.category || 'General',
       categoryId:
         (p as any).categoryId ||

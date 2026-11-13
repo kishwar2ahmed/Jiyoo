@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, MapPin, Navigation, Search, Check, Loader2, Bookmark, Compass } from 'lucide-react';
+import { X, MapPin, Navigation, Search, Check, Loader2, Bookmark, Compass, Shield } from 'lucide-react';
 import { useModalBackButton } from '../hooks/useModalBackButton';
+import { hasMapsAndLocationConsent, savePrivacyConsentPreferences, getPrivacyConsentPreferences } from './CookieConsentBanner';
 
 interface LocationPickerModalProps {
   isOpen: boolean;
@@ -29,19 +30,25 @@ export function LocationPickerModal({
   const [formattedAddress, setFormattedAddress] = useState('');
   const [pincode, setPincode] = useState('');
   const [activeTab, setActiveTab] = useState<'map' | 'saved'>(initialTab);
+  const [mapEmbedAllowed, setMapEmbedAllowed] = useState<boolean>(() => hasMapsAndLocationConsent());
 
   useModalBackButton(isOpen, onClose);
 
-  // Sync activeTab when modal opens with initialTab
+  // Sync activeTab and consent state when modal opens
   useEffect(() => {
     if (isOpen) {
       setActiveTab(initialTab);
+      setMapEmbedAllowed(hasMapsAndLocationConsent());
     }
   }, [isOpen, initialTab]);
 
-  const allSaved = savedAddresses;
+  useEffect(() => {
+    const syncConsent = () => setMapEmbedAllowed(hasMapsAndLocationConsent());
+    window.addEventListener('jiyoo-privacy-consent-updated', syncConsent);
+    return () => window.removeEventListener('jiyoo-privacy-consent-updated', syncConsent);
+  }, []);
 
-  // Auto detect GPS on opening if no address set
+  const allSaved = savedAddresses;
 
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
@@ -124,11 +131,16 @@ export function LocationPickerModal({
     );
   };
 
-  useEffect(() => {
-    if (isOpen && initialTab === 'map' && !formattedAddress) {
-      handleDetectGps();
-    }
-  }, [isOpen, initialTab]);
+  const handleEnableMapEmbed = () => {
+    const current = getPrivacyConsentPreferences();
+    savePrivacyConsentPreferences({
+      mapsAndLocation: true,
+      analytics: current.analytics,
+      marketing: current.marketing,
+      doNotSellOrShare: current.doNotSellOrShare,
+    });
+    setMapEmbedAllowed(true);
+  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,6 +255,9 @@ export function LocationPickerModal({
                       {isSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Search'}
                     </button>
                   </div>
+                  <p className="text-[10px] text-gray-500 mt-1 px-1">
+                    Address search queries OpenStreetMap (Nominatim) only when you click Search or Use Current GPS Location.
+                  </p>
 
                   {/* Search Dropdown */}
                   {searchResults.length > 0 && (
@@ -282,17 +297,42 @@ export function LocationPickerModal({
                   )}
                 </button>
 
-                {/* Google Maps Visual Embed */}
+                {/* Google Maps Visual Embed — Consent-Gated (Loads only after click or consent) */}
                 <div className="relative w-full h-48 rounded-2xl overflow-hidden border border-gray-200 shadow-inner bg-gray-100">
-                  <iframe
-                    title="Location Preview Map"
-                    src={`https://maps.google.com/maps?q=${selectedCoords.lat},${selectedCoords.lng}&z=16&output=embed`}
-                    className="w-full h-full border-0"
-                    loading="lazy"
-                  />
-                  <div className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-md text-[10px] font-mono text-gray-600 border border-gray-200 shadow-2xs">
-                    {selectedCoords.lat.toFixed(4)}, {selectedCoords.lng.toFixed(4)}
-                  </div>
+                  {mapEmbedAllowed ? (
+                    <>
+                      <iframe
+                        title="Location Preview Map"
+                        src={`https://maps.google.com/maps?q=${selectedCoords.lat},${selectedCoords.lng}&z=16&output=embed`}
+                        className="w-full h-full border-0"
+                        loading="lazy"
+                      />
+                      <div className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-md text-[10px] font-mono text-gray-600 border border-gray-200 shadow-2xs">
+                        {selectedCoords.lat.toFixed(4)}, {selectedCoords.lng.toFixed(4)}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-stone-50 space-y-2.5">
+                      <div className="w-9 h-9 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+                        <Shield className="w-4 h-4 text-emerald-700" />
+                      </div>
+                      <div className="space-y-1 max-w-xs">
+                        <p className="text-xs font-bold text-stone-900">
+                          Interactive Google Map Blocked by Default
+                        </p>
+                        <p className="text-[11px] text-stone-500 leading-snug">
+                          Loading the map connects to <code className="font-mono text-[10px]">maps.google.com</code>. Click below to load the map or enter your address directly below.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleEnableMapEmbed}
+                        className="px-3.5 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-[11px] font-semibold transition-colors cursor-pointer"
+                      >
+                        Load Interactive Google Map
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Address Input & Pincode confirmation */}
@@ -324,8 +364,8 @@ export function LocationPickerModal({
                     />
                   </div>
 
-                  {/* Google Maps Grounding Intelligence */}
-                  <div className="pt-2">
+                  {/* Google Maps Grounding Intelligence (Explicit AI Disclosure) */}
+                  <div className="pt-2 space-y-1">
                     <button
                       type="button"
                       onClick={() => fetchMapsGrounding()}
@@ -335,18 +375,26 @@ export function LocationPickerModal({
                       {isGroundingLoading ? (
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                          Consulting Google Maps Platform...
+                          Consulting Google Maps &amp; Gemini AI...
                         </>
                       ) : (
                         <>
                           <Compass className="w-3.5 h-3.5 text-emerald-600" />
-                          Verify Locality with Google Maps
+                          Verify Locality with Google Maps (AI Summary)
                         </>
                       )}
                     </button>
+                    <p className="text-[10px] text-stone-500 text-center">
+                      Optional: Sends the searched locality &amp; coordinates to Google Gemini + Google Maps Grounding to generate an AI-assisted landmark summary.
+                    </p>
 
                     {groundingData && (
                       <div className="mt-2.5 p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-2 text-xs">
+                        <div className="flex items-center justify-between gap-2 pb-1 border-b border-emerald-200/60">
+                          <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-emerald-900">
+                            AI-Generated Locality Summary (Google Gemini + Maps)
+                          </span>
+                        </div>
                         {groundingData.text && (
                           <p className="text-stone-700 text-[11px] leading-relaxed">
                             {groundingData.text}

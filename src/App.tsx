@@ -13,6 +13,7 @@ import { AuthModal } from './features/auth/components/AuthModal';
 import { AboutModal } from './features/core/components/AboutModal';
 import { ContactModal } from './features/core/components/ContactModal';
 import { LegalPolicyModal } from './features/core/components/LegalPolicyModal';
+import { CookieConsentBanner } from './features/core/components/CookieConsentBanner';
 import { OfflineBanner } from './features/core/components/OfflineBanner';
 import { FlyingItemsLayer } from './features/core/components/FlyingItemsLayer';
 
@@ -21,8 +22,23 @@ const AdminPanel = lazy(() =>
 );
 
 function AppContent() {
-  const [activePage, setActivePage] = useState<'retail' | 'wholesale'>('retail');
+  const [activePage, setActivePageState] = useState<'retail' | 'wholesale'>(() => {
+    if (typeof window === 'undefined') return 'retail';
+    if (window.location.hash === '#wholesale') return 'wholesale';
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('section') === 'wholesale') return 'wholesale';
+    if (params.get('section') === 'retail') return 'retail';
+    try {
+      const saved = sessionStorage.getItem('jiyoo_active_page');
+      if (saved === 'wholesale' || saved === 'retail') return saved;
+    } catch {
+      // ignore storage errors
+    }
+    return 'retail';
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [cartInitialStep, setCartInitialStep] = useState<'cart' | 'checkout'>('cart');
+  const [cartInitialPayment, setCartInitialPayment] = useState<'upi_qr' | 'cod' | 'whatsapp' | undefined>(undefined);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
@@ -34,10 +50,27 @@ function AppContent() {
     return window.location.hash === '#admin' || window.location.hash.startsWith('#admin/');
   });
 
+  const setActivePage = (nextPage: 'retail' | 'wholesale') => {
+    setActivePageState((prev) => {
+      if (prev !== nextPage && typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return nextPage;
+    });
+    try {
+      sessionStorage.setItem('jiyoo_active_page', nextPage);
+    } catch {
+      // ignore storage errors
+    }
+  };
+
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash;
       setIsAdminRoute(hash === '#admin' || hash.startsWith('#admin/'));
+      if (hash === '#wholesale') {
+        setActivePage('wholesale');
+      }
     };
 
     const handleOpenRetail = () => setActivePage('retail');
@@ -46,9 +79,15 @@ function AppContent() {
     const handleOpenContact = () => setIsContactOpen(true);
     const handleOpenLegal = (e: Event) => {
       const detail = (e as CustomEvent)?.detail;
-      if (detail === 'privacy' || detail === 'terms' || detail === 'refund') {
-        setLegalPolicyType(detail);
+      const tab = typeof detail === 'string' ? detail : detail?.tab;
+      if (tab === 'privacy' || tab === 'terms' || tab === 'refund') {
+        setLegalPolicyType(tab);
       }
+    };
+    const handleOpenWhatsAppCheckout = () => {
+      setCartInitialStep('checkout');
+      setCartInitialPayment('whatsapp');
+      setIsCartOpen(true);
     };
 
     window.addEventListener('hashchange', handleHashChange);
@@ -57,6 +96,10 @@ function AppContent() {
     document.addEventListener('open-about', handleOpenAbout);
     document.addEventListener('open-contact', handleOpenContact);
     document.addEventListener('open-legal', handleOpenLegal);
+    document.addEventListener('open-legal-policy', handleOpenLegal);
+    window.addEventListener('open-legal-policy', handleOpenLegal);
+    document.addEventListener('open-whatsapp-checkout', handleOpenWhatsAppCheckout);
+    window.addEventListener('open-whatsapp-checkout', handleOpenWhatsAppCheckout);
 
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
@@ -65,6 +108,10 @@ function AppContent() {
       document.removeEventListener('open-about', handleOpenAbout);
       document.removeEventListener('open-contact', handleOpenContact);
       document.removeEventListener('open-legal', handleOpenLegal);
+      document.removeEventListener('open-legal-policy', handleOpenLegal);
+      window.removeEventListener('open-legal-policy', handleOpenLegal);
+      document.removeEventListener('open-whatsapp-checkout', handleOpenWhatsAppCheckout);
+      window.removeEventListener('open-whatsapp-checkout', handleOpenWhatsAppCheckout);
     };
   }, []);
 
@@ -94,7 +141,11 @@ function AppContent() {
 
       <Navbar
         onUserClick={() => setIsAuthOpen(true)}
-        onCartClick={() => setIsCartOpen(true)}
+        onCartClick={() => {
+          setCartInitialStep('cart');
+          setCartInitialPayment(undefined);
+          setIsCartOpen(true);
+        }}
         onAboutClick={() => setIsAboutOpen(true)}
         onContactClick={() => setIsContactOpen(true)}
         activePage={activePage}
@@ -106,7 +157,11 @@ function AppContent() {
         {activePage === 'wholesale' ? (
           <WholesalePage
             onBackToRetail={() => setActivePage('retail')}
-            onOpenCart={() => setIsCartOpen(true)}
+            onOpenCart={() => {
+              setCartInitialStep('cart');
+              setCartInitialPayment(undefined);
+              setIsCartOpen(true);
+            }}
           />
         ) : (
           <>
@@ -122,7 +177,13 @@ function AppContent() {
 
       <CartModal
         isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
+        initialStep={cartInitialStep}
+        initialPaymentMethod={cartInitialPayment}
+        onClose={() => {
+          setIsCartOpen(false);
+          setCartInitialStep('cart');
+          setCartInitialPayment(undefined);
+        }}
         onRequireAuth={() => {
           setIsCartOpen(false);
           setIsAuthOpen(true);
@@ -137,6 +198,7 @@ function AppContent() {
         initialTab={legalPolicyType || 'privacy'}
         onClose={() => setLegalPolicyType(null)}
       />
+      <CookieConsentBanner />
     </div>
   );
 }

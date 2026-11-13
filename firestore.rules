@@ -157,7 +157,8 @@ service cloud.firestore {
       // Disallowing all client-side writes (including manual client SDK
       // updates by admins) prevents any modification from bypassing server
       // state-machine validation and the immutable audit log.
-      allow create, update, delete: if false;
+      allow create: if false;
+      allow update, delete: if false;
 
       match /audit_logs/{logId} {
         // Append-only server-side order audit trail. Admins and the order

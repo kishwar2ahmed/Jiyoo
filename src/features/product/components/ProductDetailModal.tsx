@@ -85,15 +85,15 @@ export function ProductDetailModal({
   const isMeat = product.categoryId === "meat";
   const isOutOfStock = product.stock === 0 || product.stockStatus === 'out_of_stock';
   const isWholesaleProduct = Boolean(product.wholesaleEligible && product.wholesalePrice);
-  const currentPrice = selectedWeight
-    ? selectedWeight.price
-    : isWholesaleProduct
+  const currentPrice = isWholesaleProduct
     ? product.wholesalePrice!
+    : selectedWeight
+    ? selectedWeight.price
     : product.price;
-  const currentUnit = selectedWeight
-    ? selectedWeight.label
-    : isWholesaleProduct
+  const currentUnit = isWholesaleProduct
     ? product.wholesaleUnit || product.unit
+    : selectedWeight
+    ? selectedWeight.label
     : product.unit;
 
   const handleDecrease = () => {
@@ -560,7 +560,9 @@ export function ProductDetailModal({
                     {/* Delivery Info */}
                     <div className="group flex items-center gap-2 text-xs text-emerald-900 font-bold uppercase tracking-wider bg-emerald-50 border border-emerald-200/80 px-3.5 py-1.5 rounded-full shadow-2xs">
                       <RealisticDeliveryScooter className="w-9 h-7.5 shrink-0" />
-                      <span>Delivery: {product.deliveryEstimate || "60 mins"}</span>
+                      <span>
+                        Delivery: {product.deliveryEstimate || (isWholesaleProduct ? "All Over India" : "60 mins")}
+                      </span>
                     </div>
 
                     {/* Price display */}
@@ -761,7 +763,7 @@ export function ProductDetailModal({
                             {relatedProduct.name}
                           </h4>
                           <p className="text-xs font-semibold text-brand-gray-500 tabular-nums">
-                            ₹{relatedProduct.price}
+                            ₹{relatedProduct.wholesaleEligible && relatedProduct.wholesalePrice ? relatedProduct.wholesalePrice : relatedProduct.price}
                           </p>
                         </div>
                       </motion.div>

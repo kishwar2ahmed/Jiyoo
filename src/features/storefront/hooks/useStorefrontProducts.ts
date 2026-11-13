@@ -3,7 +3,7 @@ import { collection, query, limit, onSnapshot, Unsubscribe } from 'firebase/fire
 import { db, isFirebaseConfigured } from '../../../services/firebase';
 import { Product } from '../../../types';
 import { PRODUCTS as defaultProducts } from '../../../constants/data';
-import { getOptimizedImageUrl, resolveProductImage } from '../../../utils/imageUtils';
+import { getOptimizedImageUrl, resolveProductImage, isCustomAdminUploadedImage } from '../../../utils/imageUtils';
 
 export type CatalogSyncStatus =
   | 'LOADING'
@@ -14,7 +14,7 @@ export type CatalogSyncStatus =
   | 'CONFIGURATION_ERROR'
   | 'OFFLINE';
 
-const PUBLIC_CATALOG_CACHE_KEY = 'jiyoo_public_catalog_cache_v5';
+const PUBLIC_CATALOG_CACHE_KEY = 'jiyoo_public_catalog_cache_v6';
 const MAX_RETRY_ATTEMPTS = 4;
 
 interface PublicCatalogCache {
@@ -108,12 +108,13 @@ function readPublicCatalogCache(): { products: Product[]; lastSyncedAt: string |
       Array.isArray(parsed.products) &&
       parsed.products.length > 0
     ) {
-      const valid = parsed.products
-        .filter(isValidProductRecord)
-        .map((p) => sanitizePublicProduct(p as Product));
-      if (valid.length > 0) {
+      const merged = mergeCatalogRecords(
+        parsed.products as Array<Record<string, any>>,
+        getAuthoritativeBaseline()
+      ).products;
+      if (merged.length > 0) {
         return {
-          products: valid,
+          products: merged,
           lastSyncedAt: typeof parsed.lastSyncedAt === 'string' ? parsed.lastSyncedAt : null,
         };
       }
@@ -230,6 +231,13 @@ export function mergeCatalogRecords(
     const existingBase = mergedMap.get(id);
     const isWholesaleBaseline = Boolean(existingBase && id.startsWith('w_'));
     const isAdminEdited = record.adminEdited === true;
+    const hasCustomAdminImage = isAdminEdited && isCustomAdminUploadedImage(record.image);
+    const resolvedBaseOrAdminImage = existingBase
+      ? hasCustomAdminImage
+        ? record.image
+        : existingBase.image
+      : record.image;
+
     const combined = existingBase
       ? {
           ...existingBase,
@@ -277,16 +285,16 @@ export function mergeCatalogRecords(
             ? existingBase.unit
             : record.unit || existingBase.unit || '1 kg',
           image: getOptimizedImageUrl(
-            resolveProductImage(record.image || existingBase.image),
+            resolveProductImage(resolvedBaseOrAdminImage),
             500,
             80
           ),
           images:
-            Array.isArray(record.images) && record.images.length > 0
+            hasCustomAdminImage && Array.isArray(record.images) && record.images.length > 0
               ? record.images
               : Array.isArray(existingBase.images) && existingBase.images.length > 0
               ? existingBase.images
-              : [record.image || existingBase.image].filter(Boolean),
+              : [resolvedBaseOrAdminImage].filter(Boolean),
         }
       : {
           ...record,

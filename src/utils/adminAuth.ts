@@ -12,6 +12,7 @@ export const OWNER_ADMIN_EMAILS = new Set([
   'shamsjiyoo@gmail.com',
   'jiyooshams@gmail.com',
   'syedshams7799@gmail.com',
+  'kishwar.ahmed.vr@gmail.com',
 ]);
 
 const ADMIN_SIGNED_TOKEN_KEY = 'jiyoo_admin_signed_token';

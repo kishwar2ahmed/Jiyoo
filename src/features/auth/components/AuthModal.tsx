@@ -33,6 +33,11 @@ import {
   supabaseSignUpWithEmail,
   supabaseSendPasswordReset,
 } from "../../../services/supabase";
+import {
+  getStoredCustomerSession,
+  serverCustomerSignIn,
+  serverCustomerSignUp,
+} from "../../../utils/customerAuthFallback";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import {
   signInWithEmailAndPassword,
@@ -78,6 +83,22 @@ export function AuthModal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
+
+  const sanitizeAuthError = (err: any, fallback: string): string => {
+    const code = String(err?.code || "");
+    if (code === "auth/invalid-email") return "Please enter a valid email address.";
+    if (code === "auth/user-disabled") return "This account has been disabled. Please contact support.";
+    if (code === "auth/too-many-requests") return "Too many attempts. Please wait a few minutes and try again.";
+    if (code === "auth/network-request-failed") return "Network connection error. Please check your internet connection.";
+    if (code === "auth/email-already-in-use") return "An account with this email already exists.";
+    if (code === "auth/weak-password") return "Password should be at least 6 characters.";
+    const msg = String(err?.message || "").trim();
+    if (msg && !msg.startsWith("Firebase:") && !msg.includes("auth/") && msg.length < 160) {
+      return msg;
+    }
+    return fallback;
+  };
 
   // Let the device/browser back button close this modal one step at a time
   // instead of navigating away from the site.
@@ -88,22 +109,47 @@ export function AuthModal({
       const fetchOrders = async () => {
         setOrdersLoading(true);
         try {
-          const qUser = query(
-            collection(db, "orders"),
-            where("userId", "==", user.id),
-          );
-          const snapUser = await getDocs(qUser);
-          let loaded = snapUser.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
+          let loaded: any[] = [];
+          try {
+            const qUser = query(
+              collection(db, "orders"),
+              where("userId", "==", user.id),
+            );
+            const snapUser = await getDocs(qUser);
+            loaded = snapUser.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
+          } catch {
+            // Firestore read optional when using server fallback DB
+          }
 
           try {
+            const orderMap = new Map();
+            loaded.forEach((o) => orderMap.set(o.id, o));
+
+            const custSession = getStoredCustomerSession();
+            const fbToken = await auth.currentUser?.getIdToken().catch(() => null);
+            const bearerToken = fbToken || custSession?.token || "";
+            if (bearerToken) {
+              const apiRes = await fetch("/api/customer-auth/orders", {
+                headers: { Authorization: `Bearer ${bearerToken}` },
+              }).catch(() => null);
+              if (apiRes && apiRes.ok) {
+                const apiData = await apiRes.json().catch(() => null);
+                if (Array.isArray(apiData?.orders)) {
+                  apiData.orders.forEach((so: any) => {
+                    if (so?.id && !orderMap.has(so.id)) {
+                      orderMap.set(so.id, so);
+                    }
+                  });
+                }
+              }
+            }
+
             const local = JSON.parse(
               localStorage.getItem(`jiyoo_orders_history_v2:${user.id}`) || "[]",
             );
-            const orderMap = new Map();
-            loaded.forEach((o) => orderMap.set(o.id, o));
             if (isSupabaseConfigured) {
               const supaOrdersRes = await supabaseFetchTable<any>("orders", {
                 column: "user_id",
@@ -187,7 +233,7 @@ export function AuthModal({
         setInfoMessage(null);
       }, 3000);
     } catch (err: any) {
-      setError(err.message || "Failed to send password reset email.");
+      setError(sanitizeAuthError(err, "Unable to send password reset email right now. Please try again."));
     } finally {
       setIsLoading(false);
     }
@@ -218,6 +264,14 @@ export function AuthModal({
           return;
         }
       }
+      const serverLogin = await serverCustomerSignIn(email, password, rememberMe);
+      if (serverLogin.success && serverLogin.user) {
+        setStep("success");
+        setTimeout(() => {
+          onClose();
+        }, 1200);
+        return;
+      }
       if (
         err.code === "auth/user-not-found" ||
         err.code === "auth/wrong-password" ||
@@ -228,7 +282,7 @@ export function AuthModal({
         );
       } else {
         setError(
-          err.message || "Failed to sign in. Please check your credentials.",
+          serverLogin.error || sanitizeAuthError(err, "Failed to sign in. Please check your credentials."),
         );
       }
     } finally {
@@ -242,9 +296,21 @@ export function AuthModal({
       setError("Please enter your full name");
       return;
     }
+    if (password.length < 6) {
+      setError("Password should be at least 6 characters.");
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
+      try {
+        localStorage.setItem(
+          "jiyoo_notification_prefs",
+          JSON.stringify({ orderUpdates: true, promotions: Boolean(marketingOptIn), push: false })
+        );
+      } catch {
+        // ignore storage errors
+      }
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -256,6 +322,7 @@ export function AuthModal({
       if (isSupabaseConfigured) {
         supabaseSignUpWithEmail(email, password, fullName).catch(() => {});
       }
+      serverCustomerSignUp(fullName, email, password, rememberMe).catch(() => {});
       setStep("success");
       setTimeout(() => {
         onClose();
@@ -263,11 +330,21 @@ export function AuthModal({
     } catch (err: any) {
       if (err.code === "auth/email-already-in-use") {
         setError("An account with this email already exists.");
-      } else if (err.code === "auth/weak-password") {
-        setError("Password should be at least 6 characters.");
-      } else {
-        setError(err.message || "Failed to create account. Please try again.");
+        return;
       }
+      if (err.code === "auth/weak-password") {
+        setError("Password should be at least 6 characters.");
+        return;
+      }
+      const serverReg = await serverCustomerSignUp(fullName, email, password, rememberMe);
+      if (serverReg.success && serverReg.user) {
+        setStep("success");
+        setTimeout(() => {
+          onClose();
+        }, 1200);
+        return;
+      }
+      setError(serverReg.error || sanitizeAuthError(err, "Failed to create account. Please try again."));
     } finally {
       setIsLoading(false);
     }
@@ -293,7 +370,7 @@ export function AuthModal({
       if (err?.code === "auth/popup-blocked") {
         setError("Sign-in popup was blocked by your browser. Please allow popups for this site and try again.");
       } else {
-        setError(err?.message || "Failed to sign in with Google.");
+        setError(sanitizeAuthError(err, "Unable to sign in with Google right now. Please try email sign-in."));
       }
     } finally {
       setIsLoading(false);
@@ -877,6 +954,22 @@ export function AuthModal({
                       </div>
                     )}
 
+                    {mode === "signup" && (
+                      <div className="space-y-2 pt-1 pb-1">
+                        <label className="flex items-start gap-2 text-[11px] text-stone-600 cursor-pointer select-none leading-snug">
+                          <input
+                            type="checkbox"
+                            checked={marketingOptIn}
+                            onChange={(e) => setMarketingOptIn(e.target.checked)}
+                            className="w-4 h-4 mt-0.5 rounded border-stone-300 text-[#1C1917] focus:ring-[#1C1917] cursor-pointer accent-[#1C1917] shrink-0"
+                          />
+                          <span>
+                            Send me occasional seasonal harvest offers &amp; promotional discounts by email (optional — you can unsubscribe anytime).
+                          </span>
+                        </label>
+                      </div>
+                    )}
+
                     <button
                       type="submit"
                       disabled={isLoading}
@@ -936,10 +1029,39 @@ export function AuthModal({
                   )}
                 </AnimatePresence>
 
-                {/* Security Footer */}
-                <div className="mt-6 pt-4 border-t border-stone-100 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest text-stone-400 font-medium">
-                  <Sparkles className="w-3 h-3 text-amber-500" />
-                  Encrypted & Secure Authentication
+                {/* Privacy Notice, Age Eligibility & Legal Links */}
+                <div className="mt-5 pt-3 border-t border-stone-100 text-center space-y-2">
+                  <p className="text-[11px] text-stone-500 leading-relaxed">
+                    Intended for users aged 18+ (or with verified parental consent). By continuing, you agree to our{" "}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        document.dispatchEvent(
+                          new CustomEvent("open-legal-policy", { detail: { tab: "privacy" } })
+                        )
+                      }
+                      className="underline font-semibold text-stone-800 hover:text-black cursor-pointer"
+                    >
+                      Privacy Policy
+                    </button>{" "}
+                    and{" "}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        document.dispatchEvent(
+                          new CustomEvent("open-legal-policy", { detail: { tab: "terms" } })
+                        )
+                      }
+                      className="underline font-semibold text-stone-800 hover:text-black cursor-pointer"
+                    >
+                      Terms of Service
+                    </button>
+                    .
+                  </p>
+                  <div className="flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest text-stone-400 font-medium">
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    Encrypted &amp; Secure Authentication
+                  </div>
                 </div>
               </motion.div>
             )}

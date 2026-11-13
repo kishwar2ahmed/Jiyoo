@@ -309,8 +309,26 @@ export function WholesalePage({
         setSelectedFilter(custom.detail as LotCategoryFilter);
       }
     };
+    const handleWholesaleSearchEvent = (e: Event) => {
+      const custom = e as CustomEvent<string>;
+      if (typeof custom.detail === "string") {
+        setSearchQuery(custom.detail);
+      }
+    };
+    const handleSelectWholesaleProduct = (e: Event) => {
+      const custom = e as CustomEvent<{ product?: Product }>;
+      if (custom.detail?.product) {
+        setSelectedProduct(custom.detail.product);
+      }
+    };
     window.addEventListener("select-wholesale-filter", handleFilterEvent);
-    return () => window.removeEventListener("select-wholesale-filter", handleFilterEvent);
+    window.addEventListener("wholesale-search-query", handleWholesaleSearchEvent);
+    window.addEventListener("select-wholesale-product", handleSelectWholesaleProduct);
+    return () => {
+      window.removeEventListener("select-wholesale-filter", handleFilterEvent);
+      window.removeEventListener("wholesale-search-query", handleWholesaleSearchEvent);
+      window.removeEventListener("select-wholesale-product", handleSelectWholesaleProduct);
+    };
   }, []);
 
   const imageRefs = useRef<Record<string, HTMLImageElement | null>>({});
@@ -922,7 +940,10 @@ export function WholesalePage({
 
               const cartItemId = `${product.id}-${wholesaleUnit}--`;
               const matchingCartItem = cartItems.find(
-                (i) => String(i.id) === cartItemId || String(i.id) === String(product.id)
+                (i) =>
+                  String(i.id) === cartItemId ||
+                  String(i.id) === String(product.id) ||
+                  String(i.baseId) === String(product.id)
               );
               const qtyInCart = matchingCartItem?.quantity || 0;
               const isJustAdded = !!justAddedMap[String(product.id)];

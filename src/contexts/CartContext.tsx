@@ -10,6 +10,10 @@ import {
   supabaseSignOut,
   supabaseUpsertRecord,
 } from '../services/supabase';
+import {
+  getStoredCustomerSession,
+  clearStoredCustomerSession,
+} from '../utils/customerAuthFallback';
 
 export interface FlyingItemPayload {
   image: string;
@@ -159,12 +163,27 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           setIsAuthLoading(false);
         }
       } else {
+        const storedCustomer = getStoredCustomerSession();
         if (isMounted) {
-          setUser(null);
+          setUser(storedCustomer ? storedCustomer.user : null);
           setIsAuthLoading(false);
         }
       }
     });
+
+    const handleCustomerAuthEvent = (e: Event) => {
+      if (!isMounted) return;
+      const customEv = e as CustomEvent<AuthUser | null>;
+      if (customEv.detail) {
+        setUser(customEv.detail);
+        setIsAuthLoading(false);
+      } else if (!auth.currentUser) {
+        setUser(null);
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('jiyoo-customer-auth-changed', handleCustomerAuthEvent);
+    }
 
     const supaClient = getSupabaseClient();
     const supaSub = supaClient?.auth.onAuthStateChange((_event, session) => {
@@ -191,6 +210,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isMounted = false;
       unsubscribeFirebase();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('jiyoo-customer-auth-changed', handleCustomerAuthEvent);
+      }
       supaSub?.data?.subscription?.unsubscribe();
     };
   }, []);
@@ -218,14 +240,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           ...prev,
           {
             id: product.id,
+            baseId: (product as any).baseId ?? product.id,
             name: product.name,
             price: product.price ?? `₹${rawNumericPrice}`,
             numericPrice: rawNumericPrice,
             unit: product.unit || product.selectedWeight || product.badge,
+            badge: product.badge,
             image: product.image || '/jiyoo.logo.jpeg',
             quantity: qtyToAdd,
             selectedWeight: product.selectedWeight,
             selectedCut: product.selectedCut,
+            selectedCleaning: (product as any).selectedCleaning,
+            wholesaleEligible: (product as any).wholesaleEligible,
+            wholesaleMinQty: (product as any).wholesaleMinQty,
           },
         ];
       });
@@ -275,6 +302,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
+    clearStoredCustomerSession();
     setUser(null);
   }, []);
 

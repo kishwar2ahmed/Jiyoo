@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../../../services/firebase';
 import { useCart } from '../../../contexts/CartContext';
-import { Star, MessageCircle, Loader2 } from 'lucide-react';
+import { getStoredCustomerSession } from '../../../utils/customerAuthFallback';
+import { Star, MessageCircle, Loader2, Flag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../core/contexts/ToastContext';
 
@@ -24,9 +25,33 @@ export function ProductReviews({ productId }: { productId: string | number }) {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [reportedIds, setReportedIds] = useState<Record<string, boolean>>({});
   
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+
+  const handleReportReview = async (reviewId: string) => {
+    if (reportedIds[reviewId]) return;
+    try {
+      const token = (await auth.currentUser?.getIdToken().catch(() => null)) || getStoredCustomerSession()?.token;
+      const res = await fetch(`/api/reviews/${encodeURIComponent(reviewId)}/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ reason: 'inappropriate_or_copyright_infringement' }),
+      });
+      if (res.ok) {
+        setReportedIds((prev) => ({ ...prev, [reviewId]: true }));
+        showToast('Review reported to our moderation & copyright team.', 'info');
+      } else {
+        showToast('Could not submit report right now. Please try again.', 'error');
+      }
+    } catch {
+      showToast('Could not submit report right now. Please try again.', 'error');
+    }
+  };
   
   useEffect(() => {
     setLoading(true);
@@ -64,7 +89,7 @@ export function ProductReviews({ productId }: { productId: string | number }) {
     
     setIsSubmitting(true);
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = (await auth.currentUser?.getIdToken()) || getStoredCustomerSession()?.token;
       if (!token) throw new Error('Please log in again to submit a review.');
       const response = await fetch('/api/reviews', {
         method: 'POST',
@@ -227,14 +252,28 @@ export function ProductReviews({ productId }: { productId: string | number }) {
                   <p className="text-[10px] text-brand-gray-400">
                     {review.createdAt?.seconds 
                       ? new Date(review.createdAt.seconds * 1000).toLocaleDateString()
-                      : 'Just now'}
+                      : (typeof review.createdAt === 'string' && !isNaN(new Date(review.createdAt).getTime())
+                        ? new Date(review.createdAt).toLocaleDateString()
+                        : 'Just now')}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-0.5 text-yellow-500">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className={`w-3 h-3 ${i < review.rating ? 'fill-current' : 'text-brand-gray-200'}`} />
-                ))}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-0.5 text-yellow-500">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className={`w-3 h-3 ${i < review.rating ? 'fill-current' : 'text-brand-gray-200'}`} />
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleReportReview(review.id)}
+                  disabled={Boolean(reportedIds[review.id])}
+                  title="Report inappropriate or copyright-infringing content"
+                  className="text-[10px] text-brand-gray-400 hover:text-red-600 inline-flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Flag className="w-3 h-3" />
+                  <span>{reportedIds[review.id] ? 'Reported' : 'Report'}</span>
+                </button>
               </div>
             </div>
             <p className="text-sm text-brand-gray-600 mt-1 pl-8">

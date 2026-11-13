@@ -22,6 +22,7 @@ import { PriceDisplay } from "../../core/components/PriceDisplay";
 import { sanitizeWhatsAppNumber } from "../../../utils/whatsapp";
 import { auth } from "../../../services/firebase";
 import { getSupabaseAccessToken } from "../../../services/supabase";
+import { getStoredCustomerSession } from "../../../utils/customerAuthFallback";
 
 const E164_PHONE_REGEX = /^\+?[1-9]\d{6,14}$/;
 
@@ -29,9 +30,27 @@ interface CartModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRequireAuth?: () => void;
+  initialStep?: "cart" | "checkout";
+  initialPaymentMethod?: "upi_qr" | "cod" | "whatsapp";
 }
 
-export function CartModal({ isOpen, onClose, onRequireAuth }: CartModalProps) {
+function triggerSafeWhatsAppLink(url: string) {
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.target = "_blank";
+  anchor.rel = "noopener noreferrer";
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+}
+
+export function CartModal({
+  isOpen,
+  onClose,
+  onRequireAuth,
+  initialStep = "cart",
+  initialPaymentMethod,
+}: CartModalProps) {
   const {
     items,
     cartCount,
@@ -58,7 +77,27 @@ export function CartModal({ isOpen, onClose, onRequireAuth }: CartModalProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const [lastWhatsAppOrderUrl, setLastWhatsAppOrderUrl] = useState<string | null>(null);
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (initialPaymentMethod) {
+      setPaymentMethod(initialPaymentMethod);
+    }
+    if (initialStep === "checkout" && items.length > 0) {
+      setStep("checkout");
+    } else if (initialStep === "checkout" && items.length === 0 && initialPaymentMethod === "whatsapp") {
+      const waNum = sanitizeWhatsAppNumber(settings.whatsappNumber);
+      const url = `https://wa.me/${waNum}?text=${encodeURIComponent(
+        `Hi ${settings.storeName || "JIYOO"}! I would like to place a fresh order.`
+      )}`;
+      triggerSafeWhatsAppLink(url);
+      onClose();
+    } else if (step === "success") {
+      setStep("cart");
+    }
+  }, [isOpen, initialStep, initialPaymentMethod]);
 
   useModalBackButton(isOpen, () => {
     if (step === "checkout") {
@@ -106,7 +145,9 @@ export function CartModal({ isOpen, onClose, onRequireAuth }: CartModalProps) {
         if (token) headers.Authorization = `Bearer ${token}`;
       } else {
         const supaToken = await getSupabaseAccessToken();
-        if (supaToken) headers.Authorization = `Bearer ${supaToken}`;
+        const custSession = getStoredCustomerSession();
+        const fallbackToken = supaToken || custSession?.token;
+        if (fallbackToken) headers.Authorization = `Bearer ${fallbackToken}`;
       }
     } catch {
       // Guest checkout allowed
@@ -148,8 +189,14 @@ export function CartModal({ isOpen, onClose, onRequireAuth }: CartModalProps) {
     setIsSubmitting(true);
     try {
       const headers = await getCheckoutAuthHeaders();
+      const isWholesaleOrder = items.some(
+        (i) => i.wholesaleEligible === true || (Number(i.wholesaleMinQty) || 1) > 1
+      );
+      const resolvedOrderType = isWholesaleOrder ? "wholesale" : "retail";
       const endpoint =
         paymentMethod === "whatsapp" ? "/api/whatsapp/prepare-order" : "/api/orders/create";
+      const serverPaymentMethod =
+        paymentMethod === "whatsapp" ? "WhatsApp Express" : "Cash on Delivery";
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -157,13 +204,16 @@ export function CartModal({ isOpen, onClose, onRequireAuth }: CartModalProps) {
         body: JSON.stringify({
           items: items.map((item) => ({
             id: item.id,
+            baseId: item.baseId ?? item.id,
             name: item.name,
             quantity: item.quantity,
             price: item.numericPrice,
             image: item.image,
-            selectedWeight: item.selectedWeight || item.unit,
+            selectedWeight: item.selectedWeight || item.badge || item.unit,
             selectedCut: item.selectedCut,
+            selectedCleaning: item.selectedCleaning,
           })),
+          orderType: resolvedOrderType,
           shippingDetails: {
             name: name.trim(),
             phone: cleanPhone,
@@ -175,7 +225,7 @@ export function CartModal({ isOpen, onClose, onRequireAuth }: CartModalProps) {
             landmark: landmark.trim(),
             addressType,
           },
-          paymentMethod,
+          paymentMethod: serverPaymentMethod,
           utrNumber: paymentMethod === "upi_qr" ? utrNumber.trim() : undefined,
         }),
       });
@@ -189,13 +239,70 @@ export function CartModal({ isOpen, onClose, onRequireAuth }: CartModalProps) {
       const orderId = data.orderId || data.id || "JIYOO-ORD";
       setCreatedOrderId(orderId);
 
+      // Persist order into local history cache so Account Center -> My Orders displays it immediately
+      if (user?.id) {
+        try {
+          const cacheKey = `jiyoo_orders_history_v2:${user.id}`;
+          const existingLocal = JSON.parse(localStorage.getItem(cacheKey) || "[]");
+          const createdOrderRecord = data.order || {
+            id: orderId,
+            orderId,
+            userId: user.id,
+            items: items.map((item) => ({
+              id: item.id,
+              baseId: item.baseId ?? item.id,
+              name: item.name,
+              quantity: item.quantity,
+              price: item.numericPrice,
+              numericPrice: item.numericPrice,
+              image: item.image,
+              selectedWeight: item.selectedWeight || item.badge || item.unit,
+              selectedCut: item.selectedCut,
+            })),
+            subtotal: cartTotal,
+            deliveryFee,
+            grandTotal,
+            amount: grandTotal,
+            paymentMethod: serverPaymentMethod,
+            paymentStatus: "unpaid",
+            orderStatus:
+              paymentMethod === "whatsapp" ? "AWAITING_WHATSAPP_CONFIRMATION" : "pending",
+            status:
+              paymentMethod === "whatsapp" ? "AWAITING_WHATSAPP_CONFIRMATION" : "pending",
+            orderType: resolvedOrderType,
+            shippingDetails: {
+              name: name.trim(),
+              phone: cleanPhone,
+              address: fullAddress,
+              pincode: pincode.trim(),
+            },
+            createdAt: new Date().toISOString(),
+          };
+          const deduped = Array.isArray(existingLocal)
+            ? existingLocal.filter((o: any) => String(o?.id || o?.orderId) !== String(orderId))
+            : [];
+          localStorage.setItem(cacheKey, JSON.stringify([createdOrderRecord, ...deduped].slice(0, 50)));
+        } catch {
+          // ignore local cache quota errors
+        }
+      }
+
       if (paymentMethod === "whatsapp") {
         const waNum = sanitizeWhatsAppNumber(settings.whatsappNumber);
         const summary = items
-          .map((i) => `• ${i.name} (${i.unit || "1 pc"}) × ${i.quantity} = ₹${i.numericPrice * i.quantity}`)
+          .map(
+            (i) =>
+              `• ${i.name} (${i.selectedWeight || i.badge || i.unit || "1 pc"}) × ${i.quantity} = ₹${
+                i.numericPrice * i.quantity
+              }`
+          )
           .join("\n");
         const msg = `Hi JIYOO Premium Products! I placed Order #${orderId}:\n\n${summary}\n\nTotal: ₹${grandTotal}\nName: ${name}\nPhone: ${cleanPhone}\nAddress: ${fullAddress}`;
-        window.location.href = `https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`;
+        const waUrl = `https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`;
+        setLastWhatsAppOrderUrl(waUrl);
+        triggerSafeWhatsAppLink(waUrl);
+      } else {
+        setLastWhatsAppOrderUrl(null);
       }
 
       clearCart();
@@ -287,8 +394,10 @@ export function CartModal({ isOpen, onClose, onRequireAuth }: CartModalProps) {
                             <h4 className="font-semibold text-sm text-brand-black truncate">
                               {item.name}
                             </h4>
-                            {item.unit && (
-                              <p className="text-xs text-brand-gray-500">{item.unit}</p>
+                            {(item.selectedWeight || item.badge || item.unit) && (
+                              <p className="text-xs text-brand-gray-500">
+                                {item.selectedWeight || item.badge || item.unit}
+                              </p>
                             )}
                             <div className="mt-1">
                               <PriceDisplay
@@ -300,18 +409,27 @@ export function CartModal({ isOpen, onClose, onRequireAuth }: CartModalProps) {
                           <div className="flex items-center gap-1.5 bg-[#FAF9F5] border border-[#E7E3DA] rounded-lg px-2 py-1">
                             <button
                               type="button"
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                              className="p-1 text-brand-black hover:text-emerald-700"
+                              aria-label={`Decrease ${item.name} quantity`}
+                              onClick={() => {
+                                const minQty = (item as any).wholesaleMinQty || 1;
+                                if (item.quantity <= minQty) {
+                                  removeFromCart(item.id);
+                                } else {
+                                  updateQuantity(item.id, item.quantity - 1);
+                                }
+                              }}
+                              className="p-1 text-brand-black hover:text-emerald-700 cursor-pointer"
                             >
                               <Minus className="w-3.5 h-3.5" />
                             </button>
-                            <span className="text-xs font-bold w-5 text-center">
+                            <span className="text-xs font-bold w-5 text-center tabular-nums">
                               {item.quantity}
                             </span>
                             <button
                               type="button"
+                              aria-label={`Increase ${item.name} quantity`}
                               onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                              className="p-1 text-brand-black hover:text-emerald-700"
+                              className="p-1 text-brand-black hover:text-emerald-700 cursor-pointer"
                             >
                               <Plus className="w-3.5 h-3.5" />
                             </button>
@@ -492,21 +610,33 @@ export function CartModal({ isOpen, onClose, onRequireAuth }: CartModalProps) {
                     Thank You for Your Order!
                   </h3>
                   <p className="text-sm text-brand-gray-600">
-                    Order Reference:{" "}
+                    Order Reference Created:{" "}
                     <span className="font-mono font-bold text-brand-black">
                       #{createdOrderId}
                     </span>
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep("cart");
-                      onClose();
-                    }}
-                    className="px-6 py-2.5 rounded-xl bg-brand-black text-white text-sm font-semibold"
-                  >
-                    Continue Shopping
-                  </button>
+                  <div className="flex flex-col items-center gap-2.5 pt-2">
+                    {lastWhatsAppOrderUrl && (
+                      <a
+                        href={lastWhatsAppOrderUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full max-w-xs py-3 px-6 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold transition-colors cursor-pointer"
+                      >
+                        Open WhatsApp to Send Order
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep("cart");
+                        onClose();
+                      }}
+                      className="w-full max-w-xs py-2.5 px-6 rounded-xl bg-brand-black text-white text-sm font-semibold cursor-pointer"
+                    >
+                      Continue Shopping
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

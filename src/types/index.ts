@@ -125,10 +125,14 @@ export interface CartItem {
   price: string | number;
   numericPrice: number;
   unit?: string;
+  badge?: string;
   image: string;
   quantity: number;
   selectedWeight?: string;
   selectedCut?: string;
+  selectedCleaning?: string;
+  wholesaleEligible?: boolean;
+  wholesaleMinQty?: number;
 }
 
 export interface AuthUser {
