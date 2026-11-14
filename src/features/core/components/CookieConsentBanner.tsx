@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Cookie, MapPin, BarChart3, Ban, X, Check } from 'lucide-react';
+import { useModalBackButton } from '../hooks/useModalBackButton';
 
 export interface PrivacyConsentPreferences {
   version: number;
@@ -79,6 +80,7 @@ export function CookieConsentBanner() {
   const [prefs, setPrefs] = useState<PrivacyConsentPreferences>(() => getPrivacyConsentPreferences());
   const [showBanner, setShowBanner] = useState<boolean>(false);
   const [showCustomizeModal, setShowCustomizeModal] = useState<boolean>(false);
+  useModalBackButton(showCustomizeModal, () => setShowCustomizeModal(false));
 
   useEffect(() => {
     const current = getPrivacyConsentPreferences();
@@ -227,6 +229,9 @@ export function CookieConsentBanner() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="cookie-prefs-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowCustomizeModal(false);
+          }}
         >
           <div className="bg-white border border-stone-200 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between">

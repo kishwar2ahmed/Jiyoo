@@ -422,8 +422,8 @@ function startSharedCatalogSubscription() {
       if (!recovered) {
         updateStore({
           catalogStatus: 'CONFIGURATION_ERROR',
-          catalogError: 'Live database configuration unavailable. Showing verified store catalog.',
-          isUsingCachedCatalog: true,
+          catalogError: null,
+          isUsingCachedCatalog: false,
           dbProducts: storeState.dbProducts.length > 0 ? storeState.dbProducts : baseline,
           isProductsLoading: false,
         });

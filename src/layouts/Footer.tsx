@@ -446,6 +446,15 @@ export function Footer() {
                   <li>
                     <button
                       type="button"
+                      onClick={() => document.dispatchEvent(new CustomEvent("open-track-order"))}
+                      className="font-medium text-emerald-800 hover:text-stone-950 transition-colors cursor-pointer text-left"
+                    >
+                      Track My Order
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
                       onClick={() => document.dispatchEvent(new CustomEvent("open-contact"))}
                       className="hover:text-stone-950 transition-colors cursor-pointer text-left"
                     >

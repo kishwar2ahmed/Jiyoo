@@ -15,7 +15,10 @@ import { doc, getDocFromServer } from 'firebase/firestore';
 
 const appletConfigModules =
   typeof import.meta !== 'undefined' && typeof (import.meta as any).glob === 'function'
-    ? (import.meta as any).glob('../../firebase-applet-config.json', { eager: true })
+    ? {
+        ...(import.meta as any).glob('/firebase-applet-config.json', { eager: true }),
+        ...(import.meta as any).glob('../../firebase-applet-config.json', { eager: true }),
+      }
     : {};
 const appletConfig: Record<string, any> =
   (Object.values(appletConfigModules)[0] as any)?.default ||

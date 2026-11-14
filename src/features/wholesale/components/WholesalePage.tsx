@@ -198,7 +198,7 @@ function WholesaleLotCardImageArea({
             target.src = createSvgPlaceholder(cleanName, 520, 390);
           }
         }}
-        className="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] select-none pointer-events-none"
+        className="w-full h-full object-contain transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] select-none pointer-events-none"
         loading={index < 12 ? "eager" : "lazy"}
         decoding="async"
       />

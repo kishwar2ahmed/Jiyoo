@@ -16,6 +16,7 @@ import { LegalPolicyModal } from './features/core/components/LegalPolicyModal';
 import { CookieConsentBanner } from './features/core/components/CookieConsentBanner';
 import { OfflineBanner } from './features/core/components/OfflineBanner';
 import { FlyingItemsLayer } from './features/core/components/FlyingItemsLayer';
+import { TrackOrderModal } from './features/orders/components/TrackOrderModal';
 
 const AdminPanel = lazy(() =>
   import('./features/admin/components/AdminPanel').then((m) => ({ default: m.AdminPanel }))
@@ -38,10 +39,20 @@ function AppContent() {
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [cartInitialStep, setCartInitialStep] = useState<'cart' | 'checkout'>('cart');
-  const [cartInitialPayment, setCartInitialPayment] = useState<'upi_qr' | 'cod' | 'whatsapp' | undefined>(undefined);
+  const [cartInitialPayment, setCartInitialPayment] = useState<'razorpay' | 'cod' | 'whatsapp' | undefined>(undefined);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
+  const [isTrackOrderOpen, setIsTrackOrderOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return Boolean(new URLSearchParams(window.location.search).get('trackOrder'));
+  });
+  const [trackOrderPreset, setTrackOrderPreset] = useState<{ orderId?: string; phone?: string }>(() => {
+    if (typeof window === 'undefined') return {};
+    const params = new URLSearchParams(window.location.search);
+    const trackOrderId = params.get('trackOrder');
+    return trackOrderId ? { orderId: trackOrderId } : {};
+  });
   const [legalPolicyType, setLegalPolicyType] = useState<'privacy' | 'terms' | 'refund' | null>(
     null
   );
@@ -53,7 +64,7 @@ function AppContent() {
   const setActivePage = (nextPage: 'retail' | 'wholesale') => {
     setActivePageState((prev) => {
       if (prev !== nextPage && typeof window !== 'undefined') {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 0, behavior: 'auto' });
       }
       return nextPage;
     });
@@ -89,12 +100,26 @@ function AppContent() {
       setCartInitialPayment('whatsapp');
       setIsCartOpen(true);
     };
+    const handleOpenTrackOrder = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (detail && typeof detail === 'object') {
+        setTrackOrderPreset({
+          orderId: typeof detail.orderId === 'string' ? detail.orderId : '',
+          phone: typeof detail.phone === 'string' ? detail.phone : '',
+        });
+      } else {
+        setTrackOrderPreset({});
+      }
+      setIsTrackOrderOpen(true);
+    };
 
     window.addEventListener('hashchange', handleHashChange);
     document.addEventListener('open-retail', handleOpenRetail);
     document.addEventListener('open-wholesale', handleOpenWholesale);
     document.addEventListener('open-about', handleOpenAbout);
     document.addEventListener('open-contact', handleOpenContact);
+    document.addEventListener('open-track-order', handleOpenTrackOrder);
+    window.addEventListener('open-track-order', handleOpenTrackOrder);
     document.addEventListener('open-legal', handleOpenLegal);
     document.addEventListener('open-legal-policy', handleOpenLegal);
     window.addEventListener('open-legal-policy', handleOpenLegal);
@@ -107,6 +132,8 @@ function AppContent() {
       document.removeEventListener('open-wholesale', handleOpenWholesale);
       document.removeEventListener('open-about', handleOpenAbout);
       document.removeEventListener('open-contact', handleOpenContact);
+      document.removeEventListener('open-track-order', handleOpenTrackOrder);
+      window.removeEventListener('open-track-order', handleOpenTrackOrder);
       document.removeEventListener('open-legal', handleOpenLegal);
       document.removeEventListener('open-legal-policy', handleOpenLegal);
       window.removeEventListener('open-legal-policy', handleOpenLegal);
@@ -148,12 +175,23 @@ function AppContent() {
         }}
         onAboutClick={() => setIsAboutOpen(true)}
         onContactClick={() => setIsContactOpen(true)}
+        onTrackOrderClick={() => {
+          setTrackOrderPreset({});
+          setIsTrackOrderOpen(true);
+        }}
         activePage={activePage}
         onWholesaleClick={() => setActivePage('wholesale')}
         onRetailClick={() => setActivePage('retail')}
       />
 
-      <main className="flex-1" aria-hidden={isAdminRoute}>
+      <main
+        className={`flex-1 ${
+          activePage === 'wholesale'
+            ? 'pt-[calc(68px+env(safe-area-inset-top))] sm:pt-[calc(74px+env(safe-area-inset-top))] lg:pt-[72px]'
+            : 'pt-[calc(112px+env(safe-area-inset-top))] sm:pt-[calc(120px+env(safe-area-inset-top))] lg:pt-[72px]'
+        }`}
+        aria-hidden={isAdminRoute}
+      >
         {activePage === 'wholesale' ? (
           <WholesalePage
             onBackToRetail={() => setActivePage('retail')}
@@ -193,6 +231,15 @@ function AppContent() {
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
       <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
       <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} />
+      <TrackOrderModal
+        isOpen={isTrackOrderOpen}
+        initialOrderId={trackOrderPreset.orderId}
+        initialPhone={trackOrderPreset.phone}
+        onClose={() => {
+          setIsTrackOrderOpen(false);
+          setTrackOrderPreset({});
+        }}
+      />
       <LegalPolicyModal
         isOpen={Boolean(legalPolicyType)}
         initialTab={legalPolicyType || 'privacy'}

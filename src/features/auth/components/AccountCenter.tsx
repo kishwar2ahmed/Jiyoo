@@ -24,55 +24,17 @@ import { PremiumShieldMark } from '../../core/components/PremiumShieldMark';
 import { InstagramIcon, OFFICIAL_INSTAGRAM_URL } from '../../core/components/SocialIcons';
 import { useStorefrontProducts } from '../../storefront/hooks/useStorefrontProducts';
 import { PriceDisplay } from '../../core/components/PriceDisplay';
-
-const normalizeOrderStatus = (rawStatus?: string): string => {
-  const s = String(rawStatus || 'pending').trim().toLowerCase();
-  if (s === 'awaiting_whatsapp_confirmation' || s === 'whatsapp_pending') return 'awaiting_whatsapp';
-  if (s === 'received' || s === 'paid' || s === 'processing' || s === 'paid_upi_pending_verify') return 'pending';
-  if (s === 'shipped') return 'dispatched';
-  if (s === 'completed') return 'delivered';
-  return s;
-};
+import {
+  normalizeOrderIdInput,
+  normalizeOrderStatus,
+  getOrderTrackingPipeline,
+} from '../../../utils/orderTracking';
 
 const OrderTrackingTimeline = ({ order }: { order: any }) => {
   const rawStatus = order?.orderStatus || order?.status || 'pending';
-  const normalizedStatus = normalizeOrderStatus(rawStatus);
-  const isWhatsAppPending = normalizedStatus === 'awaiting_whatsapp';
-
-  const steps = [
-    {
-      id: 'pending',
-      label: isWhatsAppPending ? 'WhatsApp Request Logged' : 'Order Received',
-      desc: isWhatsAppPending
-        ? 'Your order reference is saved. Send the prefilled WhatsApp message so our team can confirm it.'
-        : 'We have received your order and logged your items.',
-    },
-    {
-      id: 'confirmed',
-      label: 'Order Confirmed',
-      desc: 'Your order and delivery slot have been verified by JIYOO.',
-    },
-    {
-      id: 'packed',
-      label: 'Cleaned & Packed',
-      desc: 'Freshly prepared, quality-checked, and sealed in temperature-locked packaging.',
-    },
-    {
-      id: 'dispatched',
-      label: 'Dispatched',
-      desc: 'Handed over to our cold-chain delivery partner.',
-    },
-    {
-      id: 'out_for_delivery',
-      label: 'Out for Delivery',
-      desc: 'Our delivery rider is on the way to your doorstep.',
-    },
-    {
-      id: 'delivered',
-      label: 'Delivered',
-      desc: 'Delivered successfully. Enjoy your fresh catch & produce!',
-    },
-  ];
+  const pipeline = getOrderTrackingPipeline(rawStatus);
+  const normalizedStatus = pipeline.normalizedStatus;
+  const steps = pipeline.steps;
 
   if (['cancelled', 'refunded', 'failed'].includes(normalizedStatus)) {
     return (
@@ -406,7 +368,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
 
   const handleTrackByOrderId = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanId = lookupOrderId.trim().replace(/^#/, '');
+    const cleanId = normalizeOrderIdInput(lookupOrderId);
     if (!cleanId) {
       setLookupError('Please enter your Order ID (e.g. JY-123456).');
       return;

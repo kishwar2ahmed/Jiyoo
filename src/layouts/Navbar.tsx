@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { ShoppingBag, User, Search, X, Menu, ArrowRight, ArrowDown, Plus, Download } from "lucide-react";
+import { ShoppingBag, User, Search, X, Menu, ArrowRight, ArrowDown, Plus, Download, Truck } from "lucide-react";
 import { useCart } from "../contexts/CartContext";
 import { motion, AnimatePresence, useScroll, useSpring } from "motion/react";
 import { useSettings } from "../contexts/SettingsContext";
@@ -28,12 +28,12 @@ const TRENDING_SEARCHES = [
 ];
 
 const EDITORIAL_SEARCH_SUGGESTIONS = [
-  "Search Alphonso mangoes...",
-  "Search fresh salmon & prawns...",
-  "Search premium tender mutton...",
-  "Search Hass avocados & berries...",
-  "Search cold-pressed smoothies...",
-  "Search artisan momos & bites...",
+  "Search mangoes...",
+  "Search salmon & fish...",
+  "Search tender mutton...",
+  "Search Hass avocados...",
+  "Search fresh smoothies...",
+  "Search momos & bites...",
 ];
 
 export function Navbar({
@@ -41,6 +41,7 @@ export function Navbar({
   onCartClick,
   onAboutClick,
   onContactClick,
+  onTrackOrderClick,
   activePage = "retail",
   onWholesaleClick,
   onRetailClick,
@@ -49,6 +50,7 @@ export function Navbar({
   onCartClick: () => void;
   onAboutClick?: () => void;
   onContactClick?: () => void;
+  onTrackOrderClick?: () => void;
   activePage?: "retail" | "wholesale";
   onWholesaleClick?: () => void;
   onRetailClick?: () => void;
@@ -668,7 +670,7 @@ export function Navbar({
               {activePage === "retail" && (
                 <div
                   ref={searchContainerRef}
-                  className="relative w-[195px] xl:w-[245px] 2xl:w-[275px]"
+                  className="relative w-[200px] xl:w-[255px] 2xl:w-[285px]"
                 >
                   <form
                     onSubmit={executeSearchAction}
@@ -696,13 +698,13 @@ export function Navbar({
                       onKeyDown={handleSearchKeyDown}
                       placeholder={isDesktopFocused ? "Type to search catalog..." : ""}
                       aria-label="Search products by name in real-time"
-                      className="w-full pl-9 pr-15 py-1.5 text-xs sm:text-[13px] bg-white hover:bg-white focus:bg-white text-[#1C1917] placeholder:text-[#A8A29E] rounded-lg border border-[#DCD6CA] focus:border-[#1C1917] focus:ring-2 focus:ring-[#1C1917]/10 focus:outline-none transition-all shadow-2xs [&::-webkit-search-cancel-button]:appearance-none"
+                      className="w-full pl-8 pr-16 py-1.5 text-xs sm:text-[13px] bg-white hover:bg-white focus:bg-white text-[#1C1917] placeholder:text-[#A8A29E] rounded-lg border border-[#DCD6CA] focus:border-[#1C1917] focus:ring-2 focus:ring-[#1C1917]/10 focus:outline-none transition-all shadow-2xs [&::-webkit-search-cancel-button]:appearance-none"
                     />
 
                     {/* Editorial Rotating Suggestion Dial (Active only when empty and not focused) */}
                     {!searchQuery && !isDesktopFocused && (
                       <div
-                        className="pointer-events-none absolute left-9 right-15 top-0 bottom-0 flex items-center overflow-hidden"
+                        className="pointer-events-none absolute left-8 right-16 top-0 bottom-0 flex items-center overflow-hidden"
                         aria-hidden="true"
                       >
                         <AnimatePresence mode="wait" initial={false}>
@@ -773,6 +775,25 @@ export function Navbar({
                   </AnimatePresence>
                 </div>
               )}
+
+              {/* Track Order Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (onTrackOrderClick) {
+                    onTrackOrderClick();
+                  } else {
+                    document.dispatchEvent(new CustomEvent("open-track-order"));
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#DCD6CA] bg-white hover:bg-[#F4F1EA] text-xs font-semibold text-[#1C1917] transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                aria-label="Track My Order"
+                title="Track My Order"
+              >
+                <Truck className="w-3.5 h-3.5 text-emerald-700 shrink-0" strokeWidth={2} />
+                <span className="hidden xl:inline">Track Order</span>
+              </button>
 
               {/* User Account Button */}
               <button
@@ -1278,6 +1299,24 @@ export function Navbar({
                 >
                   <span>About Us</span>
                   <ArrowRight className="w-3.5 h-3.5 text-[#78716C]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (onTrackOrderClick) {
+                      onTrackOrderClick();
+                    } else {
+                      document.dispatchEvent(new CustomEvent("open-track-order"));
+                    }
+                  }}
+                  className="w-full flex items-center justify-between text-left py-2.5 px-3 rounded-lg text-sm font-semibold text-emerald-800 bg-emerald-50/60 hover:bg-emerald-50 transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span>Track My Order</span>
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-emerald-700" />
                 </button>
                 <button
                   type="button"

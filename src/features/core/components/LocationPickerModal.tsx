@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, MapPin, Navigation, Search, Check, Loader2, Bookmark, Compass, Shield } from 'lucide-react';
 import { useModalBackButton } from '../hooks/useModalBackButton';
 import { hasMapsAndLocationConsent, savePrivacyConsentPreferences, getPrivacyConsentPreferences } from './CookieConsentBanner';
+import { DEFAULT_RETAIL_AREAS, RetailAreaItem, normalizeIndianPincode } from '../../../constants/deliveryAreas';
 
 interface LocationPickerModalProps {
   isOpen: boolean;
@@ -31,6 +32,11 @@ export function LocationPickerModal({
   const [pincode, setPincode] = useState('');
   const [activeTab, setActiveTab] = useState<'map' | 'saved'>(initialTab);
   const [mapEmbedAllowed, setMapEmbedAllowed] = useState<boolean>(() => hasMapsAndLocationConsent());
+  const [retailAreas, setRetailAreas] = useState<RetailAreaItem[]>(DEFAULT_RETAIL_AREAS);
+  const [pinStatus, setPinStatus] = useState<{ serviceable: boolean | null; message: string | null }>({
+    serviceable: null,
+    message: null,
+  });
 
   useModalBackButton(isOpen, onClose);
 
@@ -39,8 +45,41 @@ export function LocationPickerModal({
     if (isOpen) {
       setActiveTab(initialTab);
       setMapEmbedAllowed(hasMapsAndLocationConsent());
+      fetch('/api/delivery/active-areas')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.success && Array.isArray(data.retailAreas) && data.retailAreas.length > 0) {
+            setRetailAreas(data.retailAreas.filter((a: RetailAreaItem) => a && a.enabled !== false));
+          }
+        })
+        .catch(() => {});
     }
   }, [isOpen, initialTab]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const cleanPin = normalizeIndianPincode(pincode);
+    if (!/^\d{6}$/.test(cleanPin)) {
+      setPinStatus({ serviceable: null, message: null });
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/delivery/check-pincode?pincode=${encodeURIComponent(cleanPin)}&mode=retail`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        setPinStatus({
+          serviceable: Boolean(data?.serviceable),
+          message:
+            data?.message ||
+            (data?.serviceable ? `Retail delivery active (${data?.label || cleanPin})` : 'Outside retail delivery zone'),
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, pincode]);
 
   useEffect(() => {
     const syncConsent = () => setMapEmbedAllowed(hasMapsAndLocationConsent());
@@ -350,18 +389,54 @@ export function LocationPickerModal({
                     />
                   </div>
 
+                  {/* Active Retail Areas & PIN Quick-Select */}
+                  <div className="p-3 bg-emerald-50/50 border border-emerald-200/70 rounded-xl space-y-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-900">
+                      Quick Select: Active Bengaluru Areas &amp; PIN Codes
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {retailAreas.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            setFormattedAddress(`${item.areaName}, Bengaluru`);
+                            setPincode(item.pincode);
+                          }}
+                          className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer ${
+                            normalizeIndianPincode(pincode) === item.pincode &&
+                            formattedAddress.toLowerCase().includes(item.areaName.toLowerCase())
+                              ? 'bg-emerald-700 text-white border-emerald-700'
+                              : 'bg-white hover:bg-emerald-50 text-stone-800 border-emerald-200'
+                          }`}
+                        >
+                          {item.areaName} · <span className="font-mono">{item.displayPincode}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-[11px] uppercase tracking-wider text-gray-500 font-semibold mb-1">
-                      Pincode
+                      Pincode / Postal Code
                     </label>
                     <input
                       type="text"
-                      maxLength={6}
+                      maxLength={12}
                       value={pincode}
                       onChange={(e) => setPincode(e.target.value)}
-                      placeholder="e.g. 560038"
+                      placeholder="e.g. 560084"
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition-all font-mono"
                     />
+                    {pinStatus.serviceable !== null && pinStatus.message && (
+                      <p
+                        className={`mt-1.5 text-[11px] font-medium ${
+                          pinStatus.serviceable ? 'text-emerald-700' : 'text-amber-700'
+                        }`}
+                      >
+                        {pinStatus.serviceable ? '✓' : '!'} {pinStatus.message}
+                      </p>
+                    )}
                   </div>
 
                   {/* Google Maps Grounding Intelligence (Explicit AI Disclosure) */}

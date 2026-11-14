@@ -602,32 +602,43 @@ class FallbackWriteBatch {
 }
 
 class FallbackTransaction {
+  private pendingOps: Array<() => Promise<void>> = [];
+
   async get(target: FallbackDocumentReference | FallbackQuery): Promise<any> {
     return target.get();
   }
 
   set(ref: FallbackDocumentReference, data: Record<string, any>, options?: { merge?: boolean }) {
-    void ref.set(data, options);
+    this.pendingOps.push(() => ref.set(data, options));
     return this;
   }
 
   create(ref: FallbackDocumentReference, data: Record<string, any>) {
-    void ref.set(data);
+    this.pendingOps.push(() => ref.set(data));
     return this;
   }
 
   update(ref: FallbackDocumentReference, data: Record<string, any>) {
-    void ref.update(data);
+    this.pendingOps.push(() => ref.update(data));
     return this;
   }
 
   delete(ref: FallbackDocumentReference) {
-    void ref.delete();
+    this.pendingOps.push(() => ref.delete());
     return this;
+  }
+
+  async commitPending(): Promise<void> {
+    for (const op of this.pendingOps) {
+      await op();
+    }
+    this.pendingOps = [];
   }
 }
 
 export class ServerFallbackFirestore {
+  private txMutex: Promise<void> = Promise.resolve();
+
   collection(name: string): FallbackCollectionReference {
     return new FallbackCollectionReference(name);
   }
@@ -641,8 +652,20 @@ export class ServerFallbackFirestore {
   }
 
   async runTransaction<T>(updateFunction: (tx: FallbackTransaction) => Promise<T>): Promise<T> {
-    const tx = new FallbackTransaction();
-    return updateFunction(tx);
+    let releaseMutex!: () => void;
+    const prevMutex = this.txMutex;
+    this.txMutex = new Promise<void>((resolve) => {
+      releaseMutex = resolve;
+    });
+    await prevMutex;
+    try {
+      const tx = new FallbackTransaction();
+      const result = await updateFunction(tx);
+      await tx.commitPending();
+      return result;
+    } finally {
+      releaseMutex();
+    }
   }
 }
 

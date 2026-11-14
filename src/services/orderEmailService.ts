@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import crypto from 'node:crypto';
 
 export interface SmtpConfig {
   host?: string;
@@ -23,6 +24,7 @@ export interface StatusEmailParams {
   smtpConfig: SmtpConfig;
   storeName?: string;
   appUrl?: string;
+  unsubscribeSecret?: string;
   force?: boolean;
 }
 
@@ -44,6 +46,36 @@ export function sanitizeEmailHtml(str: any): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+export function sanitizeSafeHttpUrl(rawUrl?: string | null): string | null {
+  if (typeof rawUrl !== 'string') return null;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      return parsed.toString();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function buildSignedUnsubscribeUrl(appUrl: string, email: string, secret?: string): string {
+  const cleanAppUrl = String(appUrl || '').replace(/\/+$/, '');
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  if (!cleanEmail) return `${cleanAppUrl}/api/email/unsubscribe`;
+  const params = new URLSearchParams({ email: cleanEmail });
+  if (secret) {
+    const sig = crypto
+      .createHmac('sha256', secret)
+      .update(`unsub:${cleanEmail}`)
+      .digest('hex');
+    params.set('sig', sig);
+  }
+  return `${cleanAppUrl}/api/email/unsubscribe?${params.toString()}`;
 }
 
 export function isValidEmailAddress(email: unknown): boolean {
@@ -264,6 +296,7 @@ export function buildOrderStatusEmailHtml(params: {
   trackingUrl?: string | null;
   storeName: string;
   appUrl: string;
+  unsubscribeUrl?: string;
 }): { html: string; text: string; subject: string } {
   const {
     order,
@@ -275,6 +308,7 @@ export function buildOrderStatusEmailHtml(params: {
     trackingUrl,
     storeName,
     appUrl,
+    unsubscribeUrl,
   } = params;
 
   const presentation = getStatusPresentation(newStatus);
@@ -358,7 +392,7 @@ export function buildOrderStatusEmailHtml(params: {
   // Carrier tracking callout if available
   const effectiveCarrier = trackingCarrier || order?.trackingCarrier;
   const effectiveTrackingNum = trackingNumber || order?.trackingNumber;
-  const effectiveTrackingUrl = trackingUrl || order?.trackingUrl;
+  const effectiveTrackingUrl = sanitizeSafeHttpUrl(trackingUrl || order?.trackingUrl);
 
   const trackingBoxHtml = (effectiveCarrier || effectiveTrackingNum || effectiveTrackingUrl)
     ? `
@@ -369,7 +403,7 @@ export function buildOrderStatusEmailHtml(params: {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;color:#1C1917;">
           ${effectiveCarrier ? `<tr><td style="padding:2px 0;color:#78716C;width:120px;">Carrier / Fleet:</td><td style="padding:2px 0;font-weight:600;">${sanitizeEmailHtml(effectiveCarrier)}</td></tr>` : ''}
           ${effectiveTrackingNum ? `<tr><td style="padding:2px 0;color:#78716C;">Waybill / AWB:</td><td style="padding:2px 0;font-family:monospace;font-weight:700;">${sanitizeEmailHtml(effectiveTrackingNum)}</td></tr>` : ''}
-          ${effectiveTrackingUrl ? `<tr><td style="padding:4px 0;" colspan="2"><a href="${sanitizeEmailHtml(effectiveTrackingUrl)}" style="color:#047857;font-weight:600;text-decoration:underline;">Click Here to Track Live Consignment &rarr;</a></td></tr>` : ''}
+          ${effectiveTrackingUrl ? `<tr><td style="padding:4px 0;" colspan="2"><a href="${sanitizeEmailHtml(effectiveTrackingUrl)}" target="_blank" rel="noopener noreferrer" style="color:#047857;font-weight:600;text-decoration:underline;">Click Here to Track Live Consignment &rarr;</a></td></tr>` : ''}
         </table>
       </div>
     `
@@ -391,6 +425,7 @@ export function buildOrderStatusEmailHtml(params: {
     : '';
 
   const cleanAppUrl = (appUrl || '').replace(/\/+$/, '');
+  const resolvedUnsubscribeUrl = unsubscribeUrl || `${cleanAppUrl}/api/email/unsubscribe`;
   const trackOrderUrl = `${cleanAppUrl}/?trackOrder=${encodeURIComponent(orderId)}`;
   const whatsappSupportUrl = 'https://wa.me/919739391891?text=' + encodeURIComponent(`Hello JIYOO, I have a query about my order #${orderId}`);
 
@@ -548,7 +583,7 @@ export function buildOrderStatusEmailHtml(params: {
           Direct Support: <a href="tel:+919739391891" style="color:#047857;text-decoration:none;">+91 97393 91891</a> · <a href="mailto:shamsjiyoo@gmail.com" style="color:#047857;text-decoration:none;">shamsjiyoo@gmail.com</a>
         </div>
         <div style="margin-top:12px;font-size:10px;color:#A8A29E;">
-          You received this transactional update because you placed order #${safeOrderId} on ${safeStoreName}. Marketing emails are strictly opt-in and separated from transactional order receipts. To opt out of non-essential email notifications at any time, <a href="${sanitizeEmailHtml(appUrl)}/api/email/unsubscribe" style="color:#57534E;text-decoration:underline;">unsubscribe here</a>.
+          You received this transactional update because you placed order #${safeOrderId} on ${safeStoreName}. Marketing emails are strictly opt-in and separated from transactional order receipts. To opt out of non-essential email notifications at any time, <a href="${sanitizeEmailHtml(resolvedUnsubscribeUrl)}" style="color:#57534E;text-decoration:underline;">unsubscribe here</a>.
         </div>
       </div>
 
@@ -583,7 +618,7 @@ Payment Method: ${paymentMethod}
 Track online: ${trackOrderUrl}
 WhatsApp Support: https://wa.me/919739391891
 Postal Address: JIYOO Premium Products, Cold-Chain Dispatch Hub, Bengaluru – 560022, Karnataka, India
-Unsubscribe from optional emails: ${appUrl}/api/email/unsubscribe
+Unsubscribe from optional emails: ${resolvedUnsubscribeUrl}
 
 ${storeName} · FSSAI 21226112000732 · MSME UDYAM-KR-19-0005999
   `.trim();
@@ -634,6 +669,7 @@ export async function sendOrderStatusUpdateEmail(params: StatusEmailParams): Pro
     smtpConfig,
     storeName = 'JIYOO',
     appUrl = process.env.APP_URL || 'https://ais-dev-o4ibuzv4yivkw5mhim6mx6-49339647236.asia-southeast1.run.app',
+    unsubscribeSecret = process.env.ADMIN_SESSION_SECRET || '',
     force = false,
   } = params;
 
@@ -728,6 +764,7 @@ export async function sendOrderStatusUpdateEmail(params: StatusEmailParams): Pro
   }
 
   // 5. Construct email HTML, text, and subject
+  const signedUnsubscribeUrl = buildSignedUnsubscribeUrl(appUrl, recipientEmail, unsubscribeSecret);
   const { html, text, subject } = buildOrderStatusEmailHtml({
     order: orderData,
     orderId,
@@ -739,6 +776,7 @@ export async function sendOrderStatusUpdateEmail(params: StatusEmailParams): Pro
     trackingUrl,
     storeName,
     appUrl,
+    unsubscribeUrl: signedUnsubscribeUrl,
   });
 
   const safeStoreName = String(storeName).replace(/[\r\n]/g, ' ').slice(0, 100);
@@ -753,7 +791,7 @@ export async function sendOrderStatusUpdateEmail(params: StatusEmailParams): Pro
     headers: {
       'X-Entity-Ref-ID': orderId,
       'X-JIYOO-Order-Status': newStatus,
-      'List-Unsubscribe': `<${appUrl}/api/email/unsubscribe?email=${encodeURIComponent(recipientEmail)}>`,
+      'List-Unsubscribe': `<${signedUnsubscribeUrl}>`,
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     },
   };

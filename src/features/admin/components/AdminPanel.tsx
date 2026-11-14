@@ -539,9 +539,9 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
               {loginMethod === 'passcode' && (
                 <form onSubmit={handlePasscodeLogin} className="space-y-3">
                   <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 leading-relaxed">
-                    <p className="font-bold">Instant Owner Access</p>
+                    <p className="font-bold">Server-Verified Owner Access</p>
                     <p className="text-emerald-800 mt-0.5">
-                      Enter the master store owner passcode to access your dashboard immediately with no billing or card required.
+                      Enter the server-configured store owner passcode (<code className="font-mono">ADMIN_PASSCODE</code>) or use verified Google Sign-In with TOTP 2FA.
                     </p>
                   </div>
                   <div className="relative">
@@ -593,7 +593,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                       type="text"
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
-                      placeholder="Admin Phone or Email (e.g. 9739391891)"
+                      placeholder="Admin Email"
                       disabled={lockoutSeconds > 0}
                       className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 focus:outline-none focus:border-stone-900"
                     />

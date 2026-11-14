@@ -588,35 +588,6 @@ export function Storefront() {
         </div>
       </div>
 
-      {/* Resilient Catalog Sync Notice Banner */}
-      {isUsingCachedCatalog && catalogError && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 bg-[#FAF9F5] px-4 py-2.5 text-xs text-stone-700"
-        >
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>
-              {catalogError}
-              {lastSyncedAt && (
-                <span className="text-stone-500 ml-1 tabular-nums">
-                  · Last synced {new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              )}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={retrySync}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-stone-900 text-white text-[11px] font-semibold hover:bg-black transition-colors cursor-pointer whitespace-nowrap shrink-0"
-          >
-            <RefreshCw className="w-3 h-3" />
-            Retry Sync
-          </button>
-        </div>
-      )}
-
       {/* Products Grid */}
       <div className="relative min-h-[400px]">
         {isProductsLoading ? (

@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Order } from '../../../types';
-import { useSettings } from '../../../contexts/SettingsContext';
-import { CreditCard, ExternalLink, Search, RefreshCw, ArrowUpRight, DollarSign, QrCode } from 'lucide-react';
+import { CreditCard, ExternalLink, Search, RefreshCw, ArrowUpRight, DollarSign, ShieldCheck, AlertTriangle, Smartphone } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '../../core/contexts/ToastContext';
-import { logAuditEvent } from '../../../services/auditService';
-import { PhonePeIcon, PaytmIcon, UpiOfficialIcon } from '../../core/components/UpiIcons';
 import { getAdminAuthHeaders } from '../../../utils/adminAuth';
 
 function getOrderDate(createdAt: any): Date | null {
@@ -25,28 +22,38 @@ function getOrderDate(createdAt: any): Date | null {
 
 export function PaymentsTab() {
   const { showToast } = useToast();
-  const { settings, updateSettings } = useSettings();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [methodFilter, setMethodFilter] = useState<string>('all');
+  const [methodFilter, setMethodFilter] = useState<'all' | 'razorpay' | 'cod' | 'whatsapp'>('all');
+  const [gatewayStatus, setGatewayStatus] = useState<{
+    configured: boolean;
+    keyId: string | null;
+    supportedMethods: string[];
+  }>({
+    configured: false,
+    keyId: null,
+    supportedMethods: ['card', 'upi', 'netbanking', 'wallet'],
+  });
 
-  const [upiId, setUpiId] = useState(settings.upiId || '9739391891@ybl');
-  const [upiId2, setUpiId2] = useState(settings.upiId2 || '9739391891@paytm');
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    setUpiId(settings.upiId || '9739391891@ybl');
-    setUpiId2(settings.upiId2 || '9739391891@paytm');
-  }, [settings]);
-
-  const fetchOrders = useCallback(async () => {
+  const fetchPaymentData = useCallback(async () => {
     try {
       const headers = await getAdminAuthHeaders();
-      const res = await fetch('/api/admin/orders?status=all&pageSize=50', { headers });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success && Array.isArray(data.orders)) {
+      const [ordersRes, cfgRes] = await Promise.all([
+        fetch('/api/admin/orders?status=all&pageSize=50', { headers }),
+        fetch('/api/razorpay/config'),
+      ]);
+      const data = await ordersRes.json().catch(() => ({}));
+      if (ordersRes.ok && data.success && Array.isArray(data.orders)) {
         setOrders(data.orders);
+      }
+      const cfg = await cfgRes.json().catch(() => ({}));
+      if (cfgRes.ok && cfg.success) {
+        setGatewayStatus({
+          configured: Boolean(cfg.configured),
+          keyId: typeof cfg.keyId === 'string' ? cfg.keyId : null,
+          supportedMethods: Array.isArray(cfg.supportedMethods) ? cfg.supportedMethods : ['card', 'upi', 'netbanking', 'wallet'],
+        });
       }
     } catch (err) {
       console.error('Error loading orders in PaymentsTab:', err);
@@ -56,27 +63,10 @@ export function PaymentsTab() {
   }, []);
 
   useEffect(() => {
-    fetchOrders();
-    const timer = window.setInterval(fetchOrders, 10000);
+    fetchPaymentData();
+    const timer = window.setInterval(fetchPaymentData, 10000);
     return () => window.clearInterval(timer);
-  }, [fetchOrders]);
-
-  const handleSaveKeys = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    try {
-      await updateSettings({
-        upiId,
-        upiId2,
-      });
-      logAuditEvent('UPDATE_PAYOUT_UPI', 'BILLING', `UPI IDs changed to ${upiId} / ${upiId2}`);
-      showToast('Payment settings updated successfully!', 'success');
-    } catch (err: any) {
-      showToast('Error updating payment settings: ' + err.message, 'error');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  }, [fetchPaymentData]);
 
   const getPaymentStatus = (order: Order) => {
     if (order.paymentStatus) return order.paymentStatus;
@@ -84,7 +74,7 @@ export function PaymentsTab() {
   };
 
   const getPaymentReference = (order: Order) => {
-    return order.utrNumber || order.razorpay_payment_id || (order as any).razorpayPaymentId || '-';
+    return order.razorpay_payment_id || (order as any).razorpayPaymentId || order.utrNumber || '-';
   };
 
   const getOrderAmount = (order: Order) => {
@@ -130,15 +120,15 @@ export function PaymentsTab() {
   const razorpayOrders = paidOrders.filter(
     (o) => getPaymentMethod(o).includes('razorpay') || getPaymentMethod(o).includes('online')
   );
-  const upiOrders = paidOrders.filter(
-    (o) => getPaymentMethod(o).includes('upi') || getPaymentMethod(o).includes('qr')
+  const whatsappOrders = paidOrders.filter(
+    (o) => getPaymentMethod(o).includes('whatsapp')
   );
   const codOrders = paidOrders.filter(
     (o) => getPaymentMethod(o).includes('cod') || getPaymentMethod(o).includes('cash')
   );
 
   const razorpayTotal = razorpayOrders.reduce((sum, o) => sum + getOrderAmount(o), 0);
-  const upiTotal = upiOrders.reduce((sum, o) => sum + getOrderAmount(o), 0);
+  const whatsappTotal = whatsappOrders.reduce((sum, o) => sum + getOrderAmount(o), 0);
   const codTotal = codOrders.reduce((sum, o) => sum + getOrderAmount(o), 0);
   const grandTotal = paidOrders.reduce((sum, o) => sum + getOrderAmount(o), 0);
 
@@ -153,7 +143,7 @@ export function PaymentsTab() {
 
     if (!matchesSearch) return false;
     if (methodFilter === 'razorpay') return method.includes('razorpay') || method.includes('online');
-    if (methodFilter === 'upi') return method.includes('upi') || method.includes('qr');
+    if (methodFilter === 'whatsapp') return method.includes('whatsapp');
     if (methodFilter === 'cod') return method.includes('cod') || method.includes('cash');
     return true;
   });
@@ -167,7 +157,7 @@ export function PaymentsTab() {
             Razorpay &amp; Payment Dashboard
           </h2>
           <p className="text-brand-gray-500">
-            Real-time payment gateway monitoring, transaction ledger, and gateway keys.
+            Cryptographically verified Razorpay gateway monitoring (Cards, UPI Apps, Netbanking) &amp; settlement ledger.
           </p>
         </div>
         <a
@@ -179,6 +169,43 @@ export function PaymentsTab() {
           <span>Razorpay Live Dashboard</span>
           <ExternalLink className="w-4 h-4" />
         </a>
+      </div>
+
+      {/* Live Gateway Status Card */}
+      <div
+        className={`p-5 rounded-2xl border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+          gatewayStatus.configured
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+            : 'bg-amber-50 border-amber-200 text-amber-950'
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          {gatewayStatus.configured ? (
+            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+          ) : (
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          )}
+          <div>
+            <h3 className="text-sm font-bold">
+              {gatewayStatus.configured
+                ? 'Razorpay Live Payment Gateway Active'
+                : 'Razorpay Keys Not Configured in Server Environment'}
+            </h3>
+            <p className="text-xs mt-1 leading-relaxed opacity-85">
+              {gatewayStatus.configured
+                ? `Key ID ${gatewayStatus.keyId} is live. Supports Debit/Credit Cards, all UPI apps (GPay, PhonePe, Paytm, BHIM), Netbanking & Wallets with HMAC-SHA256 verification and webhook reconciliation.`
+                : 'Set RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, and RAZORPAY_WEBHOOK_SECRET in your server environment variables to activate live online payments. Simulated payments and unverified UPI QR flows are disabled for security.'}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={fetchPaymentData}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-black/10 text-xs font-semibold text-stone-800 hover:bg-stone-50 shrink-0 cursor-pointer"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          <span>Refresh Status</span>
+        </button>
       </div>
 
       {/* Metrics Cards */}
@@ -194,20 +221,11 @@ export function PaymentsTab() {
 
         <div className="bg-white p-5 rounded-2xl border border-brand-gray-200 shadow-xs">
           <div className="flex items-center justify-between text-brand-gray-500 text-xs font-semibold uppercase tracking-wider mb-2">
-            <span>Razorpay Gateway</span>
+            <span>Razorpay Online</span>
             <ArrowUpRight className="w-4 h-4 text-blue-600" />
           </div>
           <p className="text-2xl font-bold text-brand-black">₹{razorpayTotal.toLocaleString()}</p>
-          <p className="text-xs text-brand-gray-400 mt-1">{razorpayOrders.length} transactions</p>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-brand-gray-200 shadow-xs">
-          <div className="flex items-center justify-between text-brand-gray-500 text-xs font-semibold uppercase tracking-wider mb-2">
-            <span>Direct UPI QR</span>
-            <QrCode className="w-4 h-4 text-purple-600" />
-          </div>
-          <p className="text-2xl font-bold text-brand-black">₹{upiTotal.toLocaleString()}</p>
-          <p className="text-xs text-brand-gray-400 mt-1">{upiOrders.length} UTR verifications</p>
+          <p className="text-xs text-brand-gray-400 mt-1">{razorpayOrders.length} verified transactions</p>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-brand-gray-200 shadow-xs">
@@ -218,66 +236,16 @@ export function PaymentsTab() {
           <p className="text-2xl font-bold text-brand-black">₹{codTotal.toLocaleString()}</p>
           <p className="text-xs text-brand-gray-400 mt-1">{codOrders.length} collected orders</p>
         </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-brand-gray-200 shadow-xs">
+          <div className="flex items-center justify-between text-brand-gray-500 text-xs font-semibold uppercase tracking-wider mb-2">
+            <span>WhatsApp Express</span>
+            <Smartphone className="w-4 h-4 text-emerald-600" />
+          </div>
+          <p className="text-2xl font-bold text-brand-black">₹{whatsappTotal.toLocaleString()}</p>
+          <p className="text-xs text-brand-gray-400 mt-1">{whatsappOrders.length} concierge orders</p>
+        </div>
       </div>
-
-      {/* UPI Configuration */}
-      <form
-        onSubmit={handleSaveKeys}
-        className="bg-white p-6 rounded-2xl border border-brand-gray-200 shadow-xs space-y-4"
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-brand-black flex items-center gap-2">
-              Merchant UPI Payout VPA Configuration
-            </h3>
-            <p className="text-xs text-brand-gray-500">
-              Used to generate dynamic checkout QR codes for PhonePe, Google Pay, and Paytm.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <PhonePeIcon className="w-5 h-5" />
-            <PaytmIcon className="w-5 h-5" />
-            <UpiOfficialIcon className="w-8 h-4" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-brand-gray-700 mb-1">
-              Primary UPI ID (PhonePe / YBL)
-            </label>
-            <input
-              type="text"
-              value={upiId}
-              onChange={(e) => setUpiId(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border border-brand-gray-200 text-sm font-mono"
-              placeholder="9739391891@ybl"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-brand-gray-700 mb-1">
-              Secondary UPI ID (Paytm / Fallback)
-            </label>
-            <input
-              type="text"
-              value={upiId2}
-              onChange={(e) => setUpiId2(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border border-brand-gray-200 text-sm font-mono"
-              placeholder="9739391891@paytm"
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="bg-brand-black text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-brand-gray-900 transition-colors disabled:opacity-50"
-          >
-            {isSaving ? 'Saving...' : 'Save UPI Configuration'}
-          </button>
-        </div>
-      </form>
 
       {/* Transactions Ledger */}
       <div className="bg-white rounded-2xl border border-brand-gray-200 shadow-xs overflow-hidden">
@@ -288,12 +256,12 @@ export function PaymentsTab() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by Order ID, customer, UTR..."
+              placeholder="Search by Order ID, customer, Payment ID..."
               className="w-full pl-9 pr-4 py-2 text-sm bg-brand-gray-50 border border-brand-gray-200 rounded-xl outline-none"
             />
           </div>
           <div className="flex items-center gap-2">
-            {(['all', 'razorpay', 'upi', 'cod'] as const).map((m) => (
+            {(['all', 'razorpay', 'cod', 'whatsapp'] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => setMethodFilter(m)}

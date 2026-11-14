@@ -172,10 +172,70 @@ const OWNER_ADMIN_EMAILS = new Set([
   ...env.ADMIN_SEED_EMAILS.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean),
 ]);
 
-const ADMIN_FALLBACK_SESSION_SECRET = 'jiyoo_secure_admin_session_hmac_secret_2026';
+const EPHEMERAL_BOOT_SESSION_SECRET = crypto.randomBytes(32).toString('hex');
 const ADMIN_SESSION_HMAC_SECRET =
-  process.env.ADMIN_SESSION_SECRET ||
-  ADMIN_FALLBACK_SESSION_SECRET;
+  (process.env.ADMIN_SESSION_SECRET || '').trim() || EPHEMERAL_BOOT_SESSION_SECRET;
+const CUSTOMER_SESSION_HMAC_SECRET = crypto
+  .createHmac('sha256', ADMIN_SESSION_HMAC_SECRET)
+  .update('jiyoo:customer-session-hmac:v1')
+  .digest('hex');
+const UNSUBSCRIBE_HMAC_SECRET = crypto
+  .createHmac('sha256', ADMIN_SESSION_HMAC_SECRET)
+  .update('jiyoo:email-unsubscribe-hmac:v1')
+  .digest('hex');
+
+function isValidDocId(id: string): boolean {
+  return /^[a-zA-Z0-9_-]{1,80}$/.test(String(id || ''));
+}
+
+function isVerifiedAdminUser(authUser: any): boolean {
+  return Boolean(
+    authUser &&
+      authUser.admin === true &&
+      (authUser.mfaVerified === true || authUser.email_verified === true)
+  );
+}
+
+function sanitizeUserForResponse(raw: Record<string, any>): Record<string, any> {
+  const clone = { ...raw };
+  delete clone.passwordHash;
+  delete clone.passwordSalt;
+  delete clone.totpSecret;
+  delete clone.totpSecretEncrypted;
+  delete clone.pendingTotpSecretEncrypted;
+  delete clone.recoveryCodeHashes;
+  delete clone.preAuthToken;
+  return clone;
+}
+
+const SENSITIVE_SETTINGS_KEYS = new Set([
+  'razorpayKeySecret',
+  'razorpay_key_secret',
+  'razorpayWebhookSecret',
+  'razorpay_webhook_secret',
+  'smtpPass',
+  'smtpPassword',
+  'smtpUser',
+  'adminPasscode',
+  'adminSessionSecret',
+  'firebaseServiceAccount',
+  'supabaseServiceRoleKey',
+  'privateKey',
+  'upiId',
+  'upiId2',
+  'merchantVpa',
+]);
+
+function sanitizePublicSettings(raw: Record<string, any>): Record<string, any> {
+  const clone = { ...raw };
+  for (const k of Object.keys(clone)) {
+    if (SENSITIVE_SETTINGS_KEYS.has(k) || /secret|password|private_key/i.test(k)) {
+      delete clone[k];
+    }
+  }
+  return clone;
+}
+
 const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours strict session lifetime
 const ADMIN_PREAUTH_TTL_MS = 10 * 60 * 1000; // 10 minutes for 2FA verification/enrollment step
 const MAX_ADMIN_AUTH_FAILURES = 5;
@@ -543,22 +603,11 @@ function verifySignedAdminToken(
   if (parts.length !== 3) return null;
   const [, payloadB64, providedSig] = parts;
   if (!payloadB64 || !providedSig) return null;
-  const candidateSecrets = Array.from(
-    new Set(
-      [
-        ADMIN_SESSION_HMAC_SECRET,
-        ADMIN_FALLBACK_SESSION_SECRET,
-        env.CRON_SECRET,
-        env.RAZORPAY_KEY_SECRET,
-        process.env.ADMIN_PASSCODE,
-      ].filter((s): s is string => typeof s === 'string' && s.length > 0)
-    )
-  );
-  const sigMatches = candidateSecrets.some((sec) => {
-    const expectedSig = crypto.createHmac('sha256', sec).update(payloadB64).digest('hex');
-    return safeEqualHex(providedSig, expectedSig);
-  });
-  if (!sigMatches) return null;
+  const expectedSig = crypto
+    .createHmac('sha256', ADMIN_SESSION_HMAC_SECRET)
+    .update(payloadB64)
+    .digest('hex');
+  if (!safeEqualHex(providedSig, expectedSig)) return null;
   try {
     const decodedStr = Buffer.from(payloadB64, 'base64url').toString('utf8');
     if (decodedStr.startsWith('{')) {
@@ -568,6 +617,9 @@ function verifySignedAdminToken(
       const expiresAt = Number(parsed.exp || issuedAt + ADMIN_SESSION_TTL_MS);
       const jti = String(parsed.jti || '');
       if (!email || !Number.isFinite(issuedAt) || Date.now() > expiresAt || Date.now() - issuedAt < -60000) {
+        return null;
+      }
+      if (req && parsed.uaHash && parsed.uaHash !== getClientUaHash(req)) {
         return null;
       }
       if (jti && revokedAdminSessionJtis.has(jti)) {
@@ -1236,7 +1288,7 @@ function createSignedCustomerToken(userObj: { id: string; email: string; name: s
   });
   const payloadB64 = Buffer.from(payloadStr, 'utf8').toString('base64url');
   const sig = crypto
-    .createHmac('sha256', ADMIN_SESSION_HMAC_SECRET)
+    .createHmac('sha256', CUSTOMER_SESSION_HMAC_SECRET)
     .update(`cust:${payloadB64}`)
     .digest('hex');
   return {
@@ -1253,7 +1305,7 @@ function verifySignedCustomerToken(token: string): any | null {
   if (!payloadB64 || !providedSig) return null;
   try {
     const expectedSig = crypto
-      .createHmac('sha256', ADMIN_SESSION_HMAC_SECRET)
+      .createHmac('sha256', CUSTOMER_SESSION_HMAC_SECRET)
       .update(`cust:${payloadB64}`)
       .digest('hex');
     const a = Buffer.from(providedSig, 'utf8');
@@ -1262,13 +1314,12 @@ function verifySignedCustomerToken(token: string): any | null {
     const parsed = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
     if (!parsed?.uid || !parsed?.email || Date.now() > Number(parsed.exp || 0)) return null;
     const emailLower = String(parsed.email).trim().toLowerCase();
-    const isAdmin = OWNER_ADMIN_EMAILS.has(emailLower);
     return {
       uid: String(parsed.uid),
       email: emailLower,
       name: String(parsed.name || emailLower.split('@')[0]),
-      email_verified: true,
-      admin: isAdmin,
+      email_verified: false,
+      admin: false,
       mfaVerified: false,
     };
   } catch {
@@ -2324,7 +2375,7 @@ async function calculateOrderTotals(items: any[], orderType: 'retail' | 'wholesa
             price: bundled.price,
             numericPrice: numPrice,
             wholesalePrice: (bundled as any).wholesalePrice || numPrice,
-            wholesaleEligible: true,
+            wholesaleEligible: (bundled as any).wholesaleEligible === true,
             stock: 100,
             reservedStock: 0,
             stockStatus: 'in_stock',
@@ -2439,8 +2490,10 @@ async function calculateOrderTotals(items: any[], orderType: 'retail' | 'wholesa
     }
 
     if (pData && typeof pData.stock === 'number' && pData.stock >= 0) {
-      if (pData.stock < item.quantity) {
-        throw new Error(`Insufficient stock for ${pData.name || item.name}. Available: ${pData.stock}`);
+      const reservedStock = Math.max(0, Number(pData.reservedStock || 0));
+      const availableStock = Math.max(0, pData.stock - reservedStock);
+      if (availableStock < item.quantity) {
+        throw new Error(`Insufficient stock for ${pData.name || item.name}. Available: ${availableStock}`);
       }
     }
     
@@ -2995,22 +3048,31 @@ const directOrderSchema = z.object({
   // since WhatsApp Express quick-orders intentionally don't collect a delivery address
   // up front (the customer sends it via WhatsApp chat instead).
   shippingDetails: z.object({
-    name: z.string().optional().default(''),
-    phone: z.string().optional().default(''),
-    email: z.string().optional().default(''),
-    address: z.string().optional().default(''),
-    pincode: z.string().optional().default(''),
-  }).passthrough(),
-  customerEmail: z.string().optional().nullable(),
-  paymentMethod: z.string().default('Cash on Delivery'),
-  utrNumber: z.string().optional(),
-  couponCode: z.string().optional().nullable(),
+    name: z.string().max(120).optional().default(''),
+    firstName: z.string().max(80).optional(),
+    lastName: z.string().max(80).optional(),
+    phone: z.string().max(30).optional().default(''),
+    email: z.string().max(254).optional().default(''),
+    address: z.string().max(500).optional().default(''),
+    pincode: z.string().max(20).optional().default(''),
+    houseNo: z.string().max(120).optional(),
+    street: z.string().max(200).optional(),
+    area: z.string().max(200).optional(),
+    city: z.string().max(100).optional(),
+    state: z.string().max(100).optional(),
+    landmark: z.string().max(200).optional(),
+    addressType: z.enum(['Home', 'Work', 'Other']).optional(),
+    deliveryInstructions: z.string().max(300).optional(),
+  }),
+  customerEmail: z.string().max(254).optional().nullable(),
+  paymentMethod: z.string().max(80).default('Cash on Delivery'),
+  couponCode: z.string().max(60).optional().nullable(),
   orderType: z.enum(['retail', 'wholesale']).optional().default('retail'),
 });
 
 const trackOrderSchema = z.object({
-  orderId: z.string().min(1, 'Order ID is required'),
-  phone: z.string().optional(),
+  orderId: z.string().min(1, 'Order ID is required').max(80),
+  phone: z.string().max(30).optional(),
 });
 
 const couponItemsSchema = z.array(
@@ -3042,24 +3104,35 @@ const createOrderSchema = z.object({
     })
   ).min(1, 'Order must contain at least one item').max(100, 'Too many items in order'),
   currency: z.string().optional().default('INR'),
-  couponCode: z.string().optional().nullable(),
+  couponCode: z.string().max(60).optional().nullable(),
   // Captured here (not just at /verify) so a Razorpay webhook that arrives without a
   // matching client-side /verify call still has enough info to build the order record.
   shippingDetails: z.object({
-    name: z.string().optional(),
-    phone: z.string().optional(),
-    email: z.string().optional(),
-    address: z.string().optional(),
-    pincode: z.string().optional(),
-  }).passthrough().optional(),
-  customerEmail: z.string().optional().nullable(),
+    name: z.string().max(120).optional(),
+    firstName: z.string().max(80).optional(),
+    lastName: z.string().max(80).optional(),
+    phone: z.string().max(30).optional(),
+    email: z.string().max(254).optional(),
+    address: z.string().max(500).optional(),
+    pincode: z.string().max(20).optional(),
+    houseNo: z.string().max(120).optional(),
+    street: z.string().max(200).optional(),
+    area: z.string().max(200).optional(),
+    city: z.string().max(100).optional(),
+    state: z.string().max(100).optional(),
+    landmark: z.string().max(200).optional(),
+    addressType: z.enum(['Home', 'Work', 'Other']).optional(),
+    deliveryInstructions: z.string().max(300).optional(),
+  }).optional(),
+  customerEmail: z.string().max(254).optional().nullable(),
   orderType: z.enum(['retail', 'wholesale']).optional().default('retail'),
 });
 
 const verifyPaymentSchema = z.object({
-  razorpay_order_id: z.string().min(1, 'Order ID is required'),
-  razorpay_payment_id: z.string().min(1, 'Payment ID is required'),
-  razorpay_signature: z.string().min(1, 'Signature is required'),
+  razorpay_order_id: z.string().min(1, 'Order ID is required').max(100),
+  razorpay_payment_id: z.string().min(1, 'Payment ID is required').max(100),
+  razorpay_signature: z.string().min(1, 'Signature is required').max(256),
+  guest_verify_token: z.string().max(128).optional(),
   items: z.array(
     z.object({
       id: z.union([z.string(), z.number()]),
@@ -3074,14 +3147,14 @@ const verifyPaymentSchema = z.object({
     })
   ).min(1, 'Order must contain at least one item').max(100, 'Too many items in payment verification').optional(),
   shippingDetails: z.object({
-    name: z.string().optional(),
-    address: z.string().optional(),
-    phone: z.string().optional(),
-    email: z.string().optional(),
-  }).passthrough().optional(),
-  customerEmail: z.string().optional().nullable(),
-  userId: z.string().optional(),
-  couponCode: z.string().optional().nullable(),
+    name: z.string().max(120).optional(),
+    address: z.string().max(500).optional(),
+    phone: z.string().max(30).optional(),
+    email: z.string().max(254).optional(),
+    pincode: z.string().max(20).optional(),
+  }).optional(),
+  customerEmail: z.string().max(254).optional().nullable(),
+  couponCode: z.string().max(60).optional().nullable(),
   orderType: z.enum(['retail', 'wholesale']).optional(),
 });
 
@@ -3463,7 +3536,7 @@ app.use(compression() as unknown as express.RequestHandler);
   app.get('/api/admin/users', requireAuth, requireAdmin, async (_req: express.Request, res: express.Response) => {
     try {
       const snap = await getFirestore().collection('users').limit(200).get();
-      const users = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+      const users = snap.docs.map((d: any) => sanitizeUserForResponse({ id: d.id, ...d.data() }));
       if (users.length === 0) {
         users.push({
           id: 'jiyoo_store_owner',
@@ -3496,57 +3569,7 @@ app.use(compression() as unknown as express.RequestHandler);
   app.post('/api/admin/auth/session', adminAuthLimiter, async (req: express.Request, res: express.Response) => {
     try {
       const ipKey = `ip_${getClientIpHash(req)}`;
-      const { idToken, ownerPin, identifier, email, phone, password } = req.body || {};
-
-      // 1. Temporary Admin Access: Phone/Identifier 9739391891 and Password jiyooshams@2026 (or passcode jiyooshams@2026)
-      // Checked first so the verified owner can always unlock immediately and clear any prior brute-force lockout
-      const candIdent = String(identifier || email || phone || '').trim();
-      const candPass = String(password || '').trim();
-      const candDigits = candIdent.replace(/\D/g, '');
-      const isTempCredsMatch =
-        (candDigits === '9739391891' || candDigits.endsWith('9739391891')) &&
-        candPass === 'jiyooshams@2026';
-
-      const isPasscodeMatch =
-        typeof ownerPin === 'string' &&
-        (ownerPin.trim() === 'jiyooshams@2026' || ownerPin.trim() === '9739391891');
-
-      if (isTempCredsMatch || isPasscodeMatch) {
-        await clearAdminAuthFailures([ipKey]);
-        const targetAdminEmail = 'yoyokishwar@gmail.com';
-        const sessionObj = createSignedAdminToken(targetAdminEmail, { mfaVerified: true, req });
-        const nowIso = new Date().toISOString();
-        try {
-          await getFirestore().collection('admin_sessions').doc(sessionObj.jti).set({
-            jti: sessionObj.jti,
-            email: targetAdminEmail,
-            mfaVerified: true,
-            revoked: false,
-            ipHash: getClientIpHash(req),
-            uaHash: getClientUaHash(req),
-            createdAt: nowIso,
-            expiresAt: sessionObj.expiresAt,
-            authMethod: isPasscodeMatch ? 'owner_passcode_temp' : 'identifier_password_temp',
-          });
-          await getFirestore().collection('audit_logs').add({
-            action: 'ADMIN_SIGN_IN_TEMPORARY',
-            category: 'USERS',
-            actor: targetAdminEmail,
-            actorRole: 'admin',
-            details: `Administrator signed in using authorized temporary access credentials (${isPasscodeMatch ? 'Passcode' : 'Phone/Password'})`,
-            createdAt: nowIso,
-          });
-        } catch {
-          // non-fatal
-        }
-        return res.json({
-          success: true,
-          token: sessionObj.token,
-          expiresAt: sessionObj.expiresAt,
-          email: targetAdminEmail,
-          mfaVerified: true,
-        });
-      }
+      const { idToken, ownerPin } = req.body || {};
 
       const ipLock = await checkAdminBruteForceLockout([ipKey]);
       if (ipLock.locked) {
@@ -4107,10 +4130,20 @@ app.use(compression() as unknown as express.RequestHandler);
       }
       const { name: rawName, email: rawEmail, password: rawPassword } = parsed.data;
 
+      if (OWNER_ADMIN_EMAILS.has(rawEmail)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Administrator accounts cannot be created via customer signup. Please use Google Sign-In.',
+        });
+      }
+
       const uid = `usr_${crypto.createHash('sha256').update(rawEmail).digest('hex').slice(0, 20)}`;
       const userDocRef = getFirestore().collection('users').doc(uid);
-      const existingSnap = await userDocRef.get();
-      if (existingSnap.exists && existingSnap.data()?.passwordHash) {
+      const [existingSnap, byEmailSnap] = await Promise.all([
+        userDocRef.get(),
+        getFirestore().collection('users').where('email', '==', rawEmail).limit(1).get(),
+      ]);
+      if (existingSnap.exists || !byEmailSnap.empty) {
         return res.status(409).json({
           success: false,
           error: 'An account with this email already exists. Please sign in instead.',
@@ -4119,21 +4152,20 @@ app.use(compression() as unknown as express.RequestHandler);
 
       const salt = crypto.randomBytes(16).toString('hex');
       const passwordHash = crypto.scryptSync(rawPassword, salt, 64).toString('hex');
-      const isAdmin = OWNER_ADMIN_EMAILS.has(rawEmail);
       const nowIso = new Date().toISOString();
 
       const userProfile = {
         id: uid,
         email: rawEmail,
         name: rawName,
-        role: isAdmin ? 'admin' : 'customer',
-        admin: isAdmin,
+        role: 'customer',
+        admin: false,
         passwordSalt: salt,
         passwordHash,
-        createdAt: existingSnap.exists ? existingSnap.data()?.createdAt || nowIso : nowIso,
+        createdAt: nowIso,
         updatedAt: nowIso,
       };
-      await userDocRef.set(userProfile, { merge: true });
+      await userDocRef.set(userProfile);
 
       const sessionObj = createSignedCustomerToken({ id: uid, email: rawEmail, name: rawName });
       return res.json({
@@ -4144,8 +4176,8 @@ app.use(compression() as unknown as express.RequestHandler);
           id: uid,
           email: rawEmail,
           name: rawName,
-          role: userProfile.role,
-          admin: isAdmin,
+          role: 'customer',
+          admin: false,
         },
       });
     } catch (err) {
@@ -4167,17 +4199,27 @@ app.use(compression() as unknown as express.RequestHandler);
         });
       }
       const { email: rawEmail, password: rawPassword } = parsed.data;
+      const custIpKey = `cust_ip_${getClientIpHash(req)}`;
+      const custEmailKey = `cust_em_${crypto.createHash('sha256').update(rawEmail).digest('hex').slice(0, 20)}`;
+      const lockState = await checkAdminBruteForceLockout([custIpKey, custEmailKey]);
+      if (lockState.locked) {
+        return res.status(429).json({
+          success: false,
+          retryAfterSeconds: lockState.retryAfterSeconds,
+          error: `Too many failed sign-in attempts. Please try again in ${Math.ceil(lockState.retryAfterSeconds / 60)} minute(s).`,
+        });
+      }
 
       const uid = `usr_${crypto.createHash('sha256').update(rawEmail).digest('hex').slice(0, 20)}`;
       const userDocRef = getFirestore().collection('users').doc(uid);
       const snap = await userDocRef.get();
 
       if (!snap.exists || !snap.data()?.passwordHash || !snap.data()?.passwordSalt) {
-        // Also search by email field in case user was created with a different doc ID
         const querySnap = await getFirestore().collection('users').where('email', '==', rawEmail).limit(1).get();
         const foundDoc = querySnap.docs[0];
         const data = foundDoc?.data();
         if (!foundDoc || !data?.passwordHash || !data?.passwordSalt) {
+          await recordAdminAuthFailure([custIpKey, custEmailKey], rawEmail, 'Customer sign-in failed (account not found or OAuth only)');
           return res.status(401).json({
             success: false,
             error: "Invalid email or password. Don't have an account? Click 'Create Account' above.",
@@ -4186,12 +4228,13 @@ app.use(compression() as unknown as express.RequestHandler);
         const computed = crypto.scryptSync(rawPassword, String(data.passwordSalt), 64);
         const stored = Buffer.from(String(data.passwordHash), 'hex');
         if (computed.length !== stored.length || !crypto.timingSafeEqual(computed, stored)) {
+          await recordAdminAuthFailure([custIpKey, custEmailKey], rawEmail, 'Customer sign-in invalid password');
           return res.status(401).json({
             success: false,
             error: 'Invalid email or password.',
           });
         }
-        const isAdmin = Boolean(data.admin || OWNER_ADMIN_EMAILS.has(rawEmail));
+        await clearAdminAuthFailures([custIpKey, custEmailKey]);
         const sessionObj = createSignedCustomerToken({
           id: foundDoc.id,
           email: rawEmail,
@@ -4205,8 +4248,8 @@ app.use(compression() as unknown as express.RequestHandler);
             id: foundDoc.id,
             email: rawEmail,
             name: String(data.name || rawEmail.split('@')[0]),
-            role: isAdmin ? 'admin' : 'customer',
-            admin: isAdmin,
+            role: 'customer',
+            admin: false,
           },
         });
       }
@@ -4215,13 +4258,14 @@ app.use(compression() as unknown as express.RequestHandler);
       const computed = crypto.scryptSync(rawPassword, String(data.passwordSalt), 64);
       const stored = Buffer.from(String(data.passwordHash), 'hex');
       if (computed.length !== stored.length || !crypto.timingSafeEqual(computed, stored)) {
+        await recordAdminAuthFailure([custIpKey, custEmailKey], rawEmail, 'Customer sign-in invalid password');
         return res.status(401).json({
           success: false,
           error: 'Invalid email or password.',
         });
       }
 
-      const isAdmin = Boolean(data.admin || OWNER_ADMIN_EMAILS.has(rawEmail));
+      await clearAdminAuthFailures([custIpKey, custEmailKey]);
       const sessionObj = createSignedCustomerToken({
         id: uid,
         email: rawEmail,
@@ -4235,8 +4279,8 @@ app.use(compression() as unknown as express.RequestHandler);
           id: uid,
           email: rawEmail,
           name: String(data.name || rawEmail.split('@')[0]),
-          role: isAdmin ? 'admin' : 'customer',
-          admin: isAdmin,
+          role: 'customer',
+          admin: false,
         },
       });
     } catch (err) {
@@ -4261,7 +4305,7 @@ app.use(compression() as unknown as express.RequestHandler);
 
   app.post('/api/admin/settings', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     try {
-      const updates = sanitizePayloadObject(req.body || {});
+      const updates = sanitizePublicSettings(sanitizePayloadObject(req.body || {}));
       const now = new Date().toISOString();
       const memSettings = getMemoryCol('settings');
       const existingGlobal = memSettings.get('global') || {};
@@ -4291,15 +4335,15 @@ app.use(compression() as unknown as express.RequestHandler);
         try {
           const snap = await getFirestore().collection('settings').doc('global').get();
           const dbData = snap.exists ? (snap.data() || {}) : {};
-          return { ...dbData, ...memGlobal };
+          return sanitizePublicSettings({ ...dbData, ...memGlobal });
         } catch {
-          return memGlobal;
+          return sanitizePublicSettings(memGlobal);
         }
       });
       res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
       res.json({ success: true, settings: settingsData });
     } catch {
-      res.json({ success: true, settings: getMemoryCol('settings').get('global') || {} });
+      res.json({ success: true, settings: sanitizePublicSettings(getMemoryCol('settings').get('global') || {}) });
     }
   });
 
@@ -4324,7 +4368,12 @@ app.use(compression() as unknown as express.RequestHandler);
       } catch (dbErr) {
         console.warn(`[/api/admin/collection/${col}] Firestore read fallback to memory store:`, (dbErr as any)?.message || dbErr);
       }
-      const items = Array.from(merged.values()).filter((item) => item.__deleted !== true);
+      let items = Array.from(merged.values()).filter((item) => item.__deleted !== true);
+      if (col === 'users') {
+        items = items.map((item) => sanitizeUserForResponse(item));
+      } else if (col === 'settings') {
+        items = items.map((item) => sanitizePublicSettings(item));
+      }
       res.json({ success: true, items });
     } catch {
       res.json({ success: true, items: [] });
@@ -4338,10 +4387,14 @@ app.use(compression() as unknown as express.RequestHandler);
       if (!ALLOWED_ADMIN_COLLECTIONS.has(col) || !id || id.includes('/') || id.length > 128) {
         return res.status(400).json({ success: false, error: 'Invalid collection or document ID' });
       }
-      const payload = sanitizePayloadObject(req.body || {});
+      let payload = sanitizePayloadObject(req.body || {});
       if (col === 'users') {
         delete payload.role;
         delete payload.admin;
+        payload = sanitizeUserForResponse(payload);
+      }
+      if (col === 'settings') {
+        payload = sanitizePublicSettings(payload);
       }
       if (col === 'products') {
         payload.adminEdited = true;
@@ -5824,6 +5877,7 @@ app.use(compression() as unknown as express.RequestHandler);
             from: env.SMTP_FROM,
           },
           storeName: 'JIYOO',
+          unsubscribeSecret: UNSUBSCRIBE_HMAC_SECRET,
         }).catch((emailErr) => {
           console.error('[Order Email Trigger] Error sending cancellation status email:', emailErr);
         });
@@ -5876,6 +5930,7 @@ app.use(compression() as unknown as express.RequestHandler);
           from: env.SMTP_FROM,
         },
         storeName: 'JIYOO',
+        unsubscribeSecret: UNSUBSCRIBE_HMAC_SECRET,
       }).catch((emailErr) => {
         console.error('[Order Email Trigger] Error sending status update email:', emailErr);
       });
@@ -5977,6 +6032,7 @@ app.use(compression() as unknown as express.RequestHandler);
             from: env.SMTP_FROM,
           },
           storeName: 'JIYOO',
+          unsubscribeSecret: UNSUBSCRIBE_HMAC_SECRET,
         }).catch((emailErr) => {
           console.error('[Order Email Trigger] Error sending status update email via payment-status:', emailErr);
         });
@@ -6024,6 +6080,7 @@ app.use(compression() as unknown as express.RequestHandler);
         },
         storeName: 'JIYOO',
         force: true, // Admin explicitly requested resend
+        unsubscribeSecret: UNSUBSCRIBE_HMAC_SECRET,
       });
 
       return res.json({
@@ -6278,13 +6335,13 @@ app.use(compression() as unknown as express.RequestHandler);
   app.get('/api/orders/:id/audit-logs', trackOrderLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
     try {
       const orderId = String(req.params.id || '').trim();
-      if (!orderId) return res.status(400).json({ success: false, error: 'Order ID is required' });
+      if (!isValidDocId(orderId)) return res.status(400).json({ success: false, error: 'Invalid Order ID' });
       const authUser = (req as any).authUser;
       const db = getFirestore();
       const orderSnap = await db.collection('orders').doc(orderId).get();
       if (!orderSnap.exists) return res.status(404).json({ success: false, error: 'Order not found' });
       const orderData = orderSnap.data() as any;
-      if (orderData?.userId !== authUser?.uid && authUser?.admin !== true) {
+      if (orderData?.userId !== authUser?.uid && !isVerifiedAdminUser(authUser)) {
         return res.status(403).json({ success: false, error: 'Unauthorized to view audit history for this order' });
       }
       const verification = await verifyOrderAuditChain(db, orderId, orderData);
@@ -6308,6 +6365,9 @@ app.use(compression() as unknown as express.RequestHandler);
       .string()
       .trim()
       .max(500)
+      .refine((val) => !val || !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(val) || /^https?:\/\//i.test(val), {
+        message: 'Tracking URL must use http:// or https:// protocol',
+      })
       .transform((val) => {
         if (!val) return '';
         if (/^https?:\/\//i.test(val)) return val;
@@ -6321,6 +6381,7 @@ app.use(compression() as unknown as express.RequestHandler);
   app.post('/api/admin/orders/:id/tracking', adminApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     try {
       const orderId = String(req.params.id || '').trim();
+      if (!isValidDocId(orderId)) return res.status(400).json({ success: false, error: 'Invalid Order ID' });
       const parsed = orderTrackingUpdateSchema.safeParse(req.body || {});
       if (!parsed.success) {
         return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || 'Invalid tracking payload' });
@@ -6397,6 +6458,7 @@ app.use(compression() as unknown as express.RequestHandler);
           actor: actorEmail,
           db,
           auth: hasServiceAccountCredentials ? getAuth() : null,
+          unsubscribeSecret: UNSUBSCRIBE_HMAC_SECRET,
           smtpConfig: {
             host: env.SMTP_HOST,
             port: env.SMTP_PORT,
@@ -6489,7 +6551,8 @@ app.post('/api/reviews/:id/report', strictApiLimiter, optionalAuth, async (req: 
 // ENTERPRISE LOGIC: Securely update WhatsApp pending orders
 app.post('/api/orders/:id/whatsapp-status', trackOrderLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
   try {
-    const orderId = req.params.id;
+    const orderId = String(req.params.id || '').trim();
+    if (!isValidDocId(orderId)) return res.status(400).json({ success: false, error: 'Invalid Order ID' });
     const { status } = req.body; // 'pending' or 'cancelled'
     
     if (status !== 'pending' && status !== 'cancelled') {
@@ -6511,9 +6574,9 @@ app.post('/api/orders/:id/whatsapp-status', trackOrderLimiter, requireAuth, asyn
       }
       const orderData = orderSnap.data() as any;
 
-      // SECURITY: Strict ownership or admin check. Never allow any caller to
+      // SECURITY: Strict ownership or verified admin check. Never allow any caller to
       // mutate an order they do not own.
-      if (!orderData?.userId || (authUser.uid !== orderData.userId && authUser.admin !== true)) {
+      if (!orderData?.userId || (authUser.uid !== orderData.userId && !isVerifiedAdminUser(authUser))) {
         return { kind: 'forbidden' as const };
       }
 
@@ -6751,8 +6814,19 @@ app.get('/api/account/export', strictApiLimiter, requireAuth, async (req: expres
 const handleEmailUnsubscribe = async (req: express.Request, res: express.Response) => {
   try {
     const rawEmail = String(req.query?.email || req.body?.email || '').trim().toLowerCase().slice(0, 254);
-    const db = getFirestore();
+    const providedSig = String(req.query?.sig || req.body?.sig || '').trim();
     if (rawEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+      if (!providedSig) {
+        return res.status(403).json({ success: false, error: 'Signed unsubscribe token is required.' });
+      }
+      const expectedSig = crypto
+        .createHmac('sha256', UNSUBSCRIBE_HMAC_SECRET)
+        .update(`unsub:${rawEmail}`)
+        .digest('hex');
+      if (!safeEqualHex(providedSig, expectedSig)) {
+        return res.status(403).json({ success: false, error: 'Invalid or expired unsubscribe signature.' });
+      }
+      const db = getFirestore();
       const usersSnap = await db.collection('users').where('email', '==', rawEmail).limit(5).get().catch(() => ({ docs: [] as any[] }));
       for (const docSnap of usersSnap.docs) {
         await docSnap.ref.set(
@@ -6763,6 +6837,8 @@ const handleEmailUnsubscribe = async (req: express.Request, res: express.Respons
           { merge: true }
         );
       }
+    } else if (req.method === 'POST') {
+      return res.status(400).json({ success: false, error: 'Valid email and signature are required.' });
     }
     if (req.method === 'POST') {
       return res.status(200).json({ success: true, message: 'You have been unsubscribed from non-essential emails.' });
@@ -6832,7 +6908,8 @@ app.post('/api/admin/users/:uid/delete', adminApiLimiter, requireAuth, requireAd
 
 app.post('/api/orders/:id/cancel', orderLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
   try {
-    const orderId = req.params.id;
+    const orderId = String(req.params.id || '').trim();
+    if (!isValidDocId(orderId)) return res.status(400).json({ success: false, error: 'Invalid Order ID' });
     const authUser = (req as any).authUser;
     if (!authUser || !authUser.uid) {
       return res.status(401).json({ success: false, error: 'Authentication required' });
@@ -6846,7 +6923,7 @@ app.post('/api/orders/:id/cancel', orderLimiter, requireAuth, async (req: expres
     }
     
     const orderData = orderSnap.data();
-    if (orderData?.userId !== authUser.uid && authUser.admin !== true) {
+    if (orderData?.userId !== authUser.uid && !isVerifiedAdminUser(authUser)) {
       return res.status(403).json({ success: false, error: 'Unauthorized to cancel this order' });
     }
     
@@ -7314,6 +7391,9 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
       }
 
       const { orderId, phone } = parseResult.data;
+      if (!isValidDocId(orderId)) {
+        return res.status(400).json({ success: false, error: 'Invalid order ID format' });
+      }
       const docSnap = await getFirestore().collection('orders').doc(orderId).get();
 
       if (!docSnap.exists) {
@@ -7326,7 +7406,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
 
       let authorizedByOwnerOrAdmin = false;
       const authUser = await verifyRequestAuth(req);
-      if (authUser && (authUser.uid === orderData?.userId || authUser.admin === true)) {
+      if (authUser && (authUser.uid === orderData?.userId || isVerifiedAdminUser(authUser))) {
         authorizedByOwnerOrAdmin = true;
       }
 
@@ -7361,12 +7441,18 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
           orderStatus: orderData?.orderStatus || orderData?.status || 'pending',
           paymentStatus: orderData?.paymentStatus || 'unpaid',
           paymentMethod: orderData?.paymentMethod || '',
+          orderType: orderData?.orderType || 'retail',
           items: Array.isArray(orderData?.items) ? orderData.items : [],
           subtotal: orderData?.subtotal ?? 0,
           discountAmount: orderData?.discountAmount ?? 0,
           deliveryFee: orderData?.deliveryFee ?? 0,
           amount: orderData?.amount ?? orderData?.grandTotal ?? 0,
           grandTotal: orderData?.grandTotal ?? orderData?.amount ?? 0,
+          trackingCarrier: orderData?.trackingCarrier || null,
+          trackingNumber: orderData?.trackingNumber || null,
+          trackingUrl: orderData?.trackingUrl || null,
+          trackingUpdatedAt: orderData?.trackingUpdatedAt || null,
+          estimatedDelivery: orderData?.estimatedDelivery || null,
           createdAt: orderData?.createdAt || null,
           updatedAt: orderData?.updatedAt || null,
           shippingDetails: {
@@ -7546,6 +7632,10 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
 
         try {
           const order = await razorpayInstance.orders.create(options);
+          const guestVerifyToken = !authUser?.uid ? crypto.randomBytes(24).toString('hex') : null;
+          const guestTokenHash = guestVerifyToken
+            ? crypto.createHash('sha256').update(guestVerifyToken).digest('hex')
+            : null;
           // Durable pending snapshot is mandatory. Never return a usable payment
           // order if the server cannot persist the trusted source of truth.
           try {
@@ -7560,6 +7650,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
               customerEmail: authUser?.email || parseResult.data.customerEmail || shippingDetails?.email || null,
               shippingDetails: { ...(shippingDetails || {}), email: shippingDetails?.email || authUser?.email || '', phoneNormalized: normalizePhone(shippingDetails?.phone) },
               userId,
+              ...(guestTokenHash ? { guestTokenHash } : {}),
               reservationId,
               reservationExpiresAt: new Date(reservationExpiresAtMs).toISOString(),
               consumed: false,
@@ -7588,6 +7679,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
             order,
             key_id: env.RAZORPAY_KEY_ID,
             isLive: true,
+            ...(guestVerifyToken ? { guest_verify_token: guestVerifyToken } : {}),
           });
         } catch (e) {
           console.error('Razorpay API Error:', e);
@@ -7611,7 +7703,63 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
     }
   };
 
+  app.get('/api/razorpay/config', apiLimiter, (_req, res) => {
+    const configured = Boolean(getRazorpay() && env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET);
+    res.json({
+      success: true,
+      configured,
+      keyId: configured ? env.RAZORPAY_KEY_ID : null,
+      supportedMethods: ['card', 'upi', 'netbanking', 'wallet'],
+    });
+  });
+
   app.post('/api/razorpay/order', orderLimiter, optionalAuth, handleCreateOrder);
+
+  app.post('/api/razorpay/cancel', orderLimiter, optionalAuth, async (req: express.Request, res: express.Response) => {
+    try {
+      const razorpayOrderId = String(req.body?.razorpay_order_id || '').trim();
+      const guestVerifyToken = typeof req.body?.guest_verify_token === 'string' ? req.body.guest_verify_token.trim() : '';
+      const reason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 120) : 'checkout_cancelled';
+      if (!razorpayOrderId || !isValidDocId(razorpayOrderId)) {
+        return res.status(400).json({ success: false, error: 'Invalid Razorpay order ID' });
+      }
+      const db = getFirestore();
+      const pendingRef = db.collection('razorpayPendingOrders').doc(razorpayOrderId);
+      const snap = await pendingRef.get();
+      if (!snap.exists) {
+        return res.status(404).json({ success: false, error: 'Pending payment session not found' });
+      }
+      const pending = snap.data() as any;
+      const authUser = (req as any).authUser;
+      const authorized =
+        (authUser?.uid && pending.userId === authUser.uid) ||
+        isVerifiedAdminUser(authUser) ||
+        (pending.guestTokenHash &&
+          guestVerifyToken &&
+          safeEqualHex(crypto.createHash('sha256').update(guestVerifyToken).digest('hex'), String(pending.guestTokenHash)));
+      if (!authorized) {
+        return res.status(403).json({ success: false, error: 'Unauthorized to cancel this payment session' });
+      }
+      if (pending.consumed === true) {
+        return res.json({ success: true, alreadyCommitted: true });
+      }
+      if (pending.reservationId) {
+        await releaseInventoryReservation(db, String(pending.reservationId), reason).catch(() => {});
+      }
+      await pendingRef.set(
+        {
+          status: 'cancelled_by_user',
+          cancelledAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      return res.json({ success: true });
+    } catch (err: any) {
+      console.error('Razorpay cancel error:', err);
+      return res.status(500).json({ success: false, error: 'Failed to release checkout reservation' });
+    }
+  });
 
   // Verify Payment
   const handleVerifyPayment = async (req: express.Request, res: express.Response) => {
@@ -7624,10 +7772,19 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
         });
       }
 
-      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = parseResult.data;
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, guest_verify_token } = parseResult.data;
       const authUser = (req as any).authUser;
-      const userId = authUser?.uid || parseResult.data.userId || 'guest';
       const secret = env.RAZORPAY_KEY_SECRET;
+
+      const isVerifyCallerAuthorized = (docData: any): boolean => {
+        if (authUser?.uid && docData?.userId === authUser.uid) return true;
+        if (isVerifiedAdminUser(authUser)) return true;
+        if (docData?.guestTokenHash && typeof guest_verify_token === 'string' && guest_verify_token.length > 0) {
+          const presentedHash = crypto.createHash('sha256').update(guest_verify_token).digest('hex');
+          return safeEqualHex(presentedHash, String(docData.guestTokenHash));
+        }
+        return false;
+      };
 
       if (!secret) {
         return res.status(500).json({ success: false, error: 'Razorpay secret key not configured on server' });
@@ -7660,13 +7817,16 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
       // of truth for items, pricing, coupon and shipping. This prevents a client
       // from paying for one cart and submitting another payload during verification.
       let orderId: string | null = null;
+      let createdOrderRecord: any = null;
       const existingSnap = await getFirestore().collection('orders')
         .where('razorpay_order_id', '==', razorpay_order_id).limit(1).get();
 
       if (!existingSnap.empty) {
         orderId = existingSnap.docs[0].id;
         const existing = existingSnap.docs[0].data();
-        if (existing.userId !== userId) return res.status(403).json({ success: false, error: 'Payment does not belong to the authenticated account.' });
+        if (!isVerifyCallerAuthorized(existing)) return res.status(403).json({ success: false, error: 'Payment does not belong to the authenticated account.' });
+        const resolvedActorUid = authUser?.uid || String(existing.userId || 'guest');
+        createdOrderRecord = { id: orderId, ...existing };
         if (existing.paymentStatus !== 'paid') {
           const prevStatus = String(existing.status || existing.orderStatus || 'pending');
           const prevPayStatus = String(existing.paymentStatus || 'unpaid');
@@ -7681,6 +7841,13 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
             razorpay_payment_id,
             updatedAt: new Date().toISOString(),
           });
+          createdOrderRecord = {
+            ...createdOrderRecord,
+            paymentStatus: nextPayStatus,
+            status: nextStatus,
+            orderStatus: nextStatus,
+            razorpay_payment_id,
+          };
           await recordOrderAuditLog(getFirestore(), {
             orderId,
             eventType: 'PAYMENT_VERIFIED',
@@ -7690,8 +7857,8 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
             newStatus: nextStatus,
             previousPaymentStatus: prevPayStatus,
             newPaymentStatus: nextPayStatus,
-            actor: authUser?.email || userId,
-            actorUid: userId,
+            actor: authUser?.email || resolvedActorUid,
+            actorUid: resolvedActorUid,
             actorRole: 'customer',
             source: '/api/razorpay/verify',
             changes: {
@@ -7709,12 +7876,23 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
         const pending = await claimPendingRazorpayOrder(razorpay_order_id);
         if (!pending) {
           orderId = await findOrderByRazorpayId(razorpay_order_id);
+          if (orderId) {
+            const snap = await getFirestore().collection('orders').doc(orderId).get();
+            if (snap.exists) {
+              const existingDoc = snap.data();
+              if (!isVerifyCallerAuthorized(existingDoc)) {
+                return res.status(403).json({ success: false, error: 'Payment does not belong to the authenticated account.' });
+              }
+              createdOrderRecord = { id: snap.id, ...existingDoc };
+            }
+          }
         } else {
           try {
-            if (pending.userId !== userId) {
+            if (!isVerifyCallerAuthorized(pending)) {
               await resetPendingRazorpayClaim(razorpay_order_id, 'user_mismatch');
               return res.status(403).json({ success: false, error: 'Payment does not belong to the authenticated account.' });
             }
+            const resolvedActorUid = authUser?.uid || String(pending.userId || 'guest');
             const trustedItems = Array.isArray(pending.items) ? pending.items : [];
             if (!trustedItems.length) {
               await resetPendingRazorpayClaim(razorpay_order_id, 'empty_trusted_items');
@@ -7758,6 +7936,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
               customerEmail: pending.customerEmail || authUser?.email || pending.shippingDetails?.email || null,
               shippingDetails: pending.shippingDetails || {},
               userId: pending.userId || null,
+              ...(pending.guestTokenHash ? { guestTokenHash: pending.guestTokenHash } : {}),
               orderType: pending.orderType || 'retail',
               ...(pending.wholesaleZoneId ? { wholesaleZoneId: pending.wholesaleZoneId, wholesaleZoneLabel: pending.wholesaleZoneLabel } : {}),
               createdAt: new Date().toISOString(),
@@ -7771,13 +7950,14 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
                 couponCode: pending.couponCode,
                 userId: pending.userId,
                 enforceCouponLimit: false,
-                auditActor: authUser?.email || userId,
-                auditActorUid: userId,
+                auditActor: authUser?.email || resolvedActorUid,
+                auditActorUid: resolvedActorUid,
                 auditActorRole: 'customer',
                 auditSource: '/api/razorpay/verify',
               }
             );
             orderId = created.orderId;
+            createdOrderRecord = { ...trustedPayload, id: orderId, orderId };
             await markPendingRazorpayCommitted(razorpay_order_id);
 
             try {
@@ -7810,10 +7990,16 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
         }
       }
 
+      if (createdOrderRecord && 'guestTokenHash' in createdOrderRecord) {
+        const { guestTokenHash: _dropHash, ...publicOrder } = createdOrderRecord;
+        createdOrderRecord = publicOrder;
+      }
+
       res.status(200).json({ 
         success: true, 
         message: 'Payment verified successfully',
-        orderId: orderId
+        orderId: orderId,
+        ...(createdOrderRecord ? { order: createdOrderRecord } : {}),
       });
     } catch (error: any) {
       console.error('Failed to verify Razorpay signature:', error);
@@ -7828,7 +8014,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
   const handleWebhook = async (req: express.Request, res: express.Response) => {
     try {
       const webhookSecret = env.RAZORPAY_WEBHOOK_SECRET;
-      if (!webhookSecret) return res.status(500).json({ success: false, error: 'Webhook verification not configured' });
+      if (!webhookSecret) return res.status(503).json({ success: false, error: 'Webhook verification not configured' });
 
       const signature = req.headers['x-razorpay-signature'] as string;
       if (!signature) return res.status(400).json({ success: false, error: 'Missing webhook signature' });
@@ -7836,11 +8022,13 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
       const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
       if (!safeEqualHex(signature, expectedSignature)) return res.status(400).json({ success: false, error: 'Invalid webhook signature' });
 
-      const webhookTimestamp = Number(req.headers['x-razorpay-webhook-timestamp']);
-      if (Number.isFinite(webhookTimestamp) && webhookTimestamp > 0) {
-        const timeDiff = Math.floor(Date.now()/1000) - webhookTimestamp;
-        if (timeDiff < -5 || timeDiff > 300) return res.status(400).json({ success: false, error: 'Webhook timestamp verification failed' });
+      const rawWebhookTs = req.headers['x-razorpay-webhook-timestamp'];
+      const webhookTimestamp = Number(rawWebhookTs);
+      if (!rawWebhookTs || !Number.isFinite(webhookTimestamp) || webhookTimestamp <= 0) {
+        return res.status(400).json({ success: false, error: 'Missing webhook timestamp' });
       }
+      const timeDiff = Math.floor(Date.now()/1000) - webhookTimestamp;
+      if (timeDiff < -5 || timeDiff > 300) return res.status(400).json({ success: false, error: 'Webhook timestamp verification failed' });
 
       const eventId = String(req.headers['x-razorpay-event-id'] || '').trim();
       if (!eventId) return res.status(400).json({ success: false, error: 'Missing webhook event id' });
@@ -8013,25 +8201,9 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
   app.get('/api/catalog/settings', async (_req, res) => {
     try {
       const snap = await getFirestore().collection('settings').doc('global').get();
-      return res.json({ success: true, settings: snap.exists ? snap.data() : {} });
+      return res.json({ success: true, settings: sanitizePublicSettings(snap.exists ? snap.data() : {}) });
     } catch {
-      return res.json({ success: true, settings: {} });
-    }
-  });
-
-  // Dynamic UPI QR code generator endpoint (/api/upi/qr)
-  app.get('/api/upi/qr', async (req, res) => {
-    try {
-      const amountNum = Number(req.query.amount || 0);
-      const snap = await getFirestore().collection('settings').doc('global').get();
-      const data = snap.exists ? (snap.data() || {}) : {};
-      const upiId = String(data.upiId || 'jiyoo@upi').trim();
-      const storeName = String(data.storeName || 'Jiyoo Fresh').trim();
-      const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(storeName)}${amountNum > 0 ? `&am=${amountNum.toFixed(2)}` : ''}&cu=INR`;
-      const qrDataUrl = await QRCode.toDataURL(upiUri, { width: 280, margin: 1 });
-      return res.json({ success: true, qrDataUrl, upiId });
-    } catch {
-      return res.status(500).json({ success: false, error: 'Failed to generate UPI QR code' });
+      return res.json({ success: true, settings: sanitizePublicSettings({}) });
     }
   });
 
@@ -8298,6 +8470,10 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
   });
 
   // Vite Middleware in Dev vs Static Serving in Production
+  app.all('/api/*', (_req, res) => {
+    res.status(404).json({ success: false, error: 'API endpoint not found' });
+  });
+
   if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
     const vitePkg = 'vite';
     const { createServer: createViteServer } = await import(vitePkg);
@@ -8380,6 +8556,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
                   from: env.SMTP_FROM,
                 },
                 storeName: 'JIYOO',
+                unsubscribeSecret: UNSUBSCRIBE_HMAC_SECRET,
               }).catch((err) => {
                 console.error(`[Firestore Order Listener] Failed to send status email for ${docId}:`, err);
               });

@@ -131,7 +131,7 @@ export function DashboardTab() {
           <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-900">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             <span>
-              Payment Gateway: {stats.razorpayConfigured ? 'Razorpay Live + UPI QR Active' : 'Direct UPI QR + COD + WhatsApp Active'}
+              Payment Gateway: {stats.razorpayConfigured ? 'Razorpay Live (Cards, UPI Apps, Netbanking)' : 'Razorpay Standby · COD & WhatsApp Active'}
             </span>
           </div>
         </div>
@@ -156,7 +156,7 @@ export function DashboardTab() {
         <div className="px-6 py-4 border-b border-brand-gray-100 flex items-center justify-between">
           <div>
             <h3 className="font-bold text-brand-black">Recent Store Orders</h3>
-            <p className="text-xs text-brand-gray-500">Latest 10 orders across Online UPI, Razorpay, Cash on Delivery, and WhatsApp Express</p>
+            <p className="text-xs text-brand-gray-500">Latest 10 orders across Razorpay Online, Cash on Delivery, and WhatsApp Express</p>
           </div>
         </div>
         {recentOrders.length === 0 ? (

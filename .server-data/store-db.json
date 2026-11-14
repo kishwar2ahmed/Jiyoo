@@ -37,7 +37,7 @@
       "brand": null,
       "count": null,
       "netWeight": null,
-      "stock": 250,
+      "stock": 248,
       "reservedStock": 0,
       "isDeleted": false,
       "adminEdited": true,
@@ -8367,7 +8367,148 @@
   },
   "orders": {},
   "users": {},
-  "audit_logs": {},
+  "audit_logs": {
+    "ord_JY-226027_seq_0001_1794611004670": {
+      "action": "CREATE_ORDER",
+      "category": "ORDERS",
+      "actor": "guest_9876543210",
+      "actorRole": "customer",
+      "orderId": "JY-226027",
+      "eventType": "ORDER_CREATED",
+      "previousStatus": "NONE",
+      "newStatus": "pending",
+      "previousPaymentStatus": "NONE",
+      "newPaymentStatus": "unpaid",
+      "source": "/api/orders/create",
+      "previousHash": "GENESIS",
+      "integrityHash": "75ef5368ed44a2072a151d58d5e3b89b6ffbb2a24a095fc725fccb27512496e4",
+      "changes": {
+        "orderStatus": {
+          "from": null,
+          "to": "pending"
+        },
+        "paymentStatus": {
+          "from": null,
+          "to": "unpaid"
+        },
+        "grandTotal": {
+          "from": null,
+          "to": 339
+        },
+        "paymentMethod": {
+          "from": null,
+          "to": "Cash on Delivery"
+        }
+      },
+      "details": "Order JY-226027 created (Cash on Delivery) · status=pending, payment=unpaid, total=₹339",
+      "createdAt": "2026-11-13T23:03:24.670Z"
+    },
+    "ord_JY-350658_seq_0001_1794611004726": {
+      "action": "CREATE_ORDER",
+      "category": "ORDERS",
+      "actor": "whatsapp:9876543210",
+      "actorRole": "customer",
+      "orderId": "JY-350658",
+      "eventType": "ORDER_CREATED",
+      "previousStatus": "NONE",
+      "newStatus": "AWAITING_WHATSAPP_CONFIRMATION",
+      "previousPaymentStatus": "NONE",
+      "newPaymentStatus": "unpaid",
+      "source": "/api/whatsapp/prepare-order",
+      "previousHash": "GENESIS",
+      "integrityHash": "506aa638bc17592b61ed907e0b77df4bfc9c7d759995947774cb9807bdd0e86b",
+      "changes": {
+        "orderStatus": {
+          "from": null,
+          "to": "AWAITING_WHATSAPP_CONFIRMATION"
+        },
+        "paymentStatus": {
+          "from": null,
+          "to": "unpaid"
+        },
+        "grandTotal": {
+          "from": null,
+          "to": 339
+        },
+        "paymentMethod": {
+          "from": null,
+          "to": "WhatsApp Express"
+        }
+      },
+      "details": "Order JY-350658 created (WhatsApp Express) · status=AWAITING_WHATSAPP_CONFIRMATION, payment=unpaid, total=₹339",
+      "createdAt": "2026-11-13T23:03:24.725Z"
+    },
+    "ord_JY-823770_seq_0001_1794611102999": {
+      "action": "CREATE_ORDER",
+      "category": "ORDERS",
+      "actor": "guest_9876543210",
+      "actorRole": "customer",
+      "orderId": "JY-823770",
+      "eventType": "ORDER_CREATED",
+      "previousStatus": "NONE",
+      "newStatus": "pending",
+      "previousPaymentStatus": "NONE",
+      "newPaymentStatus": "unpaid",
+      "source": "/api/orders/create",
+      "previousHash": "GENESIS",
+      "integrityHash": "51238fee5c5307a3908103dc19f01f8cf0373b1f1d56a91911717eeba3d0e1b4",
+      "changes": {
+        "orderStatus": {
+          "from": null,
+          "to": "pending"
+        },
+        "paymentStatus": {
+          "from": null,
+          "to": "unpaid"
+        },
+        "grandTotal": {
+          "from": null,
+          "to": 339
+        },
+        "paymentMethod": {
+          "from": null,
+          "to": "Cash on Delivery"
+        }
+      },
+      "details": "Order JY-823770 created (Cash on Delivery) · status=pending, payment=unpaid, total=₹339",
+      "createdAt": "2026-11-13T23:05:02.999Z"
+    },
+    "ord_JY-817327_seq_0001_1794611103058": {
+      "action": "CREATE_ORDER",
+      "category": "ORDERS",
+      "actor": "whatsapp:9876543210",
+      "actorRole": "customer",
+      "orderId": "JY-817327",
+      "eventType": "ORDER_CREATED",
+      "previousStatus": "NONE",
+      "newStatus": "AWAITING_WHATSAPP_CONFIRMATION",
+      "previousPaymentStatus": "NONE",
+      "newPaymentStatus": "unpaid",
+      "source": "/api/whatsapp/prepare-order",
+      "previousHash": "GENESIS",
+      "integrityHash": "7fafe87e11599bb0fe5addcec2fc535c4743d5c628449584b821846e9891867a",
+      "changes": {
+        "orderStatus": {
+          "from": null,
+          "to": "AWAITING_WHATSAPP_CONFIRMATION"
+        },
+        "paymentStatus": {
+          "from": null,
+          "to": "unpaid"
+        },
+        "grandTotal": {
+          "from": null,
+          "to": 339
+        },
+        "paymentMethod": {
+          "from": null,
+          "to": "WhatsApp Express"
+        }
+      },
+      "details": "Order JY-817327 created (WhatsApp Express) · status=AWAITING_WHATSAPP_CONFIRMATION, payment=unpaid, total=₹339",
+      "createdAt": "2026-11-13T23:05:03.058Z"
+    }
+  },
   "categories": {},
   "admin_security": {
     "ip_39dfa788676bbd82d50ca416": {
