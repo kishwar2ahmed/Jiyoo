@@ -3582,6 +3582,7 @@ app.use(compression() as unknown as express.RequestHandler);
       }
 
       let verifiedEmail: string | null = null;
+      let authenticatedViaTempPasscodeOnly = false;
 
       if (typeof idToken === 'string' && idToken.trim()) {
         const decoded = await verifyFirebaseIdTokenWithFallback(idToken.trim());
@@ -3648,6 +3649,9 @@ app.use(compression() as unknown as express.RequestHandler);
           const b = crypto.createHash('sha256').update(expectedPin).digest();
           if (crypto.timingSafeEqual(a, b)) {
             verifiedEmail = 'yoyokishwar@gmail.com';
+            if (String(process.env.ADMIN_TEMP_PASSCODE_ONLY || '').trim().toLowerCase() === 'true') {
+              authenticatedViaTempPasscodeOnly = true;
+            }
           }
         }
         if (!verifiedEmail) {
@@ -3667,6 +3671,44 @@ app.use(compression() as unknown as express.RequestHandler);
 
       // Primary credentials verified! Check 2FA enrollment state in /admin_security/{emailKey}
       const emailKey = `adm_${verifiedEmail.replace(/[^a-z0-9]/g, '_')}`;
+
+      if (authenticatedViaTempPasscodeOnly) {
+        await clearAdminAuthFailures([ipKey, emailKey]);
+        const nowIso = new Date().toISOString();
+        const sessionObj = createSignedAdminToken(verifiedEmail, { mfaVerified: true, req });
+        try {
+          await getFirestore().collection('admin_sessions').doc(sessionObj.jti).set({
+            jti: sessionObj.jti,
+            email: verifiedEmail,
+            mfaVerified: true,
+            verifiedVia: 'TEMP_PASSCODE_ONLY',
+            revoked: false,
+            ipHash: getClientIpHash(req),
+            uaHash: getClientUaHash(req),
+            createdAt: nowIso,
+            expiresAt: sessionObj.expiresAt,
+          });
+          await getFirestore().collection('audit_logs').add({
+            action: 'ADMIN_LOGIN_TEMP_PASSCODE_ONLY',
+            category: 'USERS',
+            actor: verifiedEmail,
+            actorRole: 'admin',
+            details: `Administrator ${verifiedEmail} authenticated via temporary server-configured Owner Passcode`,
+            createdAt: nowIso,
+          });
+        } catch {
+          // Ignore non-fatal session/audit log write errors
+        }
+        return res.json({
+          success: true,
+          requires2FA: false,
+          token: sessionObj.token,
+          expiresAt: sessionObj.expiresAt,
+          email: verifiedEmail,
+          mfaVerified: true,
+        });
+      }
+
       const secRecord = await getAdminSecurityRecord(emailKey);
       const totpEnabled = Boolean(secRecord?.totpEnabled && secRecord?.totpSecretEncrypted);
 

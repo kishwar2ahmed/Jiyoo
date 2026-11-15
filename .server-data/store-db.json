@@ -8507,6 +8507,14 @@
       },
       "details": "Order JY-817327 created (WhatsApp Express) · status=AWAITING_WHATSAPP_CONFIRMATION, payment=unpaid, total=₹339",
       "createdAt": "2026-11-13T23:05:03.058Z"
+    },
+    "doc_1794752722690_3169c0870b06": {
+      "action": "ADMIN_SESSION_LOGOUT",
+      "category": "USERS",
+      "actor": "yoyokishwar@gmail.com",
+      "actorRole": "admin",
+      "details": "Administrator yoyokishwar@gmail.com signed out and revoked session token adm_71748ef7ed9b8361a110f72d",
+      "createdAt": "2026-11-15T14:25:22.690Z"
     }
   },
   "categories": {},
@@ -8517,11 +8525,17 @@
       "updatedAt": "2026-11-13T17:20:18.840Z",
       "firstFailedAt": "2026-11-11T09:00:15.688Z"
     },
-    "adm_yoyokishwar_gmail_com": {
-      "failedAttempts": 2,
-      "firstFailedAt": "2026-11-11T09:00:15.688Z",
+    "ip_f9a4e155bfc49b8471989f9d": {
+      "failedAttempts": 0,
       "lockedUntil": null,
-      "updatedAt": "2026-11-11T09:00:50.520Z"
+      "updatedAt": "2026-11-15T14:25:22.823Z",
+      "firstFailedAt": "2026-11-15T14:25:13.358Z"
+    },
+    "adm_yoyokishwar_gmail_com": {
+      "failedAttempts": 0,
+      "firstFailedAt": "2026-11-15T14:25:13.358Z",
+      "lockedUntil": null,
+      "updatedAt": "2026-11-15T14:25:22.823Z"
     }
   },
   "admin_sessions": {},
