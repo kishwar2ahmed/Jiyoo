@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { BannerSlide } from '../types';
 import { DEFAULT_HERO_BANNERS } from '../constants/banners';
 import { adminSaveDoc } from '../utils/adminAuth';
+import { fetchJsonWithProxyRetry } from '../utils/apiFetch';
 import { isSupabaseConfigured, supabaseFetchTable } from '../services/supabase';
 
 export interface AboutUsSettings {
@@ -138,9 +139,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     async function loadSettings() {
       setIsLoading(true);
       try {
-        const res = await fetch('/api/catalog/settings');
+        const { res, data: body } = await fetchJsonWithProxyRetry('/api/catalog/settings');
         if (res.ok) {
-          const body = await res.json().catch(() => null);
           if (isMounted && body?.success && body.settings) {
             const merged = mergeWithDefaultSettings(body.settings);
             persistLocalSettings(merged);

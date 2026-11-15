@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Send, BellRing } from 'lucide-react';
 import { getAdminAuthHeaders, adminFetchCollection } from '../../../utils/adminAuth';
+import { fetchJsonWithProxyRetry } from '../../../utils/apiFetch';
 import { logAuditEvent } from '../../../services/auditService';
 
 export function MarketingTab() {
@@ -34,7 +35,7 @@ export function MarketingTab() {
       }
 
       const headers = await getAdminAuthHeaders(true);
-      const res = await fetch('/api/send-notification', {
+      const { res, data } = await fetchJsonWithProxyRetry('/api/send-notification', {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -44,14 +45,13 @@ export function MarketingTab() {
         })
       });
       
-      const data = await res.json();
-      if (data.success) {
+      if (res.ok && data?.success) {
         logAuditEvent('SEND_BROADCAST', 'SYSTEM', `Push sent to ${tokens.length} devices: "${title}"`);
         setStatus({ type: 'success', message: `Notification sent successfully to ${tokens.length} devices.` });
         setTitle('');
         setBody('');
       } else {
-        setStatus({ type: 'error', message: data.error || 'Failed to send notification.' });
+        setStatus({ type: 'error', message: data?.error || 'Failed to send notification.' });
       }
     } catch (err) {
       console.error(err);

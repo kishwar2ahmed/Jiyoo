@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { auth } from "../../../services/firebase";
 import { getStoredCustomerSession } from "../../../utils/customerAuthFallback";
+import { fetchJsonWithProxyRetry } from "../../../utils/apiFetch";
 import { useToast } from "../../core/contexts/ToastContext";
 import { useConfirm } from "../../core/contexts/ConfirmContext";
 
@@ -17,16 +18,15 @@ export function useOrderActions(setOrders: Dispatch<SetStateAction<any[]>>) {
       const fbToken = await auth.currentUser?.getIdToken().catch(() => null);
       const token = fbToken || custSession?.token || "";
       const activeUid = auth.currentUser?.uid || custSession?.user?.id || "unknown";
-      const res = await fetch(`/api/orders/${orderId}/cancel`, {
+      const { res, data } = await fetchJsonWithProxyRetry(`/api/orders/${orderId}/cancel`, {
         method: "POST",
         headers: {
           Authorization: token ? `Bearer ${token}` : "",
         },
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        showToast(data.error || "Failed to cancel order.", "error");
+      if (!res.ok || !data?.success) {
+        showToast(data?.error || "Failed to cancel order.", "error");
         return;
       }
 

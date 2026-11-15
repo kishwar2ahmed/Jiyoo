@@ -71,7 +71,7 @@ export const VelvetyBalloonButton: React.FC<VelvetyBalloonButtonProps> = ({
       onPointerMove={handlePointerMove}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
-      aria-label={`${label} to cart`}
+      aria-label={/cart|bag/i.test(label) ? label : `${label} to cart`}
       style={{
         rotateX: prefersReduced ? 0 : rotateX,
         rotateY: prefersReduced ? 0 : rotateY,

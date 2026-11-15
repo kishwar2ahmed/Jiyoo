@@ -163,6 +163,30 @@ function getFirestore(): any {
   return serverFallbackDb;
 }
 
+// In-memory store mirror so admin & storefront helpers always stay consistent
+// even when server-side Firestore Admin SDK credentials are absent
+const inMemoryAdminStore: Record<string, Map<string, Record<string, any>>> = {
+  settings: new Map(),
+  products: new Map(),
+  categories: new Map(),
+  coupons: new Map(),
+  reviews: new Map(),
+  users: new Map(),
+  banners: new Map(),
+  messages: new Map(),
+  audit_logs: new Map(),
+  orders: new Map(),
+  deliveryPincodes: new Map(),
+  wholesaleZones: new Map(),
+};
+
+function getMemoryCol(col: string): Map<string, Record<string, any>> {
+  if (!inMemoryAdminStore[col]) {
+    inMemoryAdminStore[col] = new Map();
+  }
+  return inMemoryAdminStore[col];
+}
+
 const OWNER_ADMIN_EMAILS = new Set([
   'yoyokishwar@gmail.com',
   'shamsjiyoo@gmail.com',
@@ -1173,6 +1197,16 @@ const strictApiLimiter = rateLimit({
   validate: false,
   keyGenerator: safeRateLimitKey,
   message: { success: false, error: 'Too many requests for this service, please try again after an hour' },
+});
+
+const accountApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes window
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: false,
+  keyGenerator: safeRateLimitKey,
+  message: { success: false, error: 'Too many account requests, please slow down and try again shortly.' },
 });
 
 // Moderate rate limit for order creation
@@ -3003,13 +3037,17 @@ async function applyCoupon(subtotal: number, couponCode?: string | null, userId?
   }
   const code = String(couponCode).trim().toUpperCase();
 
+  const memCoupon = getMemoryCol('coupons').get(code);
+  if (memCoupon?.__deleted === true) {
+    throw new Error(`Coupon code "${code}" is not valid.`);
+  }
   const db = getFirestore();
   const couponRef = db.collection('coupons').doc(code);
   const snap = await couponRef.get();
-  if (!snap.exists) {
+  if (!snap.exists && !memCoupon) {
     throw new Error(`Coupon code "${code}" is not valid.`);
   }
-  const coupon = snap.data() as any;
+  const coupon = { ...(snap.exists ? (snap.data() as any) : {}), ...(memCoupon || {}) };
   if (coupon.isActive === false) {
     throw new Error(`Coupon code "${code}" is no longer active.`);
   }
@@ -3437,10 +3475,11 @@ app.use(compression() as unknown as express.RequestHandler);
   app.post('/api/admin/users/:uid/role', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     try {
       const targetUid = req.params.uid;
-      const { role } = req.body || {};
-      if (role !== 'admin' && role !== 'user') {
-        return res.status(400).json({ success: false, error: 'role must be "admin" or "user"' });
+      const rawRole = String(req.body?.role || '').trim().toLowerCase();
+      if (rawRole !== 'admin' && rawRole !== 'user' && rawRole !== 'customer') {
+        return res.status(400).json({ success: false, error: 'role must be "admin", "user", or "customer"' });
       }
+      const role = rawRole === 'admin' ? 'admin' : 'user';
       const callerUid = (req as any).authUser.uid;
       if (targetUid === callerUid && role === 'user') {
         return res.status(400).json({ success: false, error: 'You cannot remove your own admin access.' });
@@ -3458,7 +3497,11 @@ app.use(compression() as unknown as express.RequestHandler);
         console.warn('[Admin Role] Custom claim update skipped (using server DB role):', claimErr.message);
       }
 
-      await getFirestore().collection('users').doc(targetUid).set({ role, updatedAt: new Date().toISOString() }, { merge: true });
+      const nowIso = new Date().toISOString();
+      const memUsers = getMemoryCol('users');
+      const existingMemUser = memUsers.get(targetUid) || {};
+      memUsers.set(targetUid, { ...existingMemUser, id: targetUid, role, admin: role === 'admin', updatedAt: nowIso });
+      await getFirestore().collection('users').doc(targetUid).set({ role, admin: role === 'admin', updatedAt: nowIso }, { merge: true });
 
       const actorEmail = (req as any).authUser.email || 'admin';
       await getFirestore().collection('audit_logs').add({
@@ -3466,7 +3509,7 @@ app.use(compression() as unknown as express.RequestHandler);
         category: 'USERS',
         actor: actorEmail,
         details: `Set role of ${targetEmail} to ${role}`,
-        createdAt: new Date().toISOString(),
+        createdAt: nowIso,
       });
 
       res.json({ success: true, role });
@@ -3475,30 +3518,6 @@ app.use(compression() as unknown as express.RequestHandler);
       res.status(500).json({ success: false, error: err.message || 'Failed to update role' });
     }
   });
-
-  // In-memory store mirror so admin writes/reads always succeed even when
-  // server-side Firestore Admin SDK credentials are missing on serverless deployments
-  const inMemoryAdminStore: Record<string, Map<string, Record<string, any>>> = {
-    settings: new Map(),
-    products: new Map(),
-    categories: new Map(),
-    coupons: new Map(),
-    reviews: new Map(),
-    users: new Map(),
-    banners: new Map(),
-    messages: new Map(),
-    audit_logs: new Map(),
-    orders: new Map(),
-    deliveryPincodes: new Map(),
-    wholesaleZones: new Map(),
-  };
-
-  function getMemoryCol(col: string): Map<string, Record<string, any>> {
-    if (!inMemoryAdminStore[col]) {
-      inMemoryAdminStore[col] = new Map();
-    }
-    return inMemoryAdminStore[col];
-  }
 
   app.get('/api/admin/stats', requireAuth, requireAdmin, async (_req: express.Request, res: express.Response) => {
     try {
@@ -3593,8 +3612,28 @@ app.use(compression() as unknown as express.RequestHandler);
 
   app.get('/api/admin/users', requireAuth, requireAdmin, async (_req: express.Request, res: express.Response) => {
     try {
-      const snap = await getFirestore().collection('users').limit(200).get();
-      const users = snap.docs.map((d: any) => sanitizeUserForResponse({ id: d.id, ...d.data() }));
+      const userMap = new Map<string, any>();
+      getMemoryCol('users').forEach((val, id) => {
+        userMap.set(id, { id, ...val });
+      });
+      try {
+        const snap = await getFirestore().collection('users').limit(200).get();
+        snap.docs.forEach((d: any) => {
+          const memVal = getMemoryCol('users').get(d.id);
+          userMap.set(d.id, memVal ? { id: d.id, ...d.data(), ...memVal } : { id: d.id, ...d.data() });
+        });
+      } catch {
+        // Use in-memory store when Firestore is unavailable
+      }
+      const users: Array<Record<string, any>> = Array.from(userMap.values())
+        .filter((u) => u.__deleted !== true)
+        .map((u) => {
+          const sanitized = sanitizeUserForResponse(u);
+          return {
+            ...sanitized,
+            role: sanitized.role === 'admin' || sanitized.admin === true ? 'admin' : 'user',
+          };
+        });
       if (users.length === 0) {
         users.push({
           id: 'jiyoo_store_owner',
@@ -4348,6 +4387,8 @@ app.use(compression() as unknown as express.RequestHandler);
             id: foundDoc.id,
             email: rawEmail,
             name: String(data.name || rawEmail.split('@')[0]),
+            ...(data.phone ? { phone: String(data.phone) } : {}),
+            ...(data.picture ? { picture: String(data.picture) } : {}),
             role: 'customer',
             admin: false,
           },
@@ -4379,6 +4420,8 @@ app.use(compression() as unknown as express.RequestHandler);
           id: uid,
           email: rawEmail,
           name: String(data.name || rawEmail.split('@')[0]),
+          ...(data.phone ? { phone: String(data.phone) } : {}),
+          ...(data.picture ? { picture: String(data.picture) } : {}),
           role: 'customer',
           admin: false,
         },
@@ -5004,7 +5047,7 @@ app.use(compression() as unknown as express.RequestHandler);
   });
 
   // Public endpoint returning active retail areas & Pan-India wholesale status
-  app.get('/api/delivery/active-areas', apiLimiter, async (req, res) => {
+  app.get('/api/delivery/active-areas', apiLimiter, async (_req, res) => {
     try {
       const payload = await withServerCache('delivery:active-areas', 30_000, 180_000, async () => {
         const mergedMap = new Map<string, any>();
@@ -5019,12 +5062,50 @@ app.use(compression() as unknown as express.RequestHandler);
             mergedMap.set(d.id, { ...base, pincode: d.id, ...data });
           });
         } catch {
-          // Fallback to DEFAULT_RETAIL_PINCODES when Firestore is offline
+          // Fallback to DEFAULT_RETAIL_PINCODES + memory overrides when Firestore is offline
         }
-        const activePincodes = Array.from(mergedMap.values()).filter((p) => p.enabled === true);
+        getMemoryCol('deliveryPincodes').forEach((memData, pin) => {
+          if (memData?.__deleted === true) {
+            mergedMap.delete(pin);
+          } else {
+            const base = mergedMap.get(pin) || {};
+            mergedMap.set(pin, { ...base, ...memData, pincode: pin });
+          }
+        });
+        const activePincodes = Array.from(mergedMap.values()).filter(
+          (p) => p.__deleted !== true && p.enabled === true
+        );
+        const activePinSet = new Set(activePincodes.map((p) => String(p.pincode)));
+        const defaultPinSet = new Set(DEFAULT_RETAIL_AREAS.map((a) => String(a.pincode)));
+        const dynamicRetailAreas = DEFAULT_RETAIL_AREAS.filter((a) =>
+          activePinSet.has(String(a.pincode))
+        ).map((a) => ({ ...a, enabled: true }));
+
+        let slCounter = dynamicRetailAreas.length + 1;
+        for (const p of activePincodes) {
+          const pinStr = String(p.pincode || '').trim();
+          if (!pinStr || defaultPinSet.has(pinStr)) continue;
+          const areaNames: string[] = Array.isArray(p.areas) && p.areas.length > 0
+            ? p.areas.map((n: any) => String(n).trim()).filter(Boolean)
+            : String(p.label || pinStr)
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean);
+          for (const areaName of areaNames) {
+            dynamicRetailAreas.push({
+              id: `area-custom-${pinStr}-${slCounter}`,
+              slNo: slCounter++,
+              areaName,
+              pincode: pinStr,
+              displayPincode: pinStr,
+              enabled: true,
+            });
+          }
+        }
+
         return {
           success: true,
-          retailAreas: DEFAULT_RETAIL_AREAS,
+          retailAreas: dynamicRetailAreas,
           activePincodes,
           wholesalePanIndia: true,
         };
@@ -5035,7 +5116,7 @@ app.use(compression() as unknown as express.RequestHandler);
       res.json({
         success: true,
         retailAreas: DEFAULT_RETAIL_AREAS,
-        activePincodes: DEFAULT_RETAIL_PINCODES,
+        activePincodes: Object.values(DEFAULT_RETAIL_PINCODES),
         wholesalePanIndia: true,
       });
     }
@@ -5496,6 +5577,7 @@ app.use(compression() as unknown as express.RequestHandler);
         priceVerified,
         subtotal,
         discountAmount,
+        couponCode: couponCode ? couponCode.trim().toUpperCase() : null,
         deliveryFee,
         grandTotal,
         orderType,
@@ -6580,6 +6662,75 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
+// Public product reviews reader (supports both Firestore and serverFallbackDb)
+app.get('/api/reviews', apiLimiter, async (req: express.Request, res: express.Response) => {
+  try {
+    const productIdFilter = req.query.productId ? String(req.query.productId).trim() : null;
+    const reviewMap = new Map<string, any>();
+    getMemoryCol('reviews').forEach((val, id) => {
+      if (val && typeof val === 'object') {
+        reviewMap.set(id, { ...val, id });
+      }
+    });
+    try {
+      const colRef = getFirestore().collection('reviews');
+      const snap = productIdFilter
+        ? await colRef.where('productId', '==', productIdFilter).get()
+        : await colRef.limit(300).get();
+      snap.docs.forEach((d: any) => {
+        const memVal = getMemoryCol('reviews').get(d.id);
+        reviewMap.set(d.id, memVal ? { id: d.id, ...d.data(), ...memVal } : { id: d.id, ...d.data() });
+      });
+    } catch {
+      // fallback to memory store
+    }
+    const getReviewMs = (val: any) => {
+      if (val?.seconds) return val.seconds * 1000;
+      if (typeof val === 'string' || typeof val === 'number') {
+        const ms = new Date(val).getTime();
+        return Number.isNaN(ms) ? 0 : ms;
+      }
+      return 0;
+    };
+    const reviews = Array.from(reviewMap.values())
+      .filter((r) => r.__deleted !== true && (!productIdFilter || String(r.productId) === productIdFilter))
+      .sort((a, b) => getReviewMs(b.createdAt) - getReviewMs(a.createdAt));
+    return res.json({ success: true, reviews });
+  } catch (err) {
+    console.error('Failed to load reviews:', err);
+    return res.json({ success: true, reviews: [] });
+  }
+});
+
+// Verified customer's own reviews reader
+app.get('/api/account/reviews', accountApiLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const uid = String((req as any).authUser?.uid || '');
+    if (!uid) return res.json({ success: true, reviews: [] });
+    const reviewMap = new Map<string, any>();
+    getMemoryCol('reviews').forEach((val, id) => {
+      if (val && typeof val === 'object' && String(val.userId) === uid) {
+        reviewMap.set(id, { ...val, id });
+      }
+    });
+    try {
+      const snap = await getFirestore().collection('reviews').where('userId', '==', uid).get();
+      snap.docs.forEach((d: any) => {
+        const memVal = getMemoryCol('reviews').get(d.id);
+        reviewMap.set(d.id, memVal ? { id: d.id, ...d.data(), ...memVal } : { id: d.id, ...d.data() });
+      });
+    } catch {
+      // fallback to memory store
+    }
+    const reviews = Array.from(reviewMap.values())
+      .filter((r) => r.__deleted !== true && String(r.userId) === uid)
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    return res.json({ success: true, reviews });
+  } catch {
+    return res.json({ success: true, reviews: [] });
+  }
+});
+
 // Verified-purchase review creation. Customers may only review a product that
 // appears in one of their delivered orders. The client never writes reviews directly.
 app.post('/api/reviews', strictApiLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
@@ -6611,6 +6762,7 @@ app.post('/api/reviews', strictApiLimiter, requireAuth, async (req: express.Requ
       if (reviewErr?.message === 'REVIEW_ALREADY_EXISTS') return res.status(409).json({ success:false, error:'You have already reviewed this product.' });
       throw reviewErr;
     }
+    getMemoryCol('reviews').set(reviewRef.id, { id: reviewRef.id, ...reviewPayload });
     return res.status(201).json({ success:true, review:{id:reviewRef.id,...reviewPayload} });
   } catch (err:any) {
     console.error('Verified review creation failed:', err);
@@ -6869,6 +7021,143 @@ async function deleteUserAccount(db: FirebaseFirestore.Firestore, uid: string, f
     }
   }
 }
+
+// Authenticated Customer Profile & Address Book Endpoints (for fallback/hybrid auth sessions)
+app.get('/api/account/profile', accountApiLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const authUser = (req as any).authUser;
+    const uid = String(authUser?.uid || '');
+    if (!uid) return res.status(401).json({ success: false, error: 'Authentication required' });
+    const snap = await getFirestore().collection('users').doc(uid).get().catch(() => null);
+    const memUser = getMemoryCol('users').get(uid) || {};
+    const merged = sanitizeUserForResponse({
+      id: uid,
+      email: authUser.email,
+      name: authUser.name,
+      ...(snap && snap.exists ? snap.data() : {}),
+      ...memUser,
+    });
+    return res.json({ success: true, profile: merged });
+  } catch {
+    return res.status(500).json({ success: false, error: 'Failed to load profile' });
+  }
+});
+
+app.post('/api/account/profile', accountApiLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const authUser = (req as any).authUser;
+    const uid = String(authUser?.uid || '');
+    if (!uid) return res.status(401).json({ success: false, error: 'Authentication required' });
+    const schema = z.object({
+      name: z.string().trim().min(1).max(120).optional(),
+      phone: z.string().trim().max(24).optional(),
+      picture: z.string().max(1_000_000).optional(),
+      pincode: z.string().trim().max(12).optional(),
+      address: z.string().trim().max(500).optional(),
+    });
+    const parsed = schema.safeParse(req.body || {});
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || 'Invalid profile data' });
+    }
+    const cleanPatch: Record<string, any> = { updatedAt: new Date().toISOString() };
+    if (parsed.data.name !== undefined) cleanPatch.name = parsed.data.name.replace(/[<>]/g, '');
+    if (parsed.data.phone !== undefined) cleanPatch.phone = parsed.data.phone.replace(/[<>]/g, '');
+    if (parsed.data.picture !== undefined) {
+      const pic = parsed.data.picture.trim();
+      if (pic === '' || pic.startsWith('https://') || pic.startsWith('data:image/jpeg;base64,') || pic.startsWith('data:image/png;base64,') || pic.startsWith('data:image/webp;base64,')) {
+        cleanPatch.picture = pic;
+      }
+    }
+    if (parsed.data.pincode !== undefined) cleanPatch.pincode = parsed.data.pincode.replace(/[<>]/g, '');
+    if (parsed.data.address !== undefined) cleanPatch.address = parsed.data.address.replace(/[<>]/g, '');
+
+    await getFirestore().collection('users').doc(uid).set(cleanPatch, { merge: true });
+    const memUsers = getMemoryCol('users');
+    memUsers.set(uid, { ...(memUsers.get(uid) || {}), id: uid, ...cleanPatch });
+
+    const snap = await getFirestore().collection('users').doc(uid).get().catch(() => null);
+    const profile = sanitizeUserForResponse({
+      id: uid,
+      email: authUser.email,
+      ...(snap && snap.exists ? snap.data() : {}),
+      ...(memUsers.get(uid) || {}),
+    });
+    return res.json({ success: true, profile });
+  } catch (err) {
+    console.error('Failed to update customer profile:', err);
+    return res.status(500).json({ success: false, error: 'Failed to update profile' });
+  }
+});
+
+app.get('/api/account/addresses', accountApiLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const uid = String((req as any).authUser?.uid || '');
+    if (!uid) return res.status(401).json({ success: false, error: 'Authentication required' });
+    const snap = await getFirestore().collection('users').doc(uid).collection('addresses').get();
+    const addresses = snap.docs
+      .map((d: any) => ({ id: d.id, ...d.data() }))
+      .sort((a: any, b: any) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    return res.json({ success: true, addresses });
+  } catch {
+    return res.status(500).json({ success: false, error: 'Failed to load addresses' });
+  }
+});
+
+app.post('/api/account/addresses', accountApiLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const uid = String((req as any).authUser?.uid || '');
+    if (!uid) return res.status(401).json({ success: false, error: 'Authentication required' });
+    const schema = z.object({
+      id: z.string().max(120).optional(),
+      name: z.string().trim().min(1, 'Recipient name is required').max(120),
+      phone: z.string().trim().max(24).optional().default(''),
+      address: z.string().trim().min(3, 'Full address is required').max(500),
+      pincode: z.string().trim().max(12).optional().default(''),
+    });
+    const parsed = schema.safeParse(req.body || {});
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, error: parsed.error.issues[0]?.message || 'Invalid address payload' });
+    }
+    const { id, name, phone, address, pincode } = parsed.data;
+    if (id && !isValidDocId(id)) {
+      return res.status(400).json({ success: false, error: 'Invalid address ID' });
+    }
+    const nowIso = new Date().toISOString();
+    const colRef = getFirestore().collection('users').doc(uid).collection('addresses');
+    const addrId = id || `addr_${crypto.randomBytes(8).toString('hex')}`;
+    const record: Record<string, any> = {
+      id: addrId,
+      name: name.replace(/[<>]/g, ''),
+      phone: phone.replace(/[<>]/g, ''),
+      address: address.replace(/[<>]/g, ''),
+      pincode: pincode.replace(/[<>]/g, ''),
+      updatedAt: nowIso,
+      ...(id ? {} : { createdAt: nowIso }),
+    };
+    await colRef.doc(addrId).set(record, { merge: true });
+    const savedSnap = await colRef.doc(addrId).get();
+    return res.json({ success: true, address: { id: addrId, ...(savedSnap.data() || record) } });
+  } catch (err) {
+    console.error('Failed to save customer address:', err);
+    return res.status(500).json({ success: false, error: 'Failed to save address' });
+  }
+});
+
+app.delete('/api/account/addresses/:id', accountApiLimiter, requireAuth, async (req: express.Request, res: express.Response) => {
+  try {
+    const uid = String((req as any).authUser?.uid || '');
+    const addrId = String(req.params.id || '').trim();
+    if (!uid) return res.status(401).json({ success: false, error: 'Authentication required' });
+    if (!isValidDocId(addrId)) {
+      return res.status(400).json({ success: false, error: 'Invalid address ID' });
+    }
+    await getFirestore().collection('users').doc(uid).collection('addresses').doc(addrId).delete();
+    return res.json({ success: true, id: addrId });
+  } catch (err) {
+    console.error('Failed to delete customer address:', err);
+    return res.status(500).json({ success: false, error: 'Failed to delete address' });
+  }
+});
 
 // Data Portability Endpoint ("Download My Data" — DPDP / GDPR Art. 20 / CCPA)
 app.get('/api/account/export', strictApiLimiter, requireAuth, async (req: express.Request, res: express.Response) => {

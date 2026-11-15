@@ -4,6 +4,7 @@ import { Search, Trash2, Check } from 'lucide-react';
 import { useToast } from '../../core/contexts/ToastContext';
 import { useConfirm } from '../../core/contexts/ConfirmContext';
 import { getAdminAuthHeaders } from '../../../utils/adminAuth';
+import { fetchJsonWithProxyRetry } from '../../../utils/apiFetch';
 
 export function UsersTab() {
   const { showToast } = useToast();
@@ -12,12 +13,13 @@ export function UsersTab() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const normalizeDisplayRole = (role?: string) => (role === 'admin' ? 'admin' : 'user');
+
   const loadUsers = useCallback(async () => {
     try {
       const headers = await getAdminAuthHeaders();
-      const res = await fetch('/api/admin/users', { headers });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success && Array.isArray(data.users)) {
+      const { res, data } = await fetchJsonWithProxyRetry('/api/admin/users', { headers });
+      if (res.ok && data?.success && Array.isArray(data.users)) {
         setUsers(data.users);
       }
     } catch (err) {
@@ -34,17 +36,17 @@ export function UsersTab() {
   const updateRole = async (id: string, newRole: string) => {
     try {
       const headers = await getAdminAuthHeaders(true);
-      const res = await fetch(`/api/admin/users/${id}/role`, {
+      const { res, data } = await fetchJsonWithProxyRetry(`/api/admin/users/${id}/role`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ role: newRole }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to update role');
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || 'Failed to update role');
       }
-      setUsers(prev => prev.map(u => u.id === id ? { ...u, role: newRole } : u));
-      showToast(`User role updated to ${newRole}`, 'success');
+      const normalized = normalizeDisplayRole(data.role || newRole);
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, role: normalized } : u));
+      showToast(`User role updated to ${normalized}`, 'success');
     } catch (err: any) {
       console.error("Error updating role", err);
       showToast(err.message || "Failed to update role", "error");
@@ -60,13 +62,12 @@ export function UsersTab() {
     }
     try {
       const headers = await getAdminAuthHeaders(true);
-      const res = await fetch(`/api/admin/users/${userToRemove.id}/delete`, {
+      const { res, data } = await fetchJsonWithProxyRetry(`/api/admin/users/${userToRemove.id}/delete`, {
         method: 'POST',
         headers,
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to remove user');
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || 'Failed to remove user');
       }
       setUsers(prev => prev.filter(u => u.id !== userToRemove.id));
       showToast(`User ${userToRemove.name || userToRemove.email} removed successfully.`, "success");
@@ -139,7 +140,7 @@ export function UsersTab() {
                           ? 'bg-purple-100 text-purple-700 border border-purple-200' 
                           : 'bg-brand-gray-100 text-brand-gray-700'
                       }`}>
-                        {u.role || 'user'}
+                        {normalizeDisplayRole(u.role)}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -150,7 +151,7 @@ export function UsersTab() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <select 
-                          value={u.role || 'user'}
+                          value={normalizeDisplayRole(u.role)}
                           onChange={async (e) => {
                             const newRole = e.target.value;
                             if (newRole === 'admin') {

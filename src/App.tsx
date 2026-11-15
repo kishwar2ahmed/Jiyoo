@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { CartProvider } from './contexts/CartContext';
+import { CartProvider, useCart } from './contexts/CartContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { ToastProvider } from './features/core/contexts/ToastContext';
 import { ConfirmProvider } from './features/core/contexts/ConfirmContext';
@@ -22,7 +22,12 @@ const AdminPanel = lazy(() =>
   import('./features/admin/components/AdminPanel').then((m) => ({ default: m.AdminPanel }))
 );
 
+const AccountCenter = lazy(() =>
+  import('./features/auth/components/AccountCenter').then((m) => ({ default: m.AccountCenter }))
+);
+
 function AppContent() {
+  const { user } = useCart();
   const [activePage, setActivePageState] = useState<'retail' | 'wholesale'>(() => {
     if (typeof window === 'undefined') return 'retail';
     if (window.location.hash === '#wholesale') return 'wholesale';
@@ -41,6 +46,7 @@ function AppContent() {
   const [cartInitialStep, setCartInitialStep] = useState<'cart' | 'checkout'>('cart');
   const [cartInitialPayment, setCartInitialPayment] = useState<'razorpay' | 'cod' | 'whatsapp' | undefined>(undefined);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
   const [isTrackOrderOpen, setIsTrackOrderOpen] = useState(() => {
@@ -167,7 +173,13 @@ function AppContent() {
       )}
 
       <Navbar
-        onUserClick={() => setIsAuthOpen(true)}
+        onUserClick={() => {
+          if (user) {
+            setIsAccountOpen(true);
+          } else {
+            setIsAuthOpen(true);
+          }
+        }}
         onCartClick={() => {
           setCartInitialStep('cart');
           setCartInitialPayment(undefined);
@@ -229,6 +241,17 @@ function AppContent() {
       />
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+      {isAccountOpen && user && (
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-[115] bg-stone-100 flex items-center justify-center text-sm font-medium text-stone-600">
+              Loading Account Center...
+            </div>
+          }
+        >
+          <AccountCenter onClose={() => setIsAccountOpen(false)} />
+        </Suspense>
+      )}
       <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
       <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} />
       <TrackOrderModal

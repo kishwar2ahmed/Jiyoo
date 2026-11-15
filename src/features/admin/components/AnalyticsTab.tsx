@@ -5,6 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { FileSpreadsheet, FileCode } from 'lucide-react';
 import { logAuditEvent } from '../../../services/auditService';
 import { getAdminAuthHeaders } from '../../../utils/adminAuth';
+import { fetchJsonWithProxyRetry } from '../../../utils/apiFetch';
 
 function getOrderDate(createdAt: any): Date | null {
   if (!createdAt) return null;
@@ -31,9 +32,8 @@ export function AnalyticsTab() {
     async function loadAnalytics() {
       try {
         const headers = await getAdminAuthHeaders();
-        const res = await fetch('/api/admin/orders?status=all&pageSize=50', { headers });
-        const body = await res.json().catch(() => ({}));
-        const orders: Order[] = res.ok && body.success && Array.isArray(body.orders) ? body.orders : [];
+        const { res, data: body } = await fetchJsonWithProxyRetry('/api/admin/orders?status=all&pageSize=50', { headers });
+        const orders: Order[] = res.ok && body?.success && Array.isArray(body.orders) ? body.orders : [];
         if (!isMounted) return;
         setRawOrders(orders);
 

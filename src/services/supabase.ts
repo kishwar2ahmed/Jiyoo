@@ -8,6 +8,7 @@
  */
 
 import { createClient, SupabaseClient, User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { fetchJsonWithProxyRetry } from '../utils/apiFetch';
 
 const getEnvVar = (key: string): string => {
   try {
@@ -432,12 +433,11 @@ export async function pingSupabaseConnection(
 
   // 1. Check backend server & server-side Supabase connection first
   try {
-    const res = await fetch('/api/admin/supabase/status', {
+    const { res, data } = await fetchJsonWithProxyRetry('/api/admin/supabase/status', {
       method: 'GET',
       headers: authHeaders || {},
     });
     if (res.ok) {
-      const data = await res.json().catch(() => null);
       if (data && data.success) {
         if (data.connected) {
           return {

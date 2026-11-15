@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../../core/contexts/ToastContext';
 import { useConfirm } from '../../core/contexts/ConfirmContext';
 import { getAdminAuthHeaders } from '../../../utils/adminAuth';
+import { fetchJsonWithProxyRetry } from '../../../utils/apiFetch';
 import {
   MapPin,
   Truck,
@@ -42,21 +43,19 @@ interface ZoneRow {
 
 async function authedFetch(path: string, body?: any) {
   const headers = await getAdminAuthHeaders(true);
-  const res = await fetch(path, {
+  const { res, data } = await fetchJsonWithProxyRetry(path, {
     method: 'POST',
     headers,
     body: body ? JSON.stringify(body) : undefined,
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.success) throw new Error(data.error || 'Request failed');
+  if (!res.ok || !data?.success) throw new Error(data?.error || 'Request failed');
   return data;
 }
 
 async function authedGet(path: string) {
   const headers = await getAdminAuthHeaders();
-  const res = await fetch(path, { headers });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.success) throw new Error(data.error || 'Request failed');
+  const { res, data } = await fetchJsonWithProxyRetry(path, { headers });
+  if (!res.ok || !data?.success) throw new Error(data?.error || 'Request failed');
   return data;
 }
 
@@ -343,12 +342,21 @@ export function DeliveryManagementTab() {
     }
   };
 
+  const defaultPinSet = new Set(DEFAULT_RETAIL_AREAS.map((a) => a.pincode));
+  const activeAreaCount =
+    DEFAULT_RETAIL_AREAS.filter((a) => {
+      const row = pincodes.find((p) => p.pincode === a.pincode);
+      return row ? row.enabled : a.enabled;
+    }).length +
+    pincodes.filter((p) => p.enabled && !defaultPinSet.has(p.pincode)).length;
+  const activePincodeCount = pincodes.filter((p) => p.enabled).length;
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-brand-black">Delivery Management</h2>
         <p className="text-brand-gray-500">
-          Manage active retail delivery areas &amp; PIN codes (13 Bangalore localities currently active) and Pan-India wholesale shipping.
+          Manage active retail delivery areas &amp; PIN codes ({activeAreaCount} active service {activeAreaCount === 1 ? 'area' : 'areas'} across {activePincodeCount} active PIN {activePincodeCount === 1 ? 'code' : 'codes'}) and Pan-India wholesale shipping.
         </p>
       </div>
 
@@ -361,7 +369,7 @@ export function DeliveryManagementTab() {
               : 'border-transparent text-brand-gray-500 hover:text-brand-gray-800'
           }`}
         >
-          <MapPin className="w-4 h-4 inline mr-1.5" /> Retail Areas &amp; PIN Codes (13 Active)
+          <MapPin className="w-4 h-4 inline mr-1.5" /> Retail Areas &amp; PIN Codes ({activeAreaCount} Active)
         </button>
         <button
           onClick={() => setSection('wholesale')}
@@ -377,12 +385,12 @@ export function DeliveryManagementTab() {
 
       {section === 'retail' && (
         <div className="space-y-5">
-          {/* Active 13 Areas Overview Card */}
+          {/* Active Retail Areas Overview Card */}
           <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-emerald-900 font-semibold text-sm">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>13 Active Retail Service Areas (Bangalore)</span>
+                <span>{activeAreaCount} Active Retail Service {activeAreaCount === 1 ? 'Area' : 'Areas'} (Bangalore)</span>
               </div>
               <span className="text-xs text-emerald-700 font-medium">
                 Admin can edit labels, toggle PIN codes, or add new areas below

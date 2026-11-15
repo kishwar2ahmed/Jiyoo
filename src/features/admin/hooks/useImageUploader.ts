@@ -1,6 +1,7 @@
 import { storage, auth } from '../../../services/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { getAdminAuthHeaders } from '../../../utils/adminAuth';
+import { fetchJsonWithProxyRetry } from '../../../utils/apiFetch';
 import { isSupabaseConfigured, uploadToSupabaseStorage } from '../../../services/supabase';
 
 export async function validateAndProcessFile(file: File, circular: boolean): Promise<{ blob: Blob; dataUrl: string }> {
@@ -92,7 +93,7 @@ export async function uploadImageFile(
   try {
     const headers = await getAdminAuthHeaders(true);
     onProgress(65);
-    const res = await fetch('/api/admin/upload', {
+    const { res, data } = await fetchJsonWithProxyRetry('/api/admin/upload', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -101,8 +102,7 @@ export async function uploadImageFile(
         storagePath,
       }),
     });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data.success && data.url) {
+    if (res.ok && data?.success && data.url) {
       onProgress(100);
       return data.url;
     }

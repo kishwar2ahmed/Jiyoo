@@ -72,7 +72,7 @@ type Tab = 'dashboard' | 'banners' | 'products' | 'orders' | 'payments' | 'users
 type AuthStep = 'CHECKING' | 'PRIMARY_LOGIN' | 'ENROLL_2FA' | 'RECOVERY_CODES' | 'VERIFY_2FA' | 'AUTHENTICATED';
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
-  useModalBackButton(true, onClose);
+  useModalBackButton(true, onClose, { closeOnEscape: false });
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const { user, isAuthLoading } = useCart();
 
@@ -108,6 +108,16 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [regeneratedCodes, setRegeneratedCodes] = useState<string[] | null>(null);
   const [dbHealth, setDbHealth] = useState<SupabaseConnectionHealth | null>(null);
   const [isPingingDb, setIsPingingDb] = useState(false);
+
+  useModalBackButton(showSecurityModal, () => setShowSecurityModal(false));
+
+  const openSecurityModal = async () => {
+    const st = await fetchAdminSecurityStatus();
+    if (st) setSecurityStatus(st);
+    setRegeneratedCodes(null);
+    setRegenError('');
+    setShowSecurityModal(true);
+  };
 
   const checkBackendConnectivity = async () => {
     setIsPingingDb(true);
@@ -846,8 +856,8 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[100] bg-brand-gray-50 flex overflow-hidden">
       {/* Sidebar - Desktop */}
-      <div className="w-64 bg-brand-white border-r border-brand-gray-200 flex flex-col hidden md:flex">
-        <div className="p-6 border-b border-brand-gray-200 flex items-center justify-between">
+      <div className="w-64 bg-brand-white border-r border-brand-gray-200 flex flex-col hidden md:flex h-full min-h-0">
+        <div className="p-5 border-b border-brand-gray-200 flex items-center justify-between shrink-0">
           <div className="w-full">
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-serif font-bold text-brand-black">JIYOO Admin</h1>
@@ -860,7 +870,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
               </span>
             </div>
             <p className="text-xs text-brand-gray-500 truncate max-w-[200px]">
-              {user?.email || 'Store Owner • Administrator'}
+              {verifiedEmail || securityStatus?.email || user?.email || 'Store Owner • Administrator'}
             </p>
             <button
               type="button"
@@ -901,7 +911,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
             </button>
           </div>
         </div>
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-3 space-y-0.5">
           {tabs.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -909,28 +919,22 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as Tab)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-brand-gray-900 text-brand-white'
                     : 'text-brand-gray-600 hover:bg-brand-gray-100'
                 }`}
               >
-                <Icon className="w-5 h-5" />
-                {tab.label}
+                <Icon className="w-4 h-4 shrink-0" />
+                <span className="truncate">{tab.label}</span>
               </button>
             );
           })}
         </nav>
-        <div className="p-4 border-t border-brand-gray-200 space-y-2">
+        <div className="p-3.5 border-t border-brand-gray-200 space-y-2 shrink-0">
           <button
             type="button"
-            onClick={async () => {
-              const st = await fetchAdminSecurityStatus();
-              if (st) setSecurityStatus(st);
-              setRegeneratedCodes(null);
-              setRegenError('');
-              setShowSecurityModal(true);
-            }}
+            onClick={openSecurityModal}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
           >
             <ShieldCheck className="w-4 h-4 text-emerald-700" /> Security &amp; 2FA
@@ -963,7 +967,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
             <h2 className="text-lg font-serif font-bold text-brand-black">JIYOO Admin</h2>
             <button
               type="button"
-              onClick={() => setShowSecurityModal(true)}
+              onClick={openSecurityModal}
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-800"
             >
               <ShieldCheck className="w-3 h-3 text-emerald-600" /> 2FA Protected
@@ -1079,7 +1083,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                     Admin Security, Rate Limiting &amp; 2FA
                   </h3>
                   <p className="text-xs text-stone-500">
-                    {user?.email || 'Store Owner • Administrator'}
+                    {verifiedEmail || securityStatus?.email || user?.email || 'Store Owner • Administrator'}
                   </p>
                 </div>
               </div>

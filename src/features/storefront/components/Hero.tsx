@@ -167,9 +167,7 @@ export function Hero({
             </motion.div>
 
             {/* Row 2 (div:nth-of-type(2)): Unified Responsive Display Headline & Smooth Editorial Tagline */}
-            <motion.div
-              role="heading"
-              aria-level={1}
+            <motion.h1
               style={{ y: headlineY }}
               className="editorial-hero-headline font-medium text-[#1C1917] origin-left pb-0.5 text-balance"
             >
@@ -199,19 +197,19 @@ export function Hero({
                 ))}
               </div>
 
-              {/* Line 2 (div:nth-of-type(2)): Smooth Editorial Serif Phrase Showcase (No Blinking Cursor) */}
+              {/* Line 2 (div:nth-of-type(2)): Smooth Editorial Serif Phrase Showcase (Zero Blank Frame) */}
               <div
                 aria-label={HERO_TYPEWRITER_PHRASES[phraseIdx]}
                 className="relative flex items-center pt-0.5 pb-2 lg:pb-3 min-h-[1.75rem] sm:min-h-[2.1rem] lg:min-h-[2.75rem] w-full text-[17px] sm:text-[20px] lg:text-[clamp(1.85rem,3.1vw,3.25rem)] leading-snug lg:leading-[1.15] overflow-hidden"
               >
-                <AnimatePresence mode="wait" initial={false}>
+                <AnimatePresence mode="popLayout" initial={false}>
                   <motion.span
                     key={phraseIdx}
-                    initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 10 }}
+                    initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -10 }}
-                    transition={{ duration: 0.45, ease: EASE_OUT_EXPO }}
-                    className="block font-serif-luxury italic font-semibold lg:font-normal text-[#7C4A24] lg:text-[#8A5A36] tracking-[0.01em] lg:tracking-[-0.01em]"
+                    exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+                    transition={{ duration: 0.35, ease: EASE_OUT_EXPO }}
+                    className="block w-full font-serif-luxury italic font-semibold lg:font-normal text-[#7C4A24] lg:text-[#8A5A36] tracking-[0.01em] lg:tracking-[-0.01em]"
                   >
                     {HERO_TYPEWRITER_PHRASES[phraseIdx]}
                   </motion.span>
@@ -227,7 +225,7 @@ export function Hero({
                   className="pointer-events-none absolute left-0 bottom-0 h-[1.5px] w-full max-w-[260px] sm:max-w-[360px] bg-gradient-to-r from-[#8A5A36]/70 via-[#C5A880]/60 to-transparent origin-left"
                 />
               </div>
-            </motion.div>
+            </motion.h1>
 
             {/* Desktop Subcopy & Primary CTA Row */}
             <div className="hidden lg:block">

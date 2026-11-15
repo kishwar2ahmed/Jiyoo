@@ -15,6 +15,7 @@ import {
   CreditCard,
   Smartphone,
   AlertTriangle,
+  Tag,
 } from "lucide-react";
 import { useCart } from "../../../contexts/CartContext";
 import { useSettings } from "../../../contexts/SettingsContext";
@@ -23,6 +24,8 @@ import { useModalBackButton } from "../../core/hooks/useModalBackButton";
 import { LocationPickerModal } from "../../core/components/LocationPickerModal";
 import { PriceDisplay } from "../../core/components/PriceDisplay";
 import { sanitizeWhatsAppNumber, createWhatsAppOrderUrl } from "../../../utils/whatsapp";
+import { fetchJsonWithProxyRetry } from "../../../utils/apiFetch";
+import { computeCheckoutTotals, countUniqueActivePincodes } from "../../../utils/checkoutTotals";
 import { auth } from "../../../services/firebase";
 import { getSupabaseAccessToken } from "../../../services/supabase";
 import { getStoredCustomerSession } from "../../../utils/customerAuthFallback";
@@ -132,6 +135,14 @@ export function CartModal({
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
 
   const [retailAreas, setRetailAreas] = useState<RetailAreaItem[]>(DEFAULT_RETAIL_AREAS);
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discountAmount: number;
+    description?: string;
+  } | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
   const [razorpayStatus, setRazorpayStatus] = useState<{
     checked: boolean;
     configured: boolean;
@@ -200,9 +211,8 @@ export function CartModal({
     if (!isOpen) return;
     let active = true;
 
-    fetch("/api/razorpay/config")
-      .then((r) => r.json())
-      .then((data) => {
+    fetchJsonWithProxyRetry("/api/razorpay/config")
+      .then(({ data }) => {
         if (!active || !data?.success) return;
         setRazorpayStatus((prev) => ({
           ...prev,
@@ -216,11 +226,10 @@ export function CartModal({
         setRazorpayStatus((prev) => ({ ...prev, checked: true }));
       });
 
-    fetch("/api/delivery/active-areas")
-      .then((r) => r.json())
-      .then((data) => {
+    fetchJsonWithProxyRetry("/api/delivery/active-areas")
+      .then(({ data }) => {
         if (!active || !data?.success) return;
-        if (Array.isArray(data.retailAreas) && data.retailAreas.length > 0) {
+        if (Array.isArray(data.retailAreas)) {
           setRetailAreas(
             data.retailAreas.filter((a: RetailAreaItem) => a && a.enabled !== false)
           );
@@ -234,6 +243,80 @@ export function CartModal({
       active = false;
     };
   }, [isOpen]);
+
+  const getCheckoutAuthHeaders = async (): Promise<Record<string, string>> => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    try {
+      if (auth.currentUser) {
+        const token = await auth.currentUser.getIdToken();
+        if (token) headers.Authorization = `Bearer ${token}`;
+      } else {
+        const supaToken = await getSupabaseAccessToken();
+        const custSession = getStoredCustomerSession();
+        const fallbackToken = supaToken || custSession?.token;
+        if (fallbackToken) headers.Authorization = `Bearer ${fallbackToken}`;
+      }
+    } catch {
+      // Guest checkout allowed
+    }
+    return headers;
+  };
+
+  // Clear applied coupon if cart empties, or re-validate when cart subtotal/type changes
+  useEffect(() => {
+    if (items.length === 0) {
+      if (appliedCoupon) {
+        setAppliedCoupon(null);
+        setPromoError(null);
+      }
+      return;
+    }
+    if (!appliedCoupon) return;
+
+    let cancelled = false;
+    const code = appliedCoupon.code;
+    const mode = isWholesaleOrder ? "wholesale" : "retail";
+    const serialized = items.map((item) => ({
+      id: item.id,
+      baseId: item.baseId ?? item.id,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.numericPrice,
+      selectedWeight: item.selectedWeight || item.badge || item.unit,
+      selectedCut: item.selectedCut,
+      selectedCleaning: item.selectedCleaning,
+    }));
+
+    getCheckoutAuthHeaders()
+      .then((headers) =>
+        fetchJsonWithProxyRetry("/api/coupons/validate", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ code, items: serialized, orderType: mode }),
+        })
+      )
+      .then(({ res, data }) => {
+        if (cancelled) return;
+        if (res.ok && data?.success) {
+          setAppliedCoupon({
+            code: String(data.couponCode || code),
+            discountAmount: Number(data.discountAmount) || 0,
+            description: data.description,
+          });
+          setPromoError(null);
+        } else {
+          setAppliedCoupon(null);
+          setPromoError(data?.error || `Coupon "${code}" no longer applies to this basket.`);
+        }
+      })
+      .catch(() => {
+        // Retain current applied coupon quietly if offline
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cartTotal, isWholesaleOrder, items.length]);
 
   // Live serviceability verification whenever a 6-digit PIN is entered in Checkout
   useEffect(() => {
@@ -256,10 +339,10 @@ export function CartModal({
 
     const timer = window.setTimeout(async () => {
       try {
-        const res = await fetch(
+        const { data: rawData } = await fetchJsonWithProxyRetry(
           `/api/delivery/check-pincode?pincode=${encodeURIComponent(cleanPin)}&mode=${mode}`
         );
-        const data = await res.json().catch(() => ({}));
+        const data = rawData || {};
         if (cancelled) return;
         const feeVal =
           mode === "wholesale"
@@ -301,21 +384,90 @@ export function CartModal({
     };
   }, [isOpen, step, pincode, isWholesaleOrder]);
 
-  const baseDeliveryFee =
-    pincodeCheck.serviceable && pincodeCheck.overrideFee !== null
-      ? pincodeCheck.overrideFee
-      : Number(settings.deliveryFee ?? 40);
+  const { discountAmount, deliveryFee, grandTotal } = useMemo(
+    () =>
+      computeCheckoutTotals({
+        subtotal: cartTotal,
+        discountAmount: appliedCoupon?.discountAmount || 0,
+        isWholesaleOrder,
+        hasItems: items.length > 0,
+        pincodeServiceable: pincodeCheck.serviceable,
+        overrideFee: pincodeCheck.overrideFee,
+        defaultDeliveryFee: Number(settings.deliveryFee ?? 40),
+        freeDeliveryThreshold: Number(settings.freeDeliveryThreshold ?? 0),
+      }),
+    [
+      cartTotal,
+      appliedCoupon,
+      isWholesaleOrder,
+      items.length,
+      pincodeCheck.serviceable,
+      pincodeCheck.overrideFee,
+      settings.deliveryFee,
+      settings.freeDeliveryThreshold,
+    ]
+  );
 
-  const deliveryFee =
-    isWholesaleOrder
-      ? pincodeCheck.serviceable && pincodeCheck.overrideFee !== null
-        ? pincodeCheck.overrideFee
-        : 0
-      : settings.freeDeliveryThreshold > 0 && cartTotal >= settings.freeDeliveryThreshold
-      ? 0
-      : baseDeliveryFee;
+  const uniqueActivePinCount = useMemo(
+    () => countUniqueActivePincodes(retailAreas),
+    [retailAreas]
+  );
 
-  const grandTotal = Math.max(0, cartTotal + (items.length > 0 ? deliveryFee : 0));
+  const handleApplyCoupon = async () => {
+    const cleanCode = promoInput.trim().toUpperCase();
+    if (!cleanCode) {
+      setPromoError("Please enter a promo code.");
+      return;
+    }
+    if (items.length === 0) return;
+    setPromoLoading(true);
+    setPromoError(null);
+    try {
+      const headers = await getCheckoutAuthHeaders();
+      const { res, data } = await fetchJsonWithProxyRetry("/api/coupons/validate", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          code: cleanCode,
+          orderType: isWholesaleOrder ? "wholesale" : "retail",
+          items: items.map((item) => ({
+            id: item.id,
+            baseId: item.baseId ?? item.id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.numericPrice,
+            selectedWeight: item.selectedWeight || item.badge || item.unit,
+            selectedCut: item.selectedCut,
+            selectedCleaning: item.selectedCleaning,
+          })),
+        }),
+      });
+      if (!res.ok || !data?.success) {
+        setAppliedCoupon(null);
+        setPromoError(data?.error || `Coupon "${cleanCode}" is not valid.`);
+        return;
+      }
+      const nextDiscount = Number(data.discountAmount) || 0;
+      setAppliedCoupon({
+        code: String(data.couponCode || cleanCode),
+        discountAmount: nextDiscount,
+        description: data.description,
+      });
+      setPromoInput(String(data.couponCode || cleanCode));
+      setPromoError(null);
+      showToast(`Promo code ${data.couponCode || cleanCode} applied! Saved ₹${nextDiscount}.`, "success");
+    } catch {
+      setPromoError("Could not validate promo code right now. Please try again.");
+    } finally {
+      setPromoLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setPromoInput("");
+    setPromoError(null);
+  };
 
   const requireCheckoutAuth = () => {
     if (hasMixedCartTypes) {
@@ -327,24 +479,6 @@ export function CartModal({
     }
     // Both guest and signed-in customers can proceed to checkout
     return true;
-  };
-
-  const getCheckoutAuthHeaders = async (): Promise<Record<string, string>> => {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    try {
-      if (auth.currentUser) {
-        const token = await auth.currentUser.getIdToken();
-        if (token) headers.Authorization = `Bearer ${token}`;
-      } else {
-        const supaToken = await getSupabaseAccessToken();
-        const custSession = getStoredCustomerSession();
-        const fallbackToken = supaToken || custSession?.token;
-        if (fallbackToken) headers.Authorization = `Bearer ${fallbackToken}`;
-      }
-    } catch {
-      // Guest checkout allowed
-    }
-    return headers;
   };
 
   const persistLocalOrderHistory = (orderId: string, createdOrderRecord: any) => {
@@ -368,7 +502,7 @@ export function CartModal({
   ) => {
     try {
       const headers = await getCheckoutAuthHeaders();
-      await fetch("/api/razorpay/cancel", {
+      await fetchJsonWithProxyRetry("/api/razorpay/cancel", {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -418,6 +552,7 @@ export function CartModal({
       .join(", ");
 
     const resolvedOrderType = isWholesaleOrder ? "wholesale" : "retail";
+    const activeCouponCode = appliedCoupon?.code || undefined;
     const serializedItems = items.map((item) => ({
       id: item.id,
       baseId: item.baseId ?? item.id,
@@ -451,7 +586,7 @@ export function CartModal({
 
       // GENUINE REAL-TIME RAZORPAY PAYMENT FLOW (NO SIMULATED PAYMENTS)
       if (paymentMethod === "razorpay") {
-        const orderRes = await fetch("/api/razorpay/order", {
+        const { res: orderRes, data: rawOrderData } = await fetchJsonWithProxyRetry("/api/razorpay/order", {
           method: "POST",
           headers: {
             ...headers,
@@ -460,12 +595,13 @@ export function CartModal({
           body: JSON.stringify({
             items: serializedItems,
             orderType: resolvedOrderType,
+            couponCode: activeCouponCode,
             customerEmail: email.trim() || undefined,
             shippingDetails: shippingPayload,
           }),
         });
 
-        const orderData = await orderRes.json().catch(() => ({}));
+        const orderData = rawOrderData || {};
         if (!orderRes.ok || !orderData?.success || !orderData?.order?.id || !orderData?.key_id) {
           const msg =
             orderData?.error ||
@@ -535,7 +671,7 @@ export function CartModal({
           }) => {
             try {
               const verifyHeaders = await getCheckoutAuthHeaders();
-              const verifyRes = await fetch("/api/razorpay/verify", {
+              const { res: verifyRes, data: rawVerifyData } = await fetchJsonWithProxyRetry("/api/razorpay/verify", {
                 method: "POST",
                 headers: verifyHeaders,
                 body: JSON.stringify({
@@ -545,12 +681,13 @@ export function CartModal({
                   ...(guestVerifyToken ? { guest_verify_token: guestVerifyToken } : {}),
                   items: serializedItems,
                   orderType: resolvedOrderType,
+                  couponCode: activeCouponCode,
                   customerEmail: email.trim() || undefined,
                   shippingDetails: shippingPayload,
                 }),
               });
 
-              const verifyData = await verifyRes.json().catch(() => ({}));
+              const verifyData = rawVerifyData || {};
               if (!verifyRes.ok || !verifyData?.success) {
                 showToast(
                   verifyData?.error ||
@@ -574,6 +711,8 @@ export function CartModal({
                   userId: user?.id,
                   items: serializedItems.map((it) => ({ ...it, numericPrice: it.price })),
                   subtotal: cartTotal,
+                  discountAmount,
+                  couponCode: activeCouponCode || null,
                   deliveryFee,
                   grandTotal,
                   amount: grandTotal,
@@ -594,6 +733,7 @@ export function CartModal({
                 }
               );
 
+              handleRemoveCoupon();
               clearCart();
               setStep("success");
               showToast("Payment verified & order confirmed!", "success");
@@ -633,7 +773,7 @@ export function CartModal({
       const serverPaymentMethod =
         paymentMethod === "whatsapp" ? "WhatsApp Express" : "Cash on Delivery";
 
-      const res = await fetch(endpoint, {
+      const { res, data: rawData } = await fetchJsonWithProxyRetry(endpoint, {
         method: "POST",
         headers: {
           ...headers,
@@ -642,13 +782,14 @@ export function CartModal({
         body: JSON.stringify({
           items: serializedItems,
           orderType: resolvedOrderType,
+          couponCode: activeCouponCode,
           customerEmail: email.trim() || undefined,
           shippingDetails: shippingPayload,
           paymentMethod: serverPaymentMethod,
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = rawData || {};
       if (!res.ok || !data.success) {
         showToast(data.error || "Could not place order. Please check your details.", "error");
         setIsSubmitting(false);
@@ -656,11 +797,30 @@ export function CartModal({
       }
 
       const orderId = data.orderId || data.id || "JIYOO-ORD";
-      const verifiedSubtotal = typeof data.subtotal === "number" ? data.subtotal : cartTotal;
+      const verifiedSubtotal =
+        typeof data.subtotal === "number"
+          ? data.subtotal
+          : typeof data.order?.subtotal === "number"
+          ? data.order.subtotal
+          : cartTotal;
+      const verifiedDiscountAmount =
+        typeof data.discountAmount === "number"
+          ? data.discountAmount
+          : typeof data.order?.discountAmount === "number"
+          ? data.order.discountAmount
+          : discountAmount;
       const verifiedDeliveryFee =
-        typeof data.deliveryFee === "number" ? data.deliveryFee : deliveryFee;
+        typeof data.deliveryFee === "number"
+          ? data.deliveryFee
+          : typeof data.order?.deliveryFee === "number"
+          ? data.order.deliveryFee
+          : deliveryFee;
       const verifiedGrandTotal =
-        typeof data.grandTotal === "number" ? data.grandTotal : grandTotal;
+        typeof data.grandTotal === "number"
+          ? data.grandTotal
+          : typeof data.order?.grandTotal === "number"
+          ? data.order.grandTotal
+          : grandTotal;
       const verificationCode =
         typeof data.verificationCode === "string" ? data.verificationCode : undefined;
 
@@ -675,6 +835,8 @@ export function CartModal({
           userId: user?.id,
           items: serializedItems.map((it) => ({ ...it, numericPrice: it.price })),
           subtotal: verifiedSubtotal,
+          discountAmount: verifiedDiscountAmount,
+          couponCode: data.couponCode || activeCouponCode || null,
           deliveryFee: verifiedDeliveryFee,
           grandTotal: verifiedGrandTotal,
           amount: verifiedGrandTotal,
@@ -711,7 +873,7 @@ export function CartModal({
           })),
           totalAmount: verifiedGrandTotal,
           subtotal: verifiedSubtotal,
-          discountAmount: typeof data.discountAmount === "number" ? data.discountAmount : undefined,
+          discountAmount: verifiedDiscountAmount > 0 ? verifiedDiscountAmount : undefined,
           deliveryFee: verifiedDeliveryFee,
           customerName: name.trim(),
           customerPhone: cleanPhone,
@@ -736,6 +898,7 @@ export function CartModal({
         setLastWhatsAppOrderUrl(null);
       }
 
+      handleRemoveCoupon();
       clearCart();
       setStep("success");
       showToast("Order placed successfully!", "success");
@@ -955,7 +1118,7 @@ export function CartModal({
                             Retail Delivery Areas &amp; PIN Codes
                           </span>
                           <span className="text-[10px] font-mono text-stone-500">
-                            Bengaluru (5 PINs)
+                            Bengaluru ({uniqueActivePinCount} PIN{uniqueActivePinCount === 1 ? "" : "s"})
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
@@ -1175,6 +1338,18 @@ export function CartModal({
                       </div>
                     )}
 
+                    {paymentMethod === "razorpay" &&
+                      razorpayStatus.checked &&
+                      !razorpayStatus.configured &&
+                      !razorpayStatus.gatewayError && (
+                        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                          <p className="text-[11px] leading-relaxed text-amber-900 font-medium">
+                            Online gateway keys are not active right now. Choose Cash / UPI at Doorstep or WhatsApp Order to complete your order immediately.
+                          </p>
+                        </div>
+                      )}
+
                     <p className="text-xs text-brand-gray-600 leading-relaxed bg-[#FAF9F5] p-3 rounded-xl border border-[#E7E3DA]">
                       {paymentMethod === "razorpay"
                         ? "Processed directly through Razorpay's PCI-DSS certified checkout with real-time signature & server payment capture verification."
@@ -1247,11 +1422,74 @@ export function CartModal({
             {/* Footer */}
             {items.length > 0 && step !== "success" && (
               <div className="p-5 bg-white border-t border-[#E7E3DA] space-y-3">
+                {/* Promo / Coupon Code */}
+                <div className="space-y-1.5">
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Tag className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                        <span className="font-mono font-bold text-emerald-900">
+                          {appliedCoupon.code}
+                        </span>
+                        <span className="text-emerald-800 truncate">
+                          (-₹{appliedCoupon.discountAmount.toLocaleString()})
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        className="text-[11px] font-semibold text-emerald-800 hover:text-red-700 underline shrink-0 cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Tag className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={promoInput}
+                          onChange={(e) => {
+                            setPromoInput(e.target.value.toUpperCase());
+                            if (promoError) setPromoError(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              void handleApplyCoupon();
+                            }
+                          }}
+                          placeholder="Promo code (e.g. WELCOME10)"
+                          className="w-full pl-8 pr-3 py-2 text-xs font-mono uppercase border border-[#E7E3DA] rounded-xl bg-[#FAF9F5] outline-none focus:border-emerald-700"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void handleApplyCoupon()}
+                        disabled={promoLoading || !promoInput.trim()}
+                        className="px-3.5 py-2 rounded-xl bg-brand-black hover:bg-brand-gray-900 text-white text-xs font-semibold transition-colors disabled:opacity-45 cursor-pointer shrink-0"
+                      >
+                        {promoLoading ? "..." : "Apply"}
+                      </button>
+                    </div>
+                  )}
+                  {promoError && (
+                    <p className="text-[11px] text-red-600 font-medium">{promoError}</p>
+                  )}
+                </div>
+
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between text-brand-gray-600">
                     <span>Subtotal</span>
                     <span>₹{cartTotal.toLocaleString()}</span>
                   </div>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-emerald-700 font-medium">
+                      <span>Discount ({appliedCoupon?.code})</span>
+                      <span>-₹{discountAmount.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-brand-gray-600">
                     <span>Delivery Fee</span>
                     <span>{deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}</span>

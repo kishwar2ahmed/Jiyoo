@@ -3,6 +3,7 @@ import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import {
   postJsonWithAuthWarmupRetry,
 } from './adminAuthHelpers';
+import { fetchJsonWithProxyRetry } from './apiFetch';
 import {
   isSupabaseConfigured,
   supabaseUpsertRecord,
@@ -197,15 +198,12 @@ export async function fetchAdminSecurityStatus(): Promise<AdminSecurityStatus | 
     const token = getStoredAdminSignedToken();
     if (!token) return null;
 
-    const res = await fetch('/api/admin/auth/status', {
+    const { res, data } = await fetchJsonWithProxyRetry('/api/admin/auth/status', {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    if (res.ok) {
-      const data = await res.json().catch(() => null);
-      if (data && data.success && data.mfaVerified) {
-        return data as AdminSecurityStatus;
-      }
+    if (res.ok && data && data.success && data.mfaVerified) {
+      return data as AdminSecurityStatus;
     }
 
     if (res.status === 401 || res.status === 403) {
@@ -227,12 +225,12 @@ export async function regenerateAdminRecoveryCodes(code: string): Promise<{
 }> {
   try {
     const headers = await getAdminAuthHeaders(true);
-    const res = await fetch('/api/admin/auth/2fa/regenerate-recovery', {
+    const { res, data } = await fetchJsonWithProxyRetry('/api/admin/auth/2fa/regenerate-recovery', {
       method: 'POST',
       headers,
       body: JSON.stringify({ code }),
     });
-    return await res.json().catch(() => ({ success: false, error: 'Failed to regenerate recovery codes.' }));
+    return data || { success: res.ok, error: res.ok ? undefined : 'Failed to regenerate recovery codes.' };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Network error' };
   }
@@ -242,7 +240,7 @@ export async function logoutAdminSession(): Promise<void> {
   try {
     const token = getStoredAdminSignedToken();
     if (token) {
-      await fetch('/api/admin/auth/logout', {
+      await fetchJsonWithProxyRetry('/api/admin/auth/logout', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       }).catch(() => {});
@@ -298,23 +296,28 @@ export async function adminSaveDoc(col: string, id: string, data: Record<string,
     updatedAt: data.updatedAt || now,
   };
 
+  const headers = await getAdminAuthHeaders(true);
+  const { res, data: respData } = await fetchJsonWithProxyRetry(
+    `/api/admin/collection/${encodeURIComponent(col)}/${encodeURIComponent(id)}`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!res.ok || respData?.success === false) {
+    if (res.status === 401 || res.status === 403) {
+      clearAdminSession();
+    }
+    throw new Error(respData?.error || `Failed to save ${col} record (HTTP ${res.status})`);
+  }
+
   const localMap = readLocalAdminCollectionMap(col);
   const existing = localMap[id] || {};
   const merged = { ...existing, ...payload };
   delete merged.__deleted;
   localMap[id] = merged;
   writeLocalAdminCollectionMap(col, localMap);
-
-  try {
-    const headers = await getAdminAuthHeaders(true);
-    await fetch(`/api/admin/collection/${encodeURIComponent(col)}/${encodeURIComponent(id)}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-    });
-  } catch {
-    // Local persistence already succeeded
-  }
 
   if (isSupabaseConfigured) {
     supabaseUpsertRecord(
@@ -333,25 +336,30 @@ export async function adminSaveDoc(col: string, id: string, data: Record<string,
     try {
       await setDoc(doc(db, col, id), payload, { merge: true });
     } catch {
-      // Server/local write already succeeded
+      // Server write already succeeded
     }
   }
 }
 
 export async function adminDeleteDoc(col: string, id: string): Promise<void> {
+  const headers = await getAdminAuthHeaders();
+  const { res, data: respData } = await fetchJsonWithProxyRetry(
+    `/api/admin/collection/${encodeURIComponent(col)}/${encodeURIComponent(id)}`,
+    {
+      method: 'DELETE',
+      headers,
+    }
+  );
+  if (!res.ok || respData?.success === false) {
+    if (res.status === 401 || res.status === 403) {
+      clearAdminSession();
+    }
+    throw new Error(respData?.error || `Failed to delete ${col} record (HTTP ${res.status})`);
+  }
+
   const localMap = readLocalAdminCollectionMap(col);
   localMap[id] = { id, __deleted: true, isDeleted: true, updatedAt: new Date().toISOString() };
   writeLocalAdminCollectionMap(col, localMap);
-
-  try {
-    const headers = await getAdminAuthHeaders();
-    await fetch(`/api/admin/collection/${encodeURIComponent(col)}/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      headers,
-    });
-  } catch {
-    // Local persistence already succeeded
-  }
 
   if (isSupabaseConfigured) {
     supabaseDeleteCollectionDoc(col, id).catch(() => {});
@@ -361,7 +369,7 @@ export async function adminDeleteDoc(col: string, id: string): Promise<void> {
     try {
       await deleteDoc(doc(db, col, id));
     } catch {
-      // Server/local delete already succeeded
+      // Server delete already succeeded
     }
   }
 }
@@ -372,9 +380,8 @@ export async function adminFetchCollection<T = any>(col: string): Promise<T[]> {
 
   try {
     const headers = await getAdminAuthHeaders();
-    const res = await fetch(`/api/admin/collection/${encodeURIComponent(col)}`, { headers });
-    const body = await res.json().catch(() => ({}));
-    if (res.ok && body.success && Array.isArray(body.items)) {
+    const { res, data: body } = await fetchJsonWithProxyRetry(`/api/admin/collection/${encodeURIComponent(col)}`, { headers });
+    if (res.ok && body?.success && Array.isArray(body.items)) {
       for (const item of body.items) {
         if (item && typeof item === 'object' && item.id) {
           mergedMap.set(String(item.id), item);

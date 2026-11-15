@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PRODUCTS } from '../../../constants/data';
 import { getAdminAuthHeaders } from '../../../utils/adminAuth';
+import { fetchJsonWithProxyRetry } from '../../../utils/apiFetch';
 import { pingSupabaseConnection, SupabaseConnectionHealth } from '../../../services/supabase';
 import { Users, ShoppingBag, DollarSign, Package, CheckCircle2, Clock, ShieldCheck, Database, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
@@ -37,15 +38,15 @@ export function DashboardTab() {
     async function fetchStats() {
       try {
         const headers = await getAdminAuthHeaders();
-        const [res, pingRes] = await Promise.all([
-          fetch('/api/admin/stats', { headers }),
+        const [statsResult, pingRes] = await Promise.all([
+          fetchJsonWithProxyRetry('/api/admin/stats', { headers }),
           pingSupabaseConnection(headers),
         ]);
         if (isMounted) {
           setDbHealth(pingRes);
         }
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.success && isMounted) {
+        const { res, data } = statsResult;
+        if (res.ok && data?.success && isMounted) {
           setStats({
             totalUsers: data.stats?.totalUsers ?? 1,
             totalOrders: data.stats?.totalOrders ?? 0,

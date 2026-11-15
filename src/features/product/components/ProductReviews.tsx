@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../../../services/firebase';
 import { useCart } from '../../../contexts/CartContext';
 import { getStoredCustomerSession } from '../../../utils/customerAuthFallback';
+import { fetchJsonWithProxyRetry } from '../../../utils/apiFetch';
 import { Star, MessageCircle, Loader2, Flag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../core/contexts/ToastContext';
@@ -16,6 +17,27 @@ interface Review {
   rating: number;
   comment: string;
   createdAt: any;
+}
+
+const getReviewMs = (val: any) => {
+  if (val?.seconds) return val.seconds * 1000;
+  if (typeof val === 'string' || typeof val === 'number') {
+    const parsed = new Date(val).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+};
+
+function mergeAndSortReviews(...lists: Review[][]): Review[] {
+  const uniqueMap = new Map<string, Review>();
+  for (const list of lists) {
+    for (const r of list) {
+      if (r && r.id) uniqueMap.set(r.id, r);
+    }
+  }
+  return Array.from(uniqueMap.values()).sort(
+    (a, b) => getReviewMs(b.createdAt) - getReviewMs(a.createdAt)
+  );
 }
 
 export function ProductReviews({ productId }: { productId: string | number }) {
@@ -34,7 +56,7 @@ export function ProductReviews({ productId }: { productId: string | number }) {
     if (reportedIds[reviewId]) return;
     try {
       const token = (await auth.currentUser?.getIdToken().catch(() => null)) || getStoredCustomerSession()?.token;
-      const res = await fetch(`/api/reviews/${encodeURIComponent(reviewId)}/report`, {
+      const { res } = await fetchJsonWithProxyRetry(`/api/reviews/${encodeURIComponent(reviewId)}/report`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -54,32 +76,44 @@ export function ProductReviews({ productId }: { productId: string | number }) {
   };
   
   useEffect(() => {
+    let active = true;
     setLoading(true);
+    let serverReviews: Review[] = [];
+    let snapReviews: Review[] = [];
+
+    fetchJsonWithProxyRetry(`/api/reviews?productId=${encodeURIComponent(String(productId))}`)
+      .then(({ res, data }) => {
+        if (!active) return;
+        if (res.ok && data?.success && Array.isArray(data.reviews)) {
+          serverReviews = data.reviews;
+          setReviews(mergeAndSortReviews(snapReviews, serverReviews));
+        }
+      })
+      .catch(() => {
+        // Firestore snapshot still provides fallback if online
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
     const q = query(collection(db, 'reviews'), where('productId', '==', String(productId)));
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const fetchedReviews = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review));
-        const getReviewMs = (val: any) => {
-          if (val?.seconds) return val.seconds * 1000;
-          if (typeof val === 'string' || typeof val === 'number') {
-            const parsed = new Date(val).getTime();
-            return isNaN(parsed) ? 0 : parsed;
-          }
-          return 0;
-        };
-        fetchedReviews.sort((a, b) => getReviewMs(b.createdAt) - getReviewMs(a.createdAt));
-        const uniqueMap = new Map<string, Review>();
-        for (const r of fetchedReviews) uniqueMap.set(r.id, r);
-        setReviews(Array.from(uniqueMap.values()));
+        if (!active) return;
+        snapReviews = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review));
+        setReviews(mergeAndSortReviews(serverReviews, snapReviews));
         setLoading(false);
       },
       (err) => {
-        console.error("Failed to fetch reviews:", err);
-        setLoading(false);
+        console.warn("Firestore reviews listener fallback:", err);
+        if (active) setLoading(false);
       }
     );
-    return () => unsub();
+    return () => {
+      active = false;
+      unsub();
+    };
   }, [productId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,20 +123,16 @@ export function ProductReviews({ productId }: { productId: string | number }) {
     
     setIsSubmitting(true);
     try {
-      const token = (await auth.currentUser?.getIdToken()) || getStoredCustomerSession()?.token;
+      const token = (await auth.currentUser?.getIdToken().catch(() => null)) || getStoredCustomerSession()?.token;
       if (!token) throw new Error('Please log in again to submit a review.');
-      const response = await fetch('/api/reviews', {
+      const { res: response, data } = await fetchJsonWithProxyRetry('/api/reviews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ productId: String(productId), rating, comment: comment.trim() })
       });
-      const data = await response.json();
-      if (!response.ok || !data.success) throw new Error(data.error || 'Failed to submit review');
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Failed to submit review');
       const submittedReview = data.review as Review;
-      setReviews(prev => {
-        const filtered = prev.filter(r => r.id !== submittedReview.id);
-        return [submittedReview, ...filtered];
-      });
+      setReviews(prev => mergeAndSortReviews([submittedReview], prev));
       setComment('');
       setRating(5);
       setShowForm(false);

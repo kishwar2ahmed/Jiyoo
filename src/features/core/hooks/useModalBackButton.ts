@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
-// Global overlay tracking across the application
-let activeOverlayCount = 0;
+// Global overlay tracking across the application (LIFO stack)
+const overlayStack: symbol[] = [];
 let programmaticBackCount = 0;
 let lastOverlayClosedTimestamp = 0;
 
@@ -11,7 +11,7 @@ function syncDocumentScrollLock(): void {
   const body = document.body;
   if (!html || !body) return;
 
-  if (activeOverlayCount > 0) {
+  if (overlayStack.length > 0) {
     html.style.overflow = "hidden";
     html.style.overscrollBehavior = "none";
     body.style.overflow = "hidden";
@@ -24,11 +24,22 @@ function syncDocumentScrollLock(): void {
   }
 }
 
+function removeFromOverlayStack(token: symbol): void {
+  const idx = overlayStack.lastIndexOf(token);
+  if (idx !== -1) {
+    overlayStack.splice(idx, 1);
+  }
+}
+
+function isTopOverlay(token: symbol): boolean {
+  return overlayStack.length > 0 && overlayStack[overlayStack.length - 1] === token;
+}
+
 /**
  * Returns true if an overlay is currently active.
  */
 export function isOverlayActive(): boolean {
-  return activeOverlayCount > 0;
+  return overlayStack.length > 0;
 }
 
 /**
@@ -54,14 +65,24 @@ export function consumeProgrammaticDismissal(): boolean {
   return false;
 }
 
+export interface UseModalBackButtonOptions {
+  closeOnEscape?: boolean;
+}
+
 /**
- * Makes the device/browser back button close an open overlay (product modal,
- * cart, account panel, etc.) one step at a time instead of navigating away
- * from the site entirely, while strictly locking background page scrolling.
+ * Makes the device/browser back button and Escape key close only the topmost
+ * open overlay one step at a time instead of dismissing stacked overlays at once,
+ * while strictly locking background page scrolling.
  */
-export function useModalBackButton(isOpen: boolean, onClose: () => void) {
+export function useModalBackButton(
+  isOpen: boolean,
+  onClose: () => void,
+  options?: UseModalBackButtonOptions
+) {
   const activeRef = useRef(false);
+  const tokenRef = useRef<symbol | null>(null);
   const onCloseRef = useRef(onClose);
+  const closeOnEscape = options?.closeOnEscape ?? true;
 
   // Keep the ref pointing at the latest onClose without mutating it during render
   useEffect(() => {
@@ -71,7 +92,9 @@ export function useModalBackButton(isOpen: boolean, onClose: () => void) {
   useEffect(() => {
     if (!isOpen) return;
 
-    activeOverlayCount++;
+    const token = Symbol("jiyooOverlay");
+    tokenRef.current = token;
+    overlayStack.push(token);
     activeRef.current = true;
     syncDocumentScrollLock();
 
@@ -87,17 +110,19 @@ export function useModalBackButton(isOpen: boolean, onClose: () => void) {
     }
 
     const handlePopState = () => {
-      if (!activeRef.current) return;
+      if (!activeRef.current || !isTopOverlay(token)) return;
       activeRef.current = false;
-      activeOverlayCount = Math.max(0, activeOverlayCount - 1);
+      removeFromOverlayStack(token);
       syncDocumentScrollLock();
       lastOverlayClosedTimestamp = Date.now();
       onCloseRef.current();
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && activeRef.current) {
+      if (!closeOnEscape) return;
+      if (e.key === "Escape" && activeRef.current && isTopOverlay(token)) {
         e.stopPropagation();
+        e.stopImmediatePropagation?.();
         onCloseRef.current();
       }
     };
@@ -110,7 +135,7 @@ export function useModalBackButton(isOpen: boolean, onClose: () => void) {
       window.removeEventListener("keydown", handleKeyDown);
       if (activeRef.current) {
         activeRef.current = false;
-        activeOverlayCount = Math.max(0, activeOverlayCount - 1);
+        removeFromOverlayStack(token);
         syncDocumentScrollLock();
         lastOverlayClosedTimestamp = Date.now();
         if (!isIframe && window.history.state?.jiyooOverlay) {
@@ -126,5 +151,5 @@ export function useModalBackButton(isOpen: boolean, onClose: () => void) {
         }
       }
     };
-  }, [isOpen]);
+  }, [isOpen, closeOnEscape]);
 }

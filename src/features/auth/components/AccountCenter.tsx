@@ -10,7 +10,8 @@ import { useCart } from '../../../contexts/CartContext';
 import { useSettings } from '../../../contexts/SettingsContext';
 import { useOrderActions } from '../hooks/useOrderActions';
 import { auth, db, storage } from '../../../services/firebase';
-import { getStoredCustomerSession } from '../../../utils/customerAuthFallback';
+import { getStoredCustomerSession, updateStoredCustomerUser } from '../../../utils/customerAuthFallback';
+import { fetchJsonWithProxyRetry } from '../../../utils/apiFetch';
 import { doc, setDoc, updateDoc, collection, query, where, getDocs, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
@@ -307,11 +308,10 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
       const token = fbToken || custSession?.token || '';
       if (token) {
         const params = new URLSearchParams({ status: 'all', pageSize: '50' });
-        const res = await fetch(`/api/orders/history?${params.toString()}`, {
+        const { res, data } = await fetchJsonWithProxyRetry(`/api/orders/history?${params.toString()}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.success && Array.isArray(data.orders)) {
+        if (res.ok && data?.success && Array.isArray(data.orders)) {
           data.orders.forEach((o: any) => {
             if (o && (o.id || o.orderId)) {
               mergedMap.set(String(o.id || o.orderId), o);
@@ -379,7 +379,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
     try {
       const fbToken = await auth.currentUser?.getIdToken().catch(() => null);
       const token = fbToken || getStoredCustomerSession()?.token || null;
-      const res = await fetch('/api/orders/track', {
+      const { res, data } = await fetchJsonWithProxyRetry('/api/orders/track', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -390,10 +390,9 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
           phone: lookupPhone.trim() || (user as any)?.phone || '',
         }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success || !data.order) {
+      if (!res.ok || !data?.success || !data?.order) {
         setLookupError(
-          data.error ||
+          data?.error ||
             'Could not find a matching order. If this was a Guest WhatsApp order, please also enter the 10-digit mobile number used at checkout.'
         );
         return;
@@ -409,42 +408,104 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
   // Load data based on active tab
   useEffect(() => {
     if (!user) return;
-    
+    let active = true;
+
+    const getAuthToken = async () =>
+      (await auth.currentUser?.getIdToken().catch(() => null)) || getStoredCustomerSession()?.token || null;
+
     if (activeTab === 'orders') {
       fetchOrders();
+    } else if (activeTab === 'profile') {
+      const hydrateProfile = async () => {
+        try {
+          const token = await getAuthToken();
+          if (!token) return;
+          const { res, data } = await fetchJsonWithProxyRetry('/api/account/profile', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (active && res.ok && data?.success && data.profile) {
+            updateStoredCustomerUser({
+              ...(data.profile.name ? { name: data.profile.name } : {}),
+              ...(data.profile.phone !== undefined ? { phone: data.profile.phone } : {}),
+              ...(data.profile.picture !== undefined ? { picture: data.profile.picture } : {}),
+            });
+          }
+        } catch {
+          // ignore network error
+        }
+      };
+      hydrateProfile();
     } else if (activeTab === 'addresses') {
       const fetchAddresses = async () => {
         setLoading(true);
+        const addrMap = new Map<string, any>();
         try {
-          const q = query(collection(db, "users", user.id, "addresses"));
-          const snap = await getDocs(q);
-          setAddresses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+          const token = await getAuthToken();
+          if (token) {
+            const { res, data } = await fetchJsonWithProxyRetry('/api/account/addresses', {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok && data?.success && Array.isArray(data.addresses)) {
+              data.addresses.forEach((a: any) => {
+                if (a?.id) addrMap.set(String(a.id), a);
+              });
+            }
+          }
+          if (auth.currentUser) {
+            const q = query(collection(db, "users", user.id, "addresses"));
+            const snap = await getDocs(q);
+            snap.docs.forEach(d => {
+              if (!addrMap.has(d.id)) addrMap.set(d.id, { id: d.id, ...d.data() });
+            });
+          }
+          if (active) setAddresses(Array.from(addrMap.values()));
         } catch (err) {
           console.error("Failed to fetch addresses:", err);
+          if (active && addrMap.size > 0) setAddresses(Array.from(addrMap.values()));
         } finally {
-          setLoading(false);
+          if (active) setLoading(false);
         }
       };
       fetchAddresses();
     } else if (activeTab === 'reviews') {
       const fetchReviews = async () => {
         setLoading(true);
+        const revMap = new Map<string, any>();
         try {
-          const q = query(collection(db, "reviews"), where("userId", "==", user.id));
-          const snap = await getDocs(q);
-          const loaded = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          const token = await getAuthToken();
+          if (token) {
+            const { res, data } = await fetchJsonWithProxyRetry('/api/account/reviews', {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok && data?.success && Array.isArray(data.reviews)) {
+              data.reviews.forEach((r: any) => {
+                if (r?.id) revMap.set(String(r.id), r);
+              });
+            }
+          }
+          if (auth.currentUser) {
+            const q = query(collection(db, "reviews"), where("userId", "==", user.id));
+            const snap = await getDocs(q);
+            snap.docs.forEach(d => {
+              if (!revMap.has(d.id)) revMap.set(d.id, { id: d.id, ...d.data() });
+            });
+          }
+          const loaded = Array.from(revMap.values());
           const toMs = (val: any) => val?.seconds ? val.seconds * 1000 : (val ? new Date(val).getTime() || 0 : 0);
           loaded.sort((a: any, b: any) => toMs(b.createdAt) - toMs(a.createdAt));
-          setReviews(loaded);
+          if (active) setReviews(loaded);
         } catch (err) {
           console.error("Failed to fetch reviews:", err);
         } finally {
-          setLoading(false);
+          if (active) setLoading(false);
         }
       };
       fetchReviews();
     }
-  }, [activeTab, user]);
+    return () => {
+      active = false;
+    };
+  }, [activeTab, user?.id]);
 
   if (!user) return null;
 
@@ -509,7 +570,24 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
             finalUrl = compressedDataUrl;
           }
 
-          await setDoc(doc(db, 'users', user.id), { picture: finalUrl }, { merge: true });
+          const token = (await auth.currentUser?.getIdToken().catch(() => null)) || getStoredCustomerSession()?.token;
+          if (token) {
+            const { res, data } = await fetchJsonWithProxyRetry('/api/account/profile', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ picture: finalUrl }),
+            });
+            if (!res.ok || !data?.success) {
+              throw new Error(data?.error || 'Could not save profile picture');
+            }
+          }
+          if (auth.currentUser) {
+            await setDoc(doc(db, 'users', user.id), { picture: finalUrl }, { merge: true }).catch(() => {});
+          }
+          updateStoredCustomerUser({ picture: finalUrl });
           showToast("Profile image updated successfully!", "success");
         } catch (err) {
           console.error("Profile image update error:", err);
@@ -533,13 +611,12 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
         showToast("Please sign in again to download your personal data.", "error");
         return;
       }
-      const res = await fetch('/api/account/export', {
+      const { res, data } = await fetchJsonWithProxyRetry('/api/account/export', {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
         throw new Error(data?.error || 'Could not export your account data.');
       }
@@ -575,16 +652,15 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
         if (!token) {
           throw new Error("Please sign in again to confirm account deletion.");
         }
-        const res = await fetch('/api/account/delete', {
+        const { res, data } = await fetchJsonWithProxyRetry('/api/account/delete', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
         });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || 'Failed to delete account data');
+        if (!res.ok || !data?.success) {
+          throw new Error(data?.error || 'Failed to delete account data');
         }
         try {
           localStorage.removeItem(`jiyoo_orders_history_v2:${user.id}`);
@@ -821,7 +897,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
   const cleanSupportWhatsapp = (settings.whatsappNumber || '919739391891').replace(/\D/g, '');
 
   return (
-    <div className="fixed inset-0 z-50 bg-stone-100 flex overflow-hidden">
+    <div className="fixed inset-0 z-[115] bg-stone-100 flex overflow-hidden">
       {/* Sidebar */}
       <div className="w-full max-w-xs bg-white border-r border-stone-200 flex flex-col hidden md:flex">
         <div className="p-6 border-b border-stone-200 flex items-center justify-between">
@@ -1449,7 +1525,7 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                     <div className="space-y-6 max-w-md">
                       <div>
                         <label className="block text-sm font-medium text-stone-700 mb-1">Full Name</label>
-                        <input id="profile-name" type="text" defaultValue={user.name || ''} className="w-full border-stone-200 rounded-lg bg-stone-50 px-4 py-2.5 outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent transition-all" />
+                        <input id="profile-name" key={`pname-${user.name || ''}`} type="text" defaultValue={user.name || ''} className="w-full border-stone-200 rounded-lg bg-stone-50 px-4 py-2.5 outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent transition-all" />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-stone-700 mb-1">Email Address</label>
@@ -1458,19 +1534,36 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-stone-700 mb-1">Phone Number</label>
-                        <input id="profile-phone" type="tel" defaultValue={(user as any).phone || ''} placeholder="+91 98765 43210" className="w-full border-stone-200 rounded-lg bg-stone-50 px-4 py-2.5 outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent transition-all" />
+                        <input id="profile-phone" key={`pphone-${(user as any).phone || ''}`} type="tel" defaultValue={(user as any).phone || ''} placeholder="+91 98765 43210" className="w-full border-stone-200 rounded-lg bg-stone-50 px-4 py-2.5 outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent transition-all" />
                       </div>
                       <button onClick={async () => {
                         const name = (document.getElementById('profile-name') as HTMLInputElement)?.value?.trim() || '';
                         const phone = (document.getElementById('profile-phone') as HTMLInputElement)?.value?.trim() || '';
                         try {
-                          await setDoc(doc(db, 'users', user.id), { name, phone }, { merge: true });
-                          if (auth.currentUser && name) {
-                            await updateProfile(auth.currentUser, { displayName: name }).catch(() => {});
+                          const token = (await auth.currentUser?.getIdToken().catch(() => null)) || getStoredCustomerSession()?.token;
+                          if (token) {
+                            const { res, data } = await fetchJsonWithProxyRetry('/api/account/profile', {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${token}`,
+                              },
+                              body: JSON.stringify({ name: name || undefined, phone }),
+                            });
+                            if (!res.ok || !data?.success) {
+                              throw new Error(data?.error || 'Failed to update profile');
+                            }
                           }
+                          if (auth.currentUser) {
+                            await setDoc(doc(db, 'users', user.id), { name, phone }, { merge: true }).catch(() => {});
+                            if (name) {
+                              await updateProfile(auth.currentUser, { displayName: name }).catch(() => {});
+                            }
+                          }
+                          updateStoredCustomerUser({ ...(name ? { name } : {}), phone });
                           showToast('Profile updated successfully!', 'success');
-                        } catch {
-                          showToast('Failed to update profile', 'error');
+                        } catch (err: any) {
+                          showToast(err?.message || 'Failed to update profile', 'error');
                         }
                       }} className="bg-stone-900 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-stone-800 transition-colors w-full sm:w-auto cursor-pointer">
                         Save Changes
@@ -1524,15 +1617,42 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                              <div className="flex gap-2 justify-end">
                                <button onClick={() => { setShowAddressForm(false); setEditingAddress(null); }} className="px-4 py-2 text-sm text-stone-600 hover:bg-stone-100 rounded-lg">Cancel</button>
                                <button onClick={async () => {
-                                 const name = (document.getElementById('addr-name') as HTMLInputElement).value;
-                                 const phone = (document.getElementById('addr-phone') as HTMLInputElement).value;
-                                 const address = (document.getElementById('addr-text') as HTMLTextAreaElement).value;
-                                 const pincode = (document.getElementById('addr-pin') as HTMLInputElement).value;
-                                 if (!name || !address) return;
+                                 const name = (document.getElementById('addr-name') as HTMLInputElement).value.trim();
+                                 const phone = (document.getElementById('addr-phone') as HTMLInputElement).value.trim();
+                                 const address = (document.getElementById('addr-text') as HTMLTextAreaElement).value.trim();
+                                 const pincode = (document.getElementById('addr-pin') as HTMLInputElement).value.trim();
+                                 if (!name || !address) {
+                                   showToast('Please enter recipient name and full address.', 'error');
+                                   return;
+                                 }
                                  
                                  setLoading(true);
                                  try {
-                                   if (editingAddress) {
+                                   const token = (await auth.currentUser?.getIdToken().catch(() => null)) || getStoredCustomerSession()?.token;
+                                   if (token) {
+                                     const { res, data } = await fetchJsonWithProxyRetry('/api/account/addresses', {
+                                       method: 'POST',
+                                       headers: {
+                                         'Content-Type': 'application/json',
+                                         Authorization: `Bearer ${token}`,
+                                       },
+                                       body: JSON.stringify({
+                                         ...(editingAddress?.id ? { id: editingAddress.id } : {}),
+                                         name, phone, address, pincode,
+                                       }),
+                                     });
+                                     if (!res.ok || !data?.success || !data?.address) {
+                                       throw new Error(data?.error || 'Failed to save address');
+                                     }
+                                     const saved = data.address;
+                                     setAddresses(prev => {
+                                       const filtered = prev.filter(a => a.id !== saved.id);
+                                       return [saved, ...filtered];
+                                     });
+                                     if (auth.currentUser) {
+                                       await setDoc(doc(db, "users", user.id, "addresses", saved.id), saved, { merge: true }).catch(() => {});
+                                     }
+                                   } else if (editingAddress) {
                                      await updateDoc(doc(db, "users", user.id, "addresses", editingAddress.id), {
                                        name, phone, address, pincode
                                      });
@@ -1545,8 +1665,9 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                                    }
                                    setShowAddressForm(false);
                                    setEditingAddress(null);
-                                 } catch {
-                                   showToast('Failed to save address', 'error');
+                                   showToast(editingAddress ? 'Address updated!' : 'Address saved!', 'success');
+                                 } catch (err: any) {
+                                   showToast(err?.message || 'Failed to save address', 'error');
                                  } finally {
                                    setLoading(false);
                                  }
@@ -1570,11 +1691,24 @@ export function AccountCenter({ onClose }: { onClose: () => void }) {
                                if (!(await confirm({ title: "Delete address?", message: "Delete this address?" }))) return;
                                setLoading(true);
                                try {
-                                 await deleteDoc(doc(db, "users", user.id, "addresses", addr.id));
+                                 const token = (await auth.currentUser?.getIdToken().catch(() => null)) || getStoredCustomerSession()?.token;
+                                 if (token) {
+                                   const { res, data } = await fetchJsonWithProxyRetry(`/api/account/addresses/${encodeURIComponent(addr.id)}`, {
+                                     method: 'DELETE',
+                                     headers: { Authorization: `Bearer ${token}` },
+                                   });
+                                   if (!res.ok || !data?.success) {
+                                     throw new Error(data?.error || 'Failed to delete address');
+                                   }
+                                 }
+                                 if (auth.currentUser) {
+                                   await deleteDoc(doc(db, "users", user.id, "addresses", addr.id)).catch(() => {});
+                                 }
                                  setAddresses(prev => prev.filter(a => a.id !== addr.id));
-                               } catch (e) {
+                                 showToast('Address deleted.', 'success');
+                               } catch (e: any) {
                                  console.error(e);
-                                 showToast('Failed to delete address', 'error');
+                                 showToast(e?.message || 'Failed to delete address', 'error');
                                } finally {
                                  setLoading(false);
                                }

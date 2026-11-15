@@ -73,8 +73,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<AuthUser | null>(() => getStoredCustomerSession()?.user ?? null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(() => !getStoredCustomerSession()?.user);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {

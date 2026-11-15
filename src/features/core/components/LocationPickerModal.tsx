@@ -4,6 +4,7 @@ import { X, MapPin, Navigation, Search, Check, Loader2, Bookmark, Compass, Shiel
 import { useModalBackButton } from '../hooks/useModalBackButton';
 import { hasMapsAndLocationConsent, savePrivacyConsentPreferences, getPrivacyConsentPreferences } from './CookieConsentBanner';
 import { DEFAULT_RETAIL_AREAS, RetailAreaItem, normalizeIndianPincode } from '../../../constants/deliveryAreas';
+import { fetchJsonWithProxyRetry } from '../../../utils/apiFetch';
 
 interface LocationPickerModalProps {
   isOpen: boolean;
@@ -45,10 +46,9 @@ export function LocationPickerModal({
     if (isOpen) {
       setActiveTab(initialTab);
       setMapEmbedAllowed(hasMapsAndLocationConsent());
-      fetch('/api/delivery/active-areas')
-        .then((r) => r.json())
-        .then((data) => {
-          if (data?.success && Array.isArray(data.retailAreas) && data.retailAreas.length > 0) {
+      fetchJsonWithProxyRetry<{ success?: boolean; retailAreas?: RetailAreaItem[] }>('/api/delivery/active-areas')
+        .then(({ res, data }) => {
+          if (res.ok && data?.success && Array.isArray(data.retailAreas) && data.retailAreas.length > 0) {
             setRetailAreas(data.retailAreas.filter((a: RetailAreaItem) => a && a.enabled !== false));
           }
         })
@@ -64,10 +64,11 @@ export function LocationPickerModal({
       return;
     }
     let cancelled = false;
-    fetch(`/api/delivery/check-pincode?pincode=${encodeURIComponent(cleanPin)}&mode=retail`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (cancelled) return;
+    fetchJsonWithProxyRetry<{ serviceable?: boolean; message?: string; label?: string }>(
+      `/api/delivery/check-pincode?pincode=${encodeURIComponent(cleanPin)}&mode=retail`
+    )
+      .then(({ res, data }) => {
+        if (cancelled || !res.ok || !data) return;
         setPinStatus({
           serviceable: Boolean(data?.serviceable),
           message:
@@ -127,7 +128,7 @@ export function LocationPickerModal({
     if (!q) return;
     setIsGroundingLoading(true);
     try {
-      const res = await fetch('/api/maps/grounding', {
+      const { res, data } = await fetchJsonWithProxyRetry('/api/maps/grounding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -136,8 +137,7 @@ export function LocationPickerModal({
           lng: selectedCoords.lng,
         }),
       });
-      const data = await res.json();
-      if (data.success) {
+      if (res.ok && data?.success) {
         setGroundingData({
           text: data.text,
           mapsLinks: data.mapsLinks,

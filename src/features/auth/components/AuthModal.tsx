@@ -38,6 +38,7 @@ import {
   serverCustomerSignIn,
   serverCustomerSignUp,
 } from "../../../utils/customerAuthFallback";
+import { fetchJsonWithProxyRetry } from "../../../utils/apiFetch";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import {
   signInWithEmailAndPassword,
@@ -132,18 +133,15 @@ export function AuthModal({
             const fbToken = await auth.currentUser?.getIdToken().catch(() => null);
             const bearerToken = fbToken || custSession?.token || "";
             if (bearerToken) {
-              const apiRes = await fetch("/api/customer-auth/orders", {
+              const apiResult = await fetchJsonWithProxyRetry<{ orders?: any[] }>("/api/customer-auth/orders", {
                 headers: { Authorization: `Bearer ${bearerToken}` },
               }).catch(() => null);
-              if (apiRes && apiRes.ok) {
-                const apiData = await apiRes.json().catch(() => null);
-                if (Array.isArray(apiData?.orders)) {
-                  apiData.orders.forEach((so: any) => {
-                    if (so?.id && !orderMap.has(so.id)) {
-                      orderMap.set(so.id, so);
-                    }
-                  });
-                }
+              if (apiResult?.res.ok && Array.isArray(apiResult.data?.orders)) {
+                apiResult.data.orders.forEach((so: any) => {
+                  if (so?.id && !orderMap.has(so.id)) {
+                    orderMap.set(so.id, so);
+                  }
+                });
               }
             }
 

@@ -23,6 +23,7 @@ import { useModalBackButton } from '../../core/hooks/useModalBackButton';
 import { PriceDisplay } from '../../core/components/PriceDisplay';
 import { RealisticDeliveryScooter } from '../../core/components/RealisticDeliveryScooter';
 import { getStoredCustomerSession } from '../../../utils/customerAuthFallback';
+import { fetchJsonWithProxyRetry } from '../../../utils/apiFetch';
 import { getOptimizedImageUrl } from '../../../utils/imageUtils';
 import { sanitizeWhatsAppNumber } from '../../../utils/whatsapp';
 import {
@@ -83,7 +84,7 @@ export function TrackOrderModal({
         const fbToken = await auth.currentUser?.getIdToken().catch(() => null);
         const token = fbToken || getStoredCustomerSession()?.token || null;
 
-        const res = await fetch('/api/orders/track', {
+        const { res, data } = await fetchJsonWithProxyRetry('/api/orders/track', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -95,7 +96,6 @@ export function TrackOrderModal({
           }),
         });
 
-        const data = await res.json().catch(() => ({}));
         if (!res.ok || !data?.success || !data?.order) {
           setTrackedOrder(null);
           setErrorMsg(

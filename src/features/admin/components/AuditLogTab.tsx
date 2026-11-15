@@ -3,6 +3,7 @@ import { AuditLogEntry } from '../../../services/auditService';
 import { ShieldAlert, Search, Filter, Clock, UserCheck, Settings, AlertTriangle, CreditCard, Users, ShoppingCart, Lock } from 'lucide-react';
 import { format } from 'date-fns';
 import { getAdminAuthHeaders } from '../../../utils/adminAuth';
+import { fetchJsonWithProxyRetry } from '../../../utils/apiFetch';
 
 export function AuditLogTab() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
@@ -13,9 +14,8 @@ export function AuditLogTab() {
   const loadLogs = useCallback(async () => {
     try {
       const headers = await getAdminAuthHeaders();
-      const res = await fetch('/api/admin/audit-logs', { headers });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success && Array.isArray(data.logs)) {
+      const { res, data } = await fetchJsonWithProxyRetry('/api/admin/audit-logs', { headers });
+      if (res.ok && data?.success && Array.isArray(data.logs)) {
         setLogs(data.logs);
       }
     } catch (err) {

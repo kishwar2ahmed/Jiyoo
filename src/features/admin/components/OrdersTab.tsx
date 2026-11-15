@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { useToast } from '../../core/contexts/ToastContext';
 import { fetchOrderAuditLogs } from '../../../services/auditService';
 import { getAdminAuthHeaders } from '../../../utils/adminAuth';
+import { fetchJsonWithProxyRetry } from '../../../utils/apiFetch';
 
 function getOrderDate(createdAt: any): Date | null {
   if (!createdAt) return null;
@@ -77,17 +78,16 @@ export function OrdersTab() {
     try {
       setSendingEmail(true);
       const headers = await getAdminAuthHeaders(true);
-      const res = await fetch(`/api/admin/orders/${orderId}/send-status-email`, {
+      const { res, data } = await fetchJsonWithProxyRetry(`/api/admin/orders/${orderId}/send-status-email`, {
         method: 'POST',
         headers,
         body: JSON.stringify({}),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        if (data.isMock) {
+      if (!res.ok || !data?.success) {
+        if (data?.isMock) {
           showToast(`SMTP not configured: Email preview logged for ${data.recipient || 'customer'}`, 'info');
         } else {
-          showToast(data.error || data.reason || 'Failed to dispatch status email', 'error');
+          showToast(data?.error || data?.reason || 'Failed to dispatch status email', 'error');
         }
         return;
       }
@@ -135,9 +135,8 @@ export function OrdersTab() {
       const params = new URLSearchParams({ status: statusFilter, pageSize: '50' });
       if (searchTerm.trim()) params.set('q', searchTerm.trim());
       if (cursor) params.set('cursor', cursor);
-      const res = await fetch(`/api/admin/orders?${params.toString()}`, { headers });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to load orders');
+      const { res, data } = await fetchJsonWithProxyRetry(`/api/admin/orders?${params.toString()}`, { headers });
+      if (!res.ok || !data?.success) throw new Error(data?.error || 'Failed to load orders');
       const fetchedOrders: Order[] = Array.isArray(data.orders) ? data.orders : [];
       setOrders(fetchedOrders);
       setHasMore(Boolean(data.hasMore));
@@ -189,13 +188,12 @@ export function OrdersTab() {
       const order = orders.find(o => o.id === orderId);
       if (!order) return showToast('Order not found', 'error');
       const headers = await getAdminAuthHeaders(true);
-      const res = await fetch(`/api/admin/orders/${orderId}/status`, {
+      const { res, data } = await fetchJsonWithProxyRetry(`/api/admin/orders/${orderId}/status`, {
         method: 'POST', headers,
         body: JSON.stringify({ status: newOrderStatus }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        showToast(data.error || 'Cannot update order status', 'error');
+      if (!res.ok || !data?.success) {
+        showToast(data?.error || 'Cannot update order status', 'error');
         return;
       }
       const currentCursor = cursorHistory[page - 1] || null;
@@ -204,7 +202,7 @@ export function OrdersTab() {
         loadOrderAuditTrail(orderId);
       }
       if (order.userId && order.userId !== 'guest') {
-        await fetch('/api/send-notification', {
+        await fetchJsonWithProxyRetry('/api/send-notification', {
           method: 'POST', headers,
           body: JSON.stringify({ userId: order.userId, title: 'Order Status Updated', body: `Your order ${orderId} is now ${statusLabel(newOrderStatus)}.`, data: { orderId } }),
         }).catch(() => {});
@@ -220,13 +218,12 @@ export function OrdersTab() {
     try {
       const headers = await getAdminAuthHeaders(true);
       const endpoint = newPaymentStatus === 'refunded' ? `/api/admin/orders/${orderId}/refund` : `/api/admin/orders/${orderId}/payment-status`;
-      const res = await fetch(endpoint, {
+      const { res, data } = await fetchJsonWithProxyRetry(endpoint, {
         method: 'POST', headers,
         body: newPaymentStatus === 'refunded' ? undefined : JSON.stringify({ status: newPaymentStatus }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        showToast(data.error || 'Failed to update payment status', 'error');
+      if (!res.ok || !data?.success) {
+        showToast(data?.error || 'Failed to update payment status', 'error');
         return;
       }
       await loadOrders(cursorHistory[page - 1] || null, true);
@@ -246,7 +243,7 @@ export function OrdersTab() {
     setSavingTracking(true);
     try {
       const headers = await getAdminAuthHeaders(true);
-      const res = await fetch(`/api/admin/orders/${selectedOrder.id}/tracking`, {
+      const { res, data } = await fetchJsonWithProxyRetry(`/api/admin/orders/${selectedOrder.id}/tracking`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -256,9 +253,8 @@ export function OrdersTab() {
           adminNotes,
         }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        showToast(data.error || 'Failed to save order tracking details', 'error');
+      if (!res.ok || !data?.success) {
+        showToast(data?.error || 'Failed to save order tracking details', 'error');
         return;
       }
       await loadOrders(cursorHistory[page - 1] || null, true);

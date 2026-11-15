@@ -1,4 +1,5 @@
 import { getAdminAuthHeaders } from '../utils/adminAuth';
+import { fetchJsonWithProxyRetry } from '../utils/apiFetch';
 import { auth } from './firebase';
 import type { OrderAuditLogEntry, OrderAuditIntegrityReport } from '../types';
 
@@ -31,7 +32,7 @@ export async function logAuditEvent(
 ) {
   try {
     const headers = await getAdminAuthHeaders(true);
-    await fetch('/api/admin/audit-log', {
+    await fetchJsonWithProxyRetry('/api/admin/audit-log', {
       method: 'POST',
       headers,
       body: JSON.stringify({ action, category, details }),
@@ -55,12 +56,11 @@ export async function fetchOrderAuditLogs(orderId: string, isAdmin = true): Prom
   const endpoint = isAdmin
     ? `/api/admin/orders/${encodeURIComponent(orderId)}/audit-logs`
     : `/api/orders/${encodeURIComponent(orderId)}/audit-logs`;
-  const res = await fetch(endpoint, {
+  const { res, data } = await fetchJsonWithProxyRetry(endpoint, {
     headers,
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.success) {
-    throw new Error(data.error || 'Failed to load order audit trail');
+  if (!res.ok || !data?.success) {
+    throw new Error(data?.error || 'Failed to load order audit trail');
   }
   const rawIntegrity = data.integrity || null;
   const integrity: OrderAuditIntegrityReport | null = rawIntegrity

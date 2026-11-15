@@ -4,6 +4,7 @@ import { CreditCard, ExternalLink, Search, RefreshCw, ArrowUpRight, DollarSign, 
 import { format } from 'date-fns';
 import { useToast } from '../../core/contexts/ToastContext';
 import { getAdminAuthHeaders } from '../../../utils/adminAuth';
+import { fetchJsonWithProxyRetry } from '../../../utils/apiFetch';
 
 function getOrderDate(createdAt: any): Date | null {
   if (!createdAt) return null;
@@ -39,16 +40,15 @@ export function PaymentsTab() {
   const fetchPaymentData = useCallback(async () => {
     try {
       const headers = await getAdminAuthHeaders();
-      const [ordersRes, cfgRes] = await Promise.all([
-        fetch('/api/admin/orders?status=all&pageSize=50', { headers }),
-        fetch('/api/razorpay/config'),
+      const [ordersResult, cfgResult] = await Promise.all([
+        fetchJsonWithProxyRetry('/api/admin/orders?status=all&pageSize=50', { headers }),
+        fetchJsonWithProxyRetry('/api/razorpay/config'),
       ]);
-      const data = await ordersRes.json().catch(() => ({}));
-      if (ordersRes.ok && data.success && Array.isArray(data.orders)) {
-        setOrders(data.orders);
+      if (ordersResult.res.ok && ordersResult.data?.success && Array.isArray(ordersResult.data.orders)) {
+        setOrders(ordersResult.data.orders);
       }
-      const cfg = await cfgRes.json().catch(() => ({}));
-      if (cfgRes.ok && cfg.success) {
+      const cfg = cfgResult.data;
+      if (cfgResult.res.ok && cfg?.success) {
         setGatewayStatus({
           configured: Boolean(cfg.configured),
           keyId: typeof cfg.keyId === 'string' ? cfg.keyId : null,
@@ -92,14 +92,13 @@ export function PaymentsTab() {
         newStatus === 'refunded'
           ? `/api/admin/orders/${order.id}/refund`
           : `/api/admin/orders/${order.id}/payment-status`;
-      const res = await fetch(endpoint, {
+      const { res, data } = await fetchJsonWithProxyRetry(endpoint, {
         method: 'POST',
         headers,
         body: newStatus === 'refunded' ? undefined : JSON.stringify({ status: newStatus }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        showToast(data.error || 'Could not update payment status', 'error');
+      if (!res.ok || !data?.success) {
+        showToast(data?.error || 'Could not update payment status', 'error');
         return;
       }
 

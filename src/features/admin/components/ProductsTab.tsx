@@ -14,7 +14,7 @@ import { adminSaveDoc, adminFetchCollection } from '../../../utils/adminAuth';
 
 
 import React from 'react';
-const ProductRow = React.memo(({ p, setEditingProduct, setIsModalOpen, handleDelete, handleToggleStock }: { p: Product, setEditingProduct: any, setIsModalOpen: any, handleDelete: any, handleToggleStock: any }) => {
+const ProductRow = React.memo(({ p, categoriesList, setEditingProduct, setIsModalOpen, handleDelete, handleToggleStock }: { p: Product, categoriesList: Category[], setEditingProduct: any, setIsModalOpen: any, handleDelete: any, handleToggleStock: any }) => {
   const isOutOfStock = p.stockStatus === 'out_of_stock';
   return (
   <tr className="border-b border-brand-gray-100 hover:bg-brand-gray-50 transition-colors">
@@ -29,7 +29,7 @@ const ProductRow = React.memo(({ p, setEditingProduct, setIsModalOpen, handleDel
       <span className="font-medium text-brand-black">{p.name}</span>
     </td>
     <td className="px-4 py-3 text-xs font-medium text-brand-gray-600 capitalize">
-      {CATEGORIES.find(c => c.id === p.categoryId)?.label || (p.category && p.category !== 'General' ? p.category : '') || String(p.categoryId || 'general').replace(/-/g, ' ')}
+      {categoriesList.find(c => c.id === p.categoryId)?.label || CATEGORIES.find(c => c.id === p.categoryId)?.label || (p.category && p.category !== 'General' ? p.category : '') || String(p.categoryId || 'general').replace(/-/g, ' ')}
     </td>
     <td className="px-4 py-3 font-price-luxury font-bold text-stone-900 tabular-nums">
       ₹{p.price} <span className="text-xs font-normal text-stone-500">/ {p.unit}</span>
@@ -363,7 +363,7 @@ export function ProductsTab() {
               </thead>
               <tbody>
                 {paginatedProducts.map(p => (
-                  <ProductRow key={p.id} p={p} setEditingProduct={setEditingProduct} setIsModalOpen={setIsModalOpen} handleDelete={handleDelete} handleToggleStock={handleToggleStock} />
+                  <ProductRow key={p.id} p={p} categoriesList={categoriesList} setEditingProduct={setEditingProduct} setIsModalOpen={setIsModalOpen} handleDelete={handleDelete} handleToggleStock={handleToggleStock} />
                 ))}
                 {filteredProducts.length === 0 && (
                   <tr>

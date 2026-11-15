@@ -1,5 +1,6 @@
 import { AuthUser } from '../types';
 import { OWNER_ADMIN_EMAILS } from './adminAuth';
+import { fetchJsonWithProxyRetry } from './apiFetch';
 
 const CUSTOMER_SESSION_STORAGE_KEY = 'jiyoo_customer_session_v1';
 
@@ -50,6 +51,30 @@ export function saveStoredCustomerSession(
   }
 }
 
+export function updateStoredCustomerUser(patch: Partial<AuthUser>): AuthUser | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const current = getStoredCustomerSession();
+    if (!current) return null;
+    const isRemembered = Boolean(localStorage.getItem(CUSTOMER_SESSION_STORAGE_KEY));
+    const nextUser: AuthUser = {
+      ...current.user,
+      ...patch,
+      ...(patch.name ? { displayName: patch.name } : {}),
+    };
+    saveStoredCustomerSession(
+      {
+        ...current,
+        user: nextUser,
+      },
+      isRemembered
+    );
+    return nextUser;
+  } catch {
+    return null;
+  }
+}
+
 export function clearStoredCustomerSession(): void {
   if (typeof window === 'undefined') return;
   try {
@@ -68,12 +93,11 @@ export async function serverCustomerSignUp(
   rememberMe = true
 ): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
   try {
-    const res = await fetch('/api/customer-auth/signup', {
+    const { res, data } = await fetchJsonWithProxyRetry('/api/customer-auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
     });
-    const data = await res.json().catch(() => ({}));
     if (res.ok && data?.success && data?.user && data?.token) {
       const emailLower = String(data.user.email || '').trim().toLowerCase();
       const isAdmin = Boolean(data.user.admin || OWNER_ADMIN_EMAILS.has(emailLower));
@@ -114,12 +138,11 @@ export async function serverCustomerSignIn(
   rememberMe = true
 ): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
   try {
-    const res = await fetch('/api/customer-auth/signin', {
+    const { res, data } = await fetchJsonWithProxyRetry('/api/customer-auth/signin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email.trim(), password }),
     });
-    const data = await res.json().catch(() => ({}));
     if (res.ok && data?.success && data?.user && data?.token) {
       const emailLower = String(data.user.email || '').trim().toLowerCase();
       const isAdmin = Boolean(data.user.admin || OWNER_ADMIN_EMAILS.has(emailLower));
@@ -128,6 +151,8 @@ export async function serverCustomerSignIn(
         email: emailLower,
         name: String(data.user.name || emailLower.split('@')[0] || 'Customer'),
         displayName: String(data.user.name || emailLower.split('@')[0] || 'Customer'),
+        ...(data.user.phone ? { phone: String(data.user.phone) } : {}),
+        ...(data.user.picture ? { picture: String(data.user.picture) } : {}),
         role: isAdmin ? 'admin' : 'customer',
         admin: isAdmin,
       };

@@ -4,6 +4,7 @@ import { db, isFirebaseConfigured } from '../../../services/firebase';
 import { Product } from '../../../types';
 import { PRODUCTS as defaultProducts } from '../../../constants/data';
 import { getOptimizedImageUrl, resolveProductImage, isCustomAdminUploadedImage } from '../../../utils/imageUtils';
+import { fetchJsonWithProxyRetry } from '../../../utils/apiFetch';
 
 export type CatalogSyncStatus =
   | 'LOADING'
@@ -370,10 +371,9 @@ async function fetchBackendCatalogFallbackShared(): Promise<boolean> {
     try {
       const controller = new AbortController();
       const timeoutId = window.setTimeout(() => controller.abort(), 4500);
-      const res = await fetch('/api/catalog/products', { signal: controller.signal });
+      const { res, data } = await fetchJsonWithProxyRetry('/api/catalog/products', { signal: controller.signal });
       window.clearTimeout(timeoutId);
       if (!res.ok) return false;
-      const data = await res.json().catch(() => null);
       if (!data || !Array.isArray(data.products)) return false;
 
       const baseline = getAuthoritativeBaseline();
