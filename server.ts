@@ -3283,20 +3283,34 @@ app.use(compression() as unknown as express.RequestHandler);
 
     const origin = String(req.headers.origin || '').trim();
     const referer = String(req.headers.referer || '').trim();
-    const host = String(req.headers.host || '').trim().toLowerCase();
+    const normalizeHost = (val: string) =>
+      val.trim().toLowerCase().replace(/:(80|443)$/, '');
+    const rawHost = normalizeHost(String(req.headers.host || ''));
+    const forwardedHost = normalizeHost(
+      String(req.headers['x-forwarded-host'] || '').split(',')[0] || ''
+    );
+    const allowedHosts = new Set([rawHost, forwardedHost].filter(Boolean));
     const allowedOrigin = origin && (() => {
-      try { return new URL(origin).host.toLowerCase() === host; } catch { return false; }
+      try {
+        return allowedHosts.has(normalizeHost(new URL(origin).host));
+      } catch {
+        return false;
+      }
     })();
     const allowedReferer = referer && (() => {
-      try { return new URL(referer).host.toLowerCase() === host; } catch { return false; }
+      try {
+        return allowedHosts.has(normalizeHost(new URL(referer).host));
+      } catch {
+        return false;
+      }
     })();
 
-    if (origin && !allowedOrigin && !allowedReferer) {
+    const fetchSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
+    if (fetchSite === 'cross-site') {
       return res.status(403).json({ success: false, error: 'Cross-site request blocked.' });
     }
 
-    const fetchSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
-    if (fetchSite === 'cross-site' && !allowedOrigin && !allowedReferer) {
+    if (origin && !allowedOrigin && !allowedReferer) {
       return res.status(403).json({ success: false, error: 'Cross-site request blocked.' });
     }
     next();

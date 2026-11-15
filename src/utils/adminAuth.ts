@@ -142,7 +142,7 @@ export async function initiateAdminPrimaryAuth(options?: {
 
     return {
       success: false,
-      error: 'Unexpected response from authentication server. Please check your connection and credentials.',
+      error: `Authentication server returned an unexpected response (HTTP ${res.status}). Please refresh the page and try again.`,
     };
   } catch (err: any) {
     return {
