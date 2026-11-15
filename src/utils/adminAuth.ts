@@ -1,6 +1,9 @@
 import { auth, db } from '../services/firebase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import {
+  postJsonWithAuthWarmupRetry,
+} from './adminAuthHelpers';
+import {
   isSupabaseConfigured,
   supabaseUpsertRecord,
   supabaseDeleteCollectionDoc,
@@ -110,40 +113,21 @@ export async function initiateAdminPrimaryAuth(options?: {
       return { success: false, error: 'Please sign in with your administrator account first.' };
     }
 
-    const res = await fetch('/api/admin/auth/session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(bodyPayload),
+    // Pre-warm GET /api/health if needed before POST so reverse-proxy auth caches stay fresh
+    await fetch('/api/health', {
+      method: 'GET',
+      cache: 'no-store',
+      credentials: 'same-origin',
+    }).catch(() => {});
+
+    const data = await postJsonWithAuthWarmupRetry('/api/admin/auth/session', bodyPayload, {
+      fallbackLabel: 'Authentication server returned an unexpected response',
     });
-    const rawText = await res.text();
 
-    if (res.ok && rawText) {
-      try {
-        const data = JSON.parse(rawText) as AdminPrimaryAuthResponse;
-        if (data.success && typeof data.token === 'string' && data.mfaVerified) {
-          storeAdminSignedToken(data.token);
-        }
-        return data;
-      } catch {
-        // non-JSON
-      }
+    if (data.success && typeof data.token === 'string' && data.mfaVerified) {
+      storeAdminSignedToken(data.token);
     }
-
-    if (rawText) {
-      try {
-        const errData = JSON.parse(rawText) as AdminPrimaryAuthResponse;
-        if (errData && errData.error) {
-          return errData;
-        }
-      } catch {
-        // non-JSON
-      }
-    }
-
-    return {
-      success: false,
-      error: `Authentication server returned an unexpected response (HTTP ${res.status}). Please refresh the page and try again.`,
-    };
+    return data as AdminPrimaryAuthResponse;
   } catch (err: any) {
     return {
       success: false,
@@ -165,13 +149,12 @@ export async function verifyAdmin2FAEnrollment(
   error?: string;
 }> {
   try {
-    const res = await fetch('/api/admin/auth/2fa/enroll-verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ preAuthToken, code }),
-    });
-    const data = await res.json().catch(() => ({ success: false, error: 'Failed to verify 2FA enrollment.' }));
-    if (res.ok && data.success && typeof data.token === 'string') {
+    const data = await postJsonWithAuthWarmupRetry(
+      '/api/admin/auth/2fa/enroll-verify',
+      { preAuthToken, code },
+      { fallbackLabel: 'Failed to verify 2FA enrollment' }
+    );
+    if (data.success && typeof data.token === 'string') {
       storeAdminSignedToken(data.token);
     }
     return data;
@@ -195,13 +178,12 @@ export async function verifyAdmin2FAChallenge(
   error?: string;
 }> {
   try {
-    const res = await fetch('/api/admin/auth/2fa/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ preAuthToken, code, useRecoveryCode }),
-    });
-    const data = await res.json().catch(() => ({ success: false, error: 'Failed to verify 2FA code.' }));
-    if (res.ok && data.success && typeof data.token === 'string') {
+    const data = await postJsonWithAuthWarmupRetry(
+      '/api/admin/auth/2fa/verify',
+      { preAuthToken, code, useRecoveryCode },
+      { fallbackLabel: 'Failed to verify 2FA code' }
+    );
+    if (data.success && typeof data.token === 'string') {
       storeAdminSignedToken(data.token);
     }
     return data;

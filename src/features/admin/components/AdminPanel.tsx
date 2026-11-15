@@ -674,6 +674,22 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
               >
                 {isSigningIn ? 'Activating 2FA...' : 'Verify & Enable 2FA'}
               </button>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreAuthToken('');
+                    setEnrollmentData(null);
+                    setAuthError('');
+                    setLoginMethod('passcode');
+                    setAuthStep('PRIMARY_LOGIN');
+                  }}
+                  className="text-xs text-stone-500 hover:text-stone-800 cursor-pointer"
+                >
+                  Use Owner Passcode / Switch Account
+                </button>
+              </div>
             </form>
           )}
 

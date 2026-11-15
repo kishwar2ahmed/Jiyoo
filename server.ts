@@ -24,7 +24,7 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import Razorpay from 'razorpay';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { z } from 'zod';
 import QRCode from 'qrcode';
 import { GoogleGenAI } from '@google/genai';
@@ -1141,7 +1141,28 @@ function formatServerError(errorMsg: string): string {
   return `What happened: \n${what}\n\nWhy it happened: \n${why}\n\nWhat to do next: \n${next}`;
 }
 
-// Set up rate limiting
+// Set up rate limiting with safe normalized IP extraction for reverse proxies (Nginx/Cloud Run/Vercel)
+function getNormalizedClientIp(req: express.Request): string {
+  const raw = String(req.ip || req.socket?.remoteAddress || 'unknown').trim();
+  if (!raw) return 'unknown';
+  if (/^\d{1,3}(?:\.\d{1,3}){3}:\d+$/.test(raw)) {
+    return raw.split(':')[0];
+  }
+  const bracketMatch = raw.match(/^\[([^\]]+)\](?::\d+)?$/);
+  if (bracketMatch) {
+    return bracketMatch[1];
+  }
+  return raw;
+}
+
+function safeRateLimitKey(req: express.Request): string {
+  const ip = getNormalizedClientIp(req);
+  try {
+    return ipKeyGenerator(ip);
+  } catch {
+    return ip;
+  }
+}
 
 // Stricter rate limiting for sensitive/paid endpoints
 const strictApiLimiter = rateLimit({
@@ -1149,6 +1170,8 @@ const strictApiLimiter = rateLimit({
   max: 10, // start blocking after 10 requests
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
+  keyGenerator: safeRateLimitKey,
   message: { success: false, error: 'Too many requests for this service, please try again after an hour' },
 });
 
@@ -1158,6 +1181,8 @@ const orderLimiter = rateLimit({
   max: 20, // start blocking after 20 requests
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
+  keyGenerator: safeRateLimitKey,
   message: { success: false, error: 'Too many order requests, please try again later' },
 });
 
@@ -1169,6 +1194,8 @@ const trackOrderLimiter = rateLimit({
   max: 15,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
+  keyGenerator: safeRateLimitKey,
   message: { success: false, error: 'Too many order lookup attempts. Please try again later.' },
 });
 
@@ -1177,6 +1204,8 @@ const pincodeCheckLimiter = rateLimit({
   max: 400,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
+  keyGenerator: safeRateLimitKey,
   message: { success: false, error: 'Too many PIN code checks. Please try again in a few minutes.' },
 });
 
@@ -1184,13 +1213,16 @@ const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 600,
   skip: (req) =>
-    req.method === 'GET' &&
-    (req.path.startsWith('/catalog/') ||
-      req.path === '/banners/active' ||
-      req.path === '/admin/settings' ||
-      req.path === '/delivery/check-pincode'),
+    req.path === '/health' ||
+    req.path.startsWith('/admin/') ||
+    (req.method === 'GET' &&
+      (req.path.startsWith('/catalog/') ||
+        req.path === '/banners/active' ||
+        req.path === '/delivery/check-pincode')),
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
+  keyGenerator: safeRateLimitKey,
   message: { success: false, error: 'Too many requests from this IP, please try again after 15 minutes' },
 });
 
@@ -1201,6 +1233,8 @@ const adminAuthLimiter = rateLimit({
   skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
+  keyGenerator: safeRateLimitKey,
   message: {
     success: false,
     code: 'ADMIN_RATE_LIMITED',
@@ -1214,6 +1248,8 @@ const admin2faLimiter = rateLimit({
   skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
+  keyGenerator: safeRateLimitKey,
   message: {
     success: false,
     code: 'ADMIN_2FA_RATE_LIMITED',
@@ -1226,6 +1262,8 @@ const adminApiLimiter = rateLimit({
   max: 300, // max 300 admin API operations per 5 minutes per IP
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
+  keyGenerator: safeRateLimitKey,
   message: {
     success: false,
     code: 'ADMIN_API_RATE_LIMITED',
@@ -3270,6 +3308,11 @@ app.use(compression() as unknown as express.RequestHandler);
   );
 
   app.use(cookieParser());
+  app.get('/api/health', (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, status: 'ok', timestamp: new Date().toISOString() });
+  });
+
   app.use('/api/', apiLimiter);
 
 // Cookie-backed state-changing requests must originate from our own site.
@@ -3286,10 +3329,11 @@ app.use(compression() as unknown as express.RequestHandler);
     const normalizeHost = (val: string) =>
       val.trim().toLowerCase().replace(/:(80|443)$/, '');
     const rawHost = normalizeHost(String(req.headers.host || ''));
-    const forwardedHost = normalizeHost(
-      String(req.headers['x-forwarded-host'] || '').split(',')[0] || ''
-    );
-    const allowedHosts = new Set([rawHost, forwardedHost].filter(Boolean));
+    const forwardedHosts = String(req.headers['x-forwarded-host'] || '')
+      .split(',')
+      .map((h) => normalizeHost(h))
+      .filter(Boolean);
+    const allowedHosts = new Set([rawHost, ...forwardedHosts].filter(Boolean));
     const allowedOrigin = origin && (() => {
       try {
         return allowedHosts.has(normalizeHost(new URL(origin).host));
@@ -3378,9 +3422,9 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  // Apply dedicated rate limiting across all /api/admin/* endpoints (excluding public GET /api/admin/settings)
+  // Apply dedicated rate limiting across /api/admin/* endpoints (excluding public GET /api/admin/settings and /api/admin/auth/* which have dedicated auth limiters)
   app.use('/api/admin', (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (req.path === '/settings' && req.method === 'GET') {
+    if ((req.path === '/settings' && req.method === 'GET') || req.path.startsWith('/auth/')) {
       return next();
     }
     return adminApiLimiter(req, res, next);
@@ -3390,7 +3434,7 @@ app.use(compression() as unknown as express.RequestHandler);
   // ONLY supported way to create a new admin post-migration: there is no
   // customer-facing admin registration path, and a client can never set
   // this claim itself (custom claims are writable only via the Admin SDK).
-  app.post('/api/admin/users/:uid/role', adminApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  app.post('/api/admin/users/:uid/role', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     try {
       const targetUid = req.params.uid;
       const { role } = req.body || {};
@@ -4498,7 +4542,7 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  app.post('/api/admin/upload', adminApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  app.post('/api/admin/upload', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     try {
       const { base64, storagePath } = req.body || {};
       if (typeof base64 !== 'string' || !base64) {
@@ -4740,7 +4784,7 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  app.post('/api/admin/delivery/pincodes', adminApiLimiter, requireAuth, requireAdmin, async (req, res) => {
+  app.post('/api/admin/delivery/pincodes', requireAuth, requireAdmin, async (req, res) => {
     try {
       const parsed = pincodeBodySchema.safeParse(req.body);
       if (!parsed.success) {
@@ -4774,7 +4818,7 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  app.post('/api/admin/delivery/pincodes/bulk-import', adminApiLimiter, requireAuth, requireAdmin, async (req, res) => {
+  app.post('/api/admin/delivery/pincodes/bulk-import', requireAuth, requireAdmin, async (req, res) => {
     try {
       const listSchema = z.object({
         pincodes: z.array(z.object({
@@ -4849,7 +4893,7 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  app.post('/api/admin/delivery/pincodes/:pincode', adminApiLimiter, requireAuth, requireAdmin, async (req, res) => {
+  app.post('/api/admin/delivery/pincodes/:pincode', requireAuth, requireAdmin, async (req, res) => {
     try {
       const pincode = req.params.pincode;
       if (!/^\d{6}$/.test(pincode)) {
@@ -4896,7 +4940,7 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  app.post('/api/admin/delivery/pincodes/:pincode/delete', adminApiLimiter, requireAuth, requireAdmin, async (req, res) => {
+  app.post('/api/admin/delivery/pincodes/:pincode/delete', requireAuth, requireAdmin, async (req, res) => {
     try {
       const pincode = req.params.pincode;
       getMemoryCol('deliveryPincodes').set(pincode, { pincode, __deleted: true });
@@ -4916,7 +4960,7 @@ app.use(compression() as unknown as express.RequestHandler);
   });
 
   // Seeds/syncs the 13 Bangalore retail areas across the 5 PIN codes as ACTIVE.
-  app.post('/api/admin/delivery/pincodes/seed-candidates', adminApiLimiter, requireAuth, requireAdmin, async (req, res) => {
+  app.post('/api/admin/delivery/pincodes/seed-candidates', requireAuth, requireAdmin, async (req, res) => {
     try {
       const actorEmail = (req as any).authUser?.email || (req as any).authUser?.uid || 'admin';
       const now = new Date().toISOString();
@@ -5569,7 +5613,7 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  app.post('/api/admin/wholesale/zones', adminApiLimiter, requireAuth, requireAdmin, async (req, res) => {
+  app.post('/api/admin/wholesale/zones', requireAuth, requireAdmin, async (req, res) => {
     try {
       const parsed = zoneBodySchema.safeParse(req.body);
       if (!parsed.success) {
@@ -5593,7 +5637,7 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  app.post('/api/admin/wholesale/zones/:id', adminApiLimiter, requireAuth, requireAdmin, async (req, res) => {
+  app.post('/api/admin/wholesale/zones/:id', requireAuth, requireAdmin, async (req, res) => {
     try {
       const parsed = zoneBodySchema.partial().safeParse(req.body);
       if (!parsed.success) {
@@ -5627,7 +5671,7 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  app.post('/api/admin/wholesale/zones/:id/delete', adminApiLimiter, requireAuth, requireAdmin, async (req, res) => {
+  app.post('/api/admin/wholesale/zones/:id/delete', requireAuth, requireAdmin, async (req, res) => {
     try {
       const zoneId = req.params.id;
       getMemoryCol('wholesaleZones').set(zoneId, { id: zoneId, __deleted: true });
@@ -5706,7 +5750,7 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   };
 
-  app.get('/api/admin/orders', adminApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  app.get('/api/admin/orders', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     const rawPageSize = Number(req.query.pageSize || ADMIN_ORDER_PAGE_SIZE);
     const pageSize = Number.isInteger(rawPageSize) ? Math.max(1, Math.min(ADMIN_ORDER_PAGE_SIZE, rawPageSize)) : ADMIN_ORDER_PAGE_SIZE;
     try {
@@ -5851,7 +5895,7 @@ app.use(compression() as unknown as express.RequestHandler);
 
   // Authoritative admin order-state transition. The client may render only valid
   // transitions for convenience, but the server is the final authority.
-  app.post('/api/admin/orders/:id/status', adminApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  app.post('/api/admin/orders/:id/status', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     try {
       const orderId = req.params.id;
       const nextStatus = String(req.body?.status || '').trim();
@@ -5998,7 +6042,7 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  app.post('/api/admin/orders/:id/payment-status', adminApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  app.post('/api/admin/orders/:id/payment-status', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     try {
       const orderId = String(req.params.id);
       const nextPaymentStatus = String(req.body?.status || '').trim().toLowerCase();
@@ -6102,7 +6146,7 @@ app.use(compression() as unknown as express.RequestHandler);
   });
 
   // Authoritative admin route to manually trigger or resend an order status email
-  app.post('/api/admin/orders/:id/send-status-email', adminApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  app.post('/api/admin/orders/:id/send-status-email', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     try {
       const orderId = String(req.params.id || '').trim();
       const customReason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : null;
@@ -6153,7 +6197,7 @@ app.use(compression() as unknown as express.RequestHandler);
     }
   });
 
-  app.post('/api/admin/orders/:id/refund', adminApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  app.post('/api/admin/orders/:id/refund', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     try {
       const orderId = req.params.id;
       const db = getFirestore();
@@ -6367,7 +6411,7 @@ app.use(compression() as unknown as express.RequestHandler);
   });
 
   // Server-Side Order Audit Trail & Cryptographic Integrity Verification Endpoints
-  app.get('/api/admin/orders/:id/audit-logs', adminApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  app.get('/api/admin/orders/:id/audit-logs', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     try {
       const orderId = String(req.params.id || '').trim();
       if (!orderId) return res.status(400).json({ success: false, error: 'Order ID is required' });
@@ -6434,7 +6478,7 @@ app.use(compression() as unknown as express.RequestHandler);
     reason: z.string().trim().max(300).optional(),
   });
 
-  app.post('/api/admin/orders/:id/tracking', adminApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+  app.post('/api/admin/orders/:id/tracking', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
     try {
       const orderId = String(req.params.id || '').trim();
       if (!isValidDocId(orderId)) return res.status(400).json({ success: false, error: 'Invalid Order ID' });
@@ -6926,7 +6970,7 @@ app.post('/api/account/delete', strictApiLimiter, requireAuth, async (req: expre
 // would be silently recreated on next login (see CartContext.tsx). This is the
 // real removal path: it actually deletes the Auth account so access is
 // genuinely revoked, using the same cleanup as self-service account deletion.
-app.post('/api/admin/users/:uid/delete', adminApiLimiter, requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
+app.post('/api/admin/users/:uid/delete', requireAuth, requireAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const targetUid = req.params.uid;
     const callerUid = (req as any).authUser.uid;
@@ -8495,7 +8539,7 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
     });
   });
 
-  app.post('/api/admin/supabase/sync', adminApiLimiter, requireAuth, requireAdmin, async (_req, res) => {
+  app.post('/api/admin/supabase/sync', requireAuth, requireAdmin, async (_req, res) => {
     const cfg = getSupabaseConfig();
     if (!cfg.enabled) {
       return res.status(400).json({
@@ -8563,9 +8607,16 @@ app.post('/api/orders/create', orderLimiter, optionalAuth, async (req: express.R
   // Must be the last app.use() -- error middleware only catches errors from
   // handlers registered before it.
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error('Unhandled server error:', err.message || err);
+    console.error('Unhandled server error:', err?.message || err);
     if (res.headersSent) return next(err);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    const status = Number(err?.status || err?.statusCode || 500);
+    if (status >= 400 && status < 500) {
+      return res.status(status).json({
+        success: false,
+        error: typeof err?.message === 'string' && err.message ? err.message : 'Invalid request payload.',
+      });
+    }
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   });
 
   // Real-time Firestore listener for order status modifications (triggers automated SMTP email when status updates in Firestore)
