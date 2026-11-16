@@ -26,7 +26,7 @@ const serviceWorkerGlobals = {
 };
 
 export default ts.config(
-  globalIgnores(["dist/**", "node_modules/**"]),
+  globalIgnores(["dist/**", "node_modules/**", "api/_server.cjs"]),
   {
     files: ["ecosystem.config.cjs", "scripts/**/*.{js,mjs,cjs}"],
     languageOptions: { globals: nodeGlobals },

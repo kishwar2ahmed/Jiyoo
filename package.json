@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild ./server.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist/server.cjs",
+    "build": "vite build && esbuild ./server.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist/server.cjs && esbuild ./server.ts --bundle --platform=node --format=cjs --external:vite --external:esbuild --outfile=api/_server.cjs",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "rm -rf dist server.js api/_server.cjs",
     "lint": "tsc --noEmit && eslint . --quiet",
     "validate": "node scripts/parse-check.mjs && node scripts/validate-jiyoo.mjs"
   },
